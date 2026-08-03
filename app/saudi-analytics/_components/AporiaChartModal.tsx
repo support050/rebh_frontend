@@ -111,10 +111,10 @@ export default function AporiaChartModal({ ticker, name, onClose }: ModalProps) 
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 p-4"
             onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
         >
-            <div className="bg-white w-full max-w-[700px] rounded shadow-2xl flex flex-col overflow-hidden animate-in fade-in duration-200">
+            <div className="bg-white w-[760px] max-w-[95vw] rounded shadow-2xl flex flex-col overflow-hidden animate-in fade-in duration-200">
                 {/* Header matching Aporia design */}
                 <div className="bg-[#B71C1C] text-white flex justify-between items-center px-4 py-2">
                     <h2 className="text-[13px] font-semibold">{name} ({ticker})</h2>
@@ -125,10 +125,10 @@ export default function AporiaChartModal({ ticker, name, onClose }: ModalProps) 
                     </div>
                 </div>
 
-                {/* Body */}
-                <div className="p-4 relative h-[750px] bg-white flex flex-col">
-                    {/* Floating Dropdown positioned top center */}
-                    <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
+                {/* Body — sized by the chart itself, not stretched into a fixed box */}
+                <div className="bg-white flex flex-col">
+                    {/* Dropdown sits in its own row, centered, with breathing room above/below — not overlapping the chart */}
+                    <div className="flex justify-center pt-4 pb-3">
                         <select
                             className="bg-white border border-gray-300 text-xs px-3 py-1.5 rounded shadow-sm outline-none w-56 focus:ring-1 focus:ring-gray-300 cursor-pointer"
                             value={chartType}
@@ -143,23 +143,21 @@ export default function AporiaChartModal({ ticker, name, onClose }: ModalProps) 
                     </div>
 
                     {loading ? (
-                        <div className="flex h-full items-center justify-center">
+                        <div className="flex min-h-[400px] items-center justify-center">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-700"></div>
                         </div>
                     ) : error ? (
-                        <div className="flex h-full items-center justify-center text-red-500 text-sm">
+                        <div className="flex min-h-[400px] items-center justify-center text-red-500 text-sm">
                             {error}
                         </div>
                     ) : options ? (
-                        <div className="mt-12 flex-1 w-full relative">
-                            <div className="absolute inset-0">
-                                <HighchartsReact
-                                    highcharts={Highcharts}
-                                    constructorType={'stockChart'}
-                                    options={options}
-                                    containerProps={{ style: { height: '100%', width: '100%' } }}
-                                />
-                            </div>
+                        <div className="pb-3 px-1">
+                            <HighchartsReact
+                                highcharts={Highcharts}
+                                constructorType={'stockChart'}
+                                options={options}
+                                containerProps={{ style: { width: '100%' } }}
+                            />
                         </div>
                     ) : null}
                 </div>

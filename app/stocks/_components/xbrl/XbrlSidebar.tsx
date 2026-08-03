@@ -19,24 +19,28 @@ interface Props {
 }
 
 export function XbrlSidebar({ availableSections, currentSection, onSelect }: Props) {
-  const sections = NAVIGABLE_SECTIONS.filter((s) => availableSections.includes(s))
+  const sections = NAVIGABLE_SECTIONS.filter((s) => availableSections.includes(s) || availableSections.includes(`standardized_${s}`))
 
   return (
-    <aside className="w-[196px] min-w-[196px] overflow-y-auto border-r border-[var(--border)] bg-bg2 py-4">
-      <p className="px-4 pb-2 text-[10px] font-bold uppercase tracking-widest text-text3">Statements</p>
-      {sections.map((sec) => (
-        <button
-          key={sec}
-          onClick={() => onSelect(sec)}
-          className={clsx(
-            'flex w-full items-center gap-2 px-4 py-2 text-left text-[12px] font-medium transition-colors',
-            currentSection === sec ? 'bg-accent/10 text-accent' : 'text-text2 hover:bg-bg3 hover:text-text',
-          )}
-        >
-          <span className="text-[14px]">{SECTION_ICONS[sec] ?? '📄'}</span>
-          {SECTION_LABELS[sec] ?? sec}
-        </button>
-      ))}
+    <aside className="sticky top-16 h-[calc(100vh-4rem)] w-[220px] min-w-[220px] overflow-y-auto border-r border-white/60 bg-white/50 px-3 py-6 backdrop-blur-md">
+      <p className="px-3 pb-3 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400">Statements</p>
+      <div className="space-y-1">
+        {sections.map((sec) => (
+          <button
+            key={sec}
+            onClick={() => onSelect(sec)}
+            className={clsx(
+              'flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium transition-all duration-150',
+              currentSection === sec
+                ? 'bg-white text-[#4338CA] shadow-[0_2px_10px_rgba(67,56,202,0.12)] border border-indigo-100'
+                : 'border border-transparent text-gray-500 hover:bg-white/70 hover:text-[#111827]',
+            )}
+          >
+            <span className="text-[15px] opacity-80">{SECTION_ICONS[sec] ?? '📄'}</span>
+            {SECTION_LABELS[sec] ?? sec}
+          </button>
+        ))}
+      </div>
     </aside>
   )
 }

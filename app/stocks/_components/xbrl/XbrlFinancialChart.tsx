@@ -17,7 +17,7 @@ import {
 import { fmtAxisNum, fmtNum, periodLabel } from '@/lib/xbrl-format'
 import type { FinancialItem, PeriodMeta } from '@/types/xbrl-financials'
 
-const COLORS = ['#3b82f6', '#1d9e75', '#f59e0b', '#e24b4a', '#a855f7', '#06b6d4']
+const COLORS = ['#4338CA', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#0891b2']
 
 const DEFAULT_METRICS: Record<string, string[]> = {
   balance_sheet: ['total assets', 'total equity', 'total liabilities'],
@@ -25,19 +25,23 @@ const DEFAULT_METRICS: Record<string, string[]> = {
   cash_flow: ['net cash from operating', 'net cash from investing', 'net cash from financing'],
 }
 
+import { type LangMode } from './XbrlCompanyDashboard'
+import { getLabel } from './XbrlFinancialTable'
+
 interface Props {
   items: FinancialItem[]
   periods: string[]
   periodMeta?: PeriodMeta[]
   sectionKey: string
   loading?: boolean
+  langMode?: LangMode
 }
 
 function findItem(items: FinancialItem[], frag: string): FinancialItem | undefined {
-  return items.find((i) => !i.is_header && i.label.toLowerCase().includes(frag.toLowerCase()))
+  return items.find((i) => !i.is_header && !(i as any).is_unmapped && i.label.toLowerCase().includes(frag.toLowerCase()))
 }
 
-export function XbrlFinancialChart({ items, periods, periodMeta, sectionKey, loading }: Props) {
+export function XbrlFinancialChart({ items, periods, periodMeta, sectionKey, loading, langMode = 'both' }: Props) {
   const [chartType, setChartType] = useState<'bar' | 'line'>('bar')
   const [activeMetrics, setActiveMetrics] = useState<Set<string>>(new Set(DEFAULT_METRICS[sectionKey] ?? []))
 
@@ -45,8 +49,9 @@ export function XbrlFinancialChart({ items, periods, periodMeta, sectionKey, loa
     setActiveMetrics(new Set(DEFAULT_METRICS[sectionKey] ?? []))
   }, [sectionKey])
 
+  // Chartable items MUST NOT be unmapped (to keep standard charts clean)
   const chartableItems = useMemo(
-    () => items.filter((i) => !i.is_header && Object.values(i.values).some((v) => typeof v === 'number')),
+    () => items.filter((i) => !i.is_header && !(i as any).is_unmapped && Object.values(i.values).some((v) => typeof v === 'number')),
     [items],
   )
 
@@ -72,11 +77,12 @@ export function XbrlFinancialChart({ items, periods, periodMeta, sectionKey, loa
         const row: Record<string, string | number | null> = { period: periodLabel(p) }
         selectedItems.forEach((item) => {
           const v = item.values[p]
-          row[item.label] = typeof v === 'number' ? v : null
+          const mappedLabel = getLabel(item.label, item.label_ar, langMode)
+          row[mappedLabel] = typeof v === 'number' ? v : null
         })
         return row
       }),
-    [periods, selectedItems],
+    [periods, selectedItems, langMode],
   )
 
   function toggleMetric(label: string) {
@@ -107,25 +113,28 @@ export function XbrlFinancialChart({ items, periods, periodMeta, sectionKey, loa
 
   if (loading) {
     return (
-      <div className="rounded-lg border border-[var(--border)] bg-bg2 p-5">
-        <div className="mb-4 h-4 w-40 animate-pulse rounded bg-bg3" />
-        <div className="h-[240px] w-full animate-pulse rounded bg-bg3" />
+      <div className="rounded-2xl border border-white/60 bg-white/60 p-6 backdrop-blur-md">
+        <div className="mb-4 h-4 w-40 animate-pulse rounded-full bg-gray-200/70" />
+        <div className="h-[240px] w-full animate-pulse rounded-xl bg-gray-200/70" />
       </div>
     )
   }
 
   return (
-    <div className="rounded-lg border border-[var(--border)] bg-bg2 p-5">
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <span className="text-[13px] font-semibold text-text">Chart</span>
-        <div className="flex overflow-hidden rounded-md border border-[var(--border)]">
+    <div className="relative overflow-hidden rounded-2xl border border-white/70 bg-white/70 p-6 shadow-[0_4px_24px_rgba(17,24,39,0.05)] backdrop-blur-md">
+      {/* ambient glow */}
+      <div className="pointer-events-none absolute -left-16 -top-16 h-56 w-56 rounded-full bg-[#4338CA]/10 blur-3xl" />
+
+      <div className="relative mb-5 flex flex-wrap items-center gap-3">
+        <span className="font-[Outfit,Inter,sans-serif] text-[14px] font-semibold text-[#111827]">Chart</span>
+        <div className="flex overflow-hidden rounded-full border border-gray-200 bg-white/80 p-0.5">
           {(['bar', 'line'] as const).map((t) => (
             <button
               key={t}
               onClick={() => setChartType(t)}
               className={clsx(
-                'px-3 py-1 text-[11px] font-medium capitalize transition-colors',
-                chartType === t ? 'bg-accent text-white' : 'bg-transparent text-text2 hover:text-text',
+                'rounded-full px-3.5 py-1 text-[11px] font-medium capitalize transition-colors',
+                chartType === t ? 'bg-[#4338CA] text-white shadow-sm' : 'bg-transparent text-gray-500 hover:text-[#111827]',
               )}
             >
               {t}
@@ -134,63 +143,91 @@ export function XbrlFinancialChart({ items, periods, periodMeta, sectionKey, loa
         </div>
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-1.5">
-        {chartableItems.slice(0, 18).map((item) => (
-          <button
-            key={item.label}
-            onClick={() => toggleMetric(item.label)}
-            className={clsx(
-              'whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[10px] font-medium transition-colors',
-              isActive(item.label)
-                ? 'border-accent/40 bg-accent/15 text-accent'
-                : 'border-[var(--border)] bg-bg3 text-text3 hover:text-text2',
-            )}
-          >
-            {item.label.length > 32 ? `${item.label.slice(0, 30)}...` : item.label}
-          </button>
-        ))}
+      <div className="relative mb-5 flex flex-wrap gap-1.5">
+        {chartableItems.slice(0, 18).map((item) => {
+          const displayLabel = getLabel(item.label, item.label_ar, langMode)
+          return (
+            <button
+              key={item.label}
+              onClick={() => toggleMetric(item.label)}
+              className={clsx(
+                'whitespace-nowrap rounded-full border px-2.5 py-1 text-[10px] font-medium transition-colors',
+                isActive(item.label)
+                  ? 'border-indigo-200 bg-indigo-50 text-[#4338CA]'
+                  : 'border-gray-200 bg-white/70 text-gray-400 hover:text-gray-600',
+              )}
+            >
+              {displayLabel.length > 32 ? `${displayLabel.slice(0, 30)}...` : displayLabel}
+            </button>
+          )
+        })}
       </div>
 
-      <ResponsiveContainer width="100%" height={260}>
+      <ResponsiveContainer width="100%" height={260} className="relative">
         {chartType === 'bar' ? (
           <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-            <XAxis dataKey="period" tick={{ fill: 'var(--text3)', fontSize: 11 }} axisLine={false} tickLine={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(17,24,39,0.06)" vertical={false} />
+            <XAxis dataKey="period" tick={{ fill: '#9CA3AF', fontSize: 11 }} axisLine={false} tickLine={false} />
             <YAxis
-              tick={{ fill: 'var(--text3)', fontSize: 11 }}
+              tick={{ fill: '#9CA3AF', fontSize: 11 }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(v: number) => fmtAxisNum(v)}
               width={56}
             />
-            <Tooltip />
-            {selectedItems.map((item, i) => (
-              <Bar key={item.label} dataKey={item.label} fill={COLORS[i % COLORS.length]} fillOpacity={0.85} />
-            ))}
+            <Tooltip
+              contentStyle={{
+                background: 'rgba(255,255,255,0.92)',
+                backdropFilter: 'blur(8px)',
+                border: '1px solid rgba(17,24,39,0.08)',
+                borderRadius: 12,
+                boxShadow: '0 8px 24px rgba(17,24,39,0.10)',
+                fontSize: 12,
+              }}
+              cursor={{ fill: 'rgba(67,56,202,0.05)' }}
+            />
+            {selectedItems.map((item, i) => {
+              const mappedLabel = getLabel(item.label, item.label_ar, langMode)
+              return (
+                <Bar key={item.label} dataKey={mappedLabel} fill={COLORS[i % COLORS.length]} radius={[4, 4, 0, 0]} fillOpacity={0.9} />
+              )
+            })}
           </BarChart>
         ) : (
           <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-            <XAxis dataKey="period" tick={{ fill: 'var(--text3)', fontSize: 11 }} axisLine={false} tickLine={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(17,24,39,0.06)" vertical={false} />
+            <XAxis dataKey="period" tick={{ fill: '#9CA3AF', fontSize: 11 }} axisLine={false} tickLine={false} />
             <YAxis
-              tick={{ fill: 'var(--text3)', fontSize: 11 }}
+              tick={{ fill: '#9CA3AF', fontSize: 11 }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(v: number) => fmtAxisNum(v)}
               width={56}
             />
-            <Tooltip />
-            {selectedItems.map((item, i) => (
-              <Line
-                key={item.label}
-                dataKey={item.label}
-                stroke={COLORS[i % COLORS.length]}
-                strokeWidth={2}
-                dot={{ r: 3, fill: COLORS[i % COLORS.length] }}
-                activeDot={{ r: 5 }}
-                connectNulls
-              />
-            ))}
+            <Tooltip
+              contentStyle={{
+                background: 'rgba(255,255,255,0.92)',
+                backdropFilter: 'blur(8px)',
+                border: '1px solid rgba(17,24,39,0.08)',
+                borderRadius: 12,
+                boxShadow: '0 8px 24px rgba(17,24,39,0.10)',
+                fontSize: 12,
+              }}
+            />
+            {selectedItems.map((item, i) => {
+              const mappedLabel = getLabel(item.label, item.label_ar, langMode)
+              return (
+                <Line
+                  key={item.label}
+                  dataKey={mappedLabel}
+                  stroke={COLORS[i % COLORS.length]}
+                  strokeWidth={2.5}
+                  dot={{ r: 3, fill: COLORS[i % COLORS.length], strokeWidth: 0 }}
+                  activeDot={{ r: 5 }}
+                  connectNulls
+                />
+              )
+            })}
           </LineChart>
         )}
       </ResponsiveContainer>

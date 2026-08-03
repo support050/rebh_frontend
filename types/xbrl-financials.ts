@@ -21,14 +21,18 @@ export interface PeriodMeta {
 
 export interface FinancialItem {
   label: string
+  label_ar?: string | null
   is_header: boolean
+  is_unmapped?: boolean
   values: Record<string, number | string | null>
 }
 
 /** Equity matrix items have nested values: period → component → number */
 export interface EquityMatrixItem {
   label: string
+  label_ar?: string | null
   is_header: boolean
+  is_unmapped?: boolean
   values: Record<string, Record<string, number>>
 }
 
@@ -48,10 +52,13 @@ export type SectionKey =
   | 'equity_changes'
   | 'filing_info'
   | 'auditors_report'
+  | 'standardized_balance_sheet'
+  | 'standardized_income_statement'
+  | 'standardized_cash_flow'
 
 export interface CompanyFinancials {
   meta: CompanyMeta
-  sections: Record<SectionKey, FinancialSection>
+  sections: Record<string, FinancialSection>
 }
 
 export interface CompanyListItem {
@@ -93,15 +100,16 @@ export const SECTION_LABELS: Record<string, string> = {
   balance_sheet: 'Balance Sheet',
   income_statement: 'Income Statement',
   cash_flow: 'Cash Flow',
-  other_comprehensive_income: 'Other Comprehensive Income',
   equity_changes: 'Equity Changes',
+  other_comprehensive_income: 'Other Comprehensive Income',
+  filing_info: 'Filing Info',
+  auditors_report: 'Auditors Report',
 }
 
 export const NAVIGABLE_SECTIONS: SectionKey[] = [
-  'balance_sheet',
   'income_statement',
+  'balance_sheet',
   'cash_flow',
-  'other_comprehensive_income',
   'equity_changes',
 ]
 
