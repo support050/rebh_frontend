@@ -16,33 +16,33 @@ export default function BreadthTabs({ children }: { children?: React.ReactNode }
     ];
 
     return (
-        <div className="flex-shrink-0 z-50 overflow-x-hidden" style={{ backgroundColor: '#FFFFFF', borderBottom: '1px solid #E5E7EB', padding: '0 24px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+        <div className="flex-shrink-0 z-50 overflow-visible" style={{ backgroundColor: '#FFFFFF', borderBottom: '1px solid #E5E7EB', padding: '0 24px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
             <div style={{ maxWidth: '1920px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0' }}>
                 <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', flexShrink: 0 }}>
-                {tabs.map(tab => {
-                    const active = pathname === tab.id || pathname.startsWith(tab.id + '/');
-                    return (
-                        <Link
-                            key={tab.id}
-                            href={tab.id}
-                            style={{
-                                display: 'flex', alignItems: 'center', gap: '8px',
-                                padding: '8px 16px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap', cursor: 'pointer', transition: 'all 0.2s', border: '1px solid',
-                                backgroundColor: active ? '#2563EB' : 'transparent',
-                                color: active ? '#FFFFFF' : '#6B7280',
-                                borderColor: active ? '#1D4ED8' : '#E5E7EB',
-                                boxShadow: active ? '0 2px 8px rgba(37,99,235,0.35)' : 'none',
-                                textDecoration: 'none'
-                            }}
-                        >
-                            <span style={{ color: active ? '#BFDBFE' : '#9CA3AF' }}>{tab.icon}</span>
-                            {tab.label}
-                        </Link>
-                    );
-                })}
+                    {tabs.map(tab => {
+                        const active = pathname === tab.id || pathname.startsWith(tab.id + '/');
+                        return (
+                            <Link
+                                key={tab.id}
+                                href={tab.id}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '8px',
+                                    padding: '8px 16px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap', cursor: 'pointer', transition: 'all 0.2s', border: '1px solid',
+                                    backgroundColor: active ? '#2563EB' : 'transparent',
+                                    color: active ? '#FFFFFF' : '#6B7280',
+                                    borderColor: active ? '#1D4ED8' : '#E5E7EB',
+                                    boxShadow: active ? '0 2px 8px rgba(37,99,235,0.35)' : 'none',
+                                    textDecoration: 'none'
+                                }}
+                            >
+                                <span style={{ color: active ? '#BFDBFE' : '#9CA3AF' }}>{tab.icon}</span>
+                                {tab.label}
+                            </Link>
+                        );
+                    })}
                 </div>
                 {children && (
-                    <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, overflowX: 'auto', flexShrink: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, overflow: 'visible', flexShrink: 1 }}>
                         {children}
                     </div>
                 )}
