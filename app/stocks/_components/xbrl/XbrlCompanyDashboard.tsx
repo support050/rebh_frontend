@@ -21,18 +21,21 @@ export function XbrlCompanyDashboard({ symbol }: { symbol: string }) {
 
   const { data: company, loading: companyLoading, error } = useCompany(symbol)
 
+  const isEquityMatrix = baseSection === 'equity_changes'
+  const isInfoSection = baseSection === 'filing_info' || baseSection === 'auditors_report'
+
   // Resolve actual section to show based on view mode
-  const actualSectionKey = ((viewMode === 'standardized' && baseSection !== 'equity_changes')
+  // Info sections (filing_info, auditors_report) don't have standardized versions
+  const actualSectionKey = ((viewMode === 'standardized' && !isEquityMatrix && !isInfoSection)
     ? `standardized_${baseSection}`
     : baseSection) as SectionKey
 
-  // KPI always uses standardized section if available
-  const kpiSection = (baseSection !== 'equity_changes' ? `standardized_${baseSection}` : baseSection) as SectionKey
+  // KPI always uses standardized section if available (not for info sections)
+  const kpiSection = (!isEquityMatrix && !isInfoSection ? `standardized_${baseSection}` : baseSection) as SectionKey
   const { data: kpisData, loading: kpisLoading } = useKpis(symbol, kpiSection)
 
   const availableSections = useMemo(() => Object.keys(company?.sections ?? {}), [company?.sections])
   const currentSection = company?.sections?.[actualSectionKey] || company?.sections?.[baseSection]
-  const isEquityMatrix = baseSection === 'equity_changes'
 
   return (
     <div className="min-h-screen bg-[#F8F9FC] font-sans text-[#111827] antialiased">
@@ -45,11 +48,11 @@ export function XbrlCompanyDashboard({ symbol }: { symbol: string }) {
       <XbrlTopBar meta={company?.meta} />
       <div className="relative flex">
         <XbrlSidebar availableSections={availableSections} currentSection={baseSection} onSelect={setBaseSection} />
-        <main className="flex-1 space-y-5 p-6">
+        <main className="flex-1 min-w-0 space-y-5 p-6">
           <div className="flex flex-wrap justify-between items-center gap-4 rounded-2xl border border-white/70 bg-white/70 p-1.5 shadow-[0_2px_12px_rgba(17,24,39,0.04)] backdrop-blur-md">
 
-            {/* View Mode Switcher */}
-            {!isEquityMatrix ? (
+            {/* View Mode Switcher — hidden for equity and info sections */}
+            {!isEquityMatrix && !isInfoSection ? (
               <div className="flex items-center rounded-full bg-gray-100/70 p-1">
                 <button
                   onClick={() => setViewMode('standardized')}
@@ -114,10 +117,10 @@ export function XbrlCompanyDashboard({ symbol }: { symbol: string }) {
           ) : (
             /* Standard sections — KPIs + Chart + Table */
             <>
-              {viewMode === 'standardized' && (
+              {viewMode === 'standardized' && !isInfoSection && (
                 <XbrlKpiGrid kpis={kpisData?.kpis} loading={kpisLoading} />
               )}
-              {viewMode === 'standardized' && (
+              {viewMode === 'standardized' && !isInfoSection && (
                 <XbrlFinancialChart
                   items={currentSection?.items ?? []}
                   periods={currentSection?.periods ?? []}

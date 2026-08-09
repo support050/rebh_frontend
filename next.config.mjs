@@ -26,6 +26,16 @@ const nextConfig = {
     keepAlive: true,
   },
 
+  async redirects() {
+    return [
+      {
+        source: '/watchlist/relative-strength/:path*',
+        destination: '/market_rs',
+        permanent: true,
+      }
+    ];
+  },
+
   // Proxy all /api/* requests to the backend.
   // This makes cookies first-party (set on www.rebh.ai instead of onrender.com)
   // which allows the Next.js middleware to read them for auth gating.

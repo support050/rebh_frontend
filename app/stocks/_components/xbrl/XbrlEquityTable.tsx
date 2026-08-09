@@ -127,17 +127,17 @@ export function XbrlEquityTable({ items, periods, periodMeta, components, loadin
       </div>
 
       {/* Pivot Table: rows=items, cols=components */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-[13px]">
+      <div className="overflow-x-auto relative">
+        <table className="w-full text-[13px] border-collapse">
           <thead>
-            <tr>
-              <th className="sticky left-0 z-10 min-w-[240px] bg-white/90 px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400 backdrop-blur-md">
+            <tr className="border-b border-gray-150">
+              <th className="sticky left-0 z-10 min-w-[240px] bg-white px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400">
                 Line Item
               </th>
               {components.map((comp) => (
                 <th
                   key={comp}
-                  className="whitespace-nowrap px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-gray-400"
+                  className="whitespace-nowrap bg-white px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-gray-400"
                 >
                   {comp}
                 </th>

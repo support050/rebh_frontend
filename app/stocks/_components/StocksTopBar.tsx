@@ -25,8 +25,6 @@ export function StocksTopBar() {
                 router.push(`/dashboard/financials?symbol=${symbol}`);
             } else if (pathname?.includes('/reports')) {
                 router.push(`/stocks/${symbol}/reports`);
-            } else if (pathname?.includes('/details')) {
-                router.push(`/stocks/${symbol}/details`);
             } else if (pathname?.includes('/financials')) {
                 router.push(`/stocks/${symbol}/financials`);
             } else {
@@ -68,13 +66,7 @@ export function StocksTopBar() {
                     Reports
                 </Link>
 
-                <Link
-                    href={`/stocks/${currentSymbol || '1010'}/details`}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 hover:text-green-600 hover:bg-green-50 transition-all"
-                >
-                    <Table className="w-4 h-4" />
-                    XBRL Data
-                </Link>
+
 
                 <Link
                     href="/rs-screener"

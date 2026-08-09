@@ -43,11 +43,13 @@ function findItem(items: FinancialItem[], frag: string): FinancialItem | undefin
 
 export function XbrlFinancialChart({ items, periods, periodMeta, sectionKey, loading, langMode = 'both' }: Props) {
   const [chartType, setChartType] = useState<'bar' | 'line'>('bar')
-  const [activeMetrics, setActiveMetrics] = useState<Set<string>>(new Set(DEFAULT_METRICS[sectionKey] ?? []))
+  
+  const cleanKey = useMemo(() => sectionKey.replace('standardized_', ''), [sectionKey])
+  const [activeMetrics, setActiveMetrics] = useState<Set<string>>(new Set(DEFAULT_METRICS[cleanKey] ?? []))
 
   useEffect(() => {
-    setActiveMetrics(new Set(DEFAULT_METRICS[sectionKey] ?? []))
-  }, [sectionKey])
+    setActiveMetrics(new Set(DEFAULT_METRICS[cleanKey] ?? []))
+  }, [cleanKey])
 
   // Chartable items MUST NOT be unmapped (to keep standard charts clean)
   const chartableItems = useMemo(
@@ -57,19 +59,24 @@ export function XbrlFinancialChart({ items, periods, periodMeta, sectionKey, loa
 
   const selectedItems = useMemo(() => {
     const result: FinancialItem[] = []
+    const defaults = DEFAULT_METRICS[cleanKey] ?? []
+    
     activeMetrics.forEach((frag) => {
       const item = findItem(items, frag)
       if (item) result.push(item)
     })
     if (result.length === 0) {
-      const defaults = DEFAULT_METRICS[sectionKey] ?? []
       defaults.forEach((frag) => {
         const item = findItem(items, frag)
         if (item) result.push(item)
       })
     }
+    // Fallback: If still empty, choose first 3 chartable items!
+    if (result.length === 0 && chartableItems.length > 0) {
+      return chartableItems.slice(0, 3)
+    }
     return result
-  }, [items, activeMetrics, sectionKey])
+  }, [items, activeMetrics, cleanKey, chartableItems])
 
   const chartData = useMemo(
     () =>
