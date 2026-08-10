@@ -266,7 +266,13 @@ export default function Navbar() {
       en: 'Screeners',
       href: '/screeners',
       items: [
-        { en: 'Fundamental', href: '/screeners/fundamental' },
+        {
+          en: 'Fundamental', href: '#',
+          items: [
+            // { en: 'Fundamental Screener', href: '/screeners/fundamental' },
+            { en: 'XBRL', href: '/stocks/1010/xbrl' },
+          ],
+        },
         { en: 'Technical', href: '/technical-screener' },
         {
           en: 'My Screeners', href: '#',
@@ -308,8 +314,8 @@ export default function Navbar() {
             {
               en: 'Alhussain', href: '#',
               items: [
-                { en: 'Alhussain', href: '/screeners/alhussain' },
-                { en: 'A/D Rating', href: '/screeners/ad-rating' },
+                // { en: 'Alhussain', href: '/screeners/alhussain' },
+                // { en: 'A/D Rating', href: '/screeners/ad-rating' },
                 { en: 'Minervini Trend', href: '/minervini-trend' },
               ],
             },
