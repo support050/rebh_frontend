@@ -1,21 +1,24 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { StockData } from './types';
+import { FONT_SERIF, FONT_MONO, type PaperTokens } from './paperTheme';
+import { useRsHubTheme } from './RsHubThemeContext';
 
 type RotShow = 'sec8' | 'secAll' | 'stk90' | 'stk20' | 'watch';
 type LabelDensity = 'hide' | 'S' | 'M' | 'L';
 type Level = 'grp' | 'sec' | 'ind' | 'sub';
 
-// Design tokens lifted from the REBH reference build (REBH-RS-Rating-MOBILE.html)
-const T = {
-    border: '#e7e9ee',
-    ink: '#0f1420',
-    muted: '#8a92a3',
-    accentText: '#475065',
-    strong: '#16a34a', strongBg: '#ecfdf3',
-    improve: '#2563eb', improveBg: '#eff6ff',
-    neutral: '#d97706', neutralBg: '#fffbeb',
-    weak: '#dc2626', weakBg: '#fef2f2',
-};
+function mapTokens(paper: PaperTokens) {
+    return {
+        border: paper.cardBorder,
+        ink: paper.ink,
+        muted: paper.inkMuted,
+        accentText: paper.inkMuted,
+        strong: paper.strong, strongBg: paper.strongBg,
+        improve: paper.improve, improveBg: paper.improveBg,
+        neutral: paper.neutral, neutralBg: paper.neutralBg,
+        weak: paper.weak, weakBg: paper.weakBg,
+    };
+}
 
 const TIME_LABELS = ['1Y', '6M', '3M', '4W', '1W', 'NOW'];
 const NOW_IDX = 5;
@@ -26,28 +29,24 @@ function Chip({ active, onClick, children, title }: { active: boolean; onClick: 
             type="button"
             onClick={onClick}
             title={title}
-            className="rounded-2xl px-3 py-1 text-[11px] font-bold whitespace-nowrap transition-colors"
-            style={active
-                ? { background: T.ink, color: '#fff', border: `1px solid ${T.ink}` }
-                : { background: '#fff', color: T.accentText, border: `1px solid ${T.border}` }}
+            className={`stamp ${active ? 'active' : ''}`}
         >
             {children}
         </button>
     );
 }
 
-function UniSelect({ value, onChange, children }: { value: string; onChange: (v: string) => void; children: React.ReactNode }) {
+function UniSelect({ value, onChange, children, mutedColor }: { value: string; onChange: (v: string) => void; children: React.ReactNode; mutedColor: string }) {
     return (
         <div className="relative">
             <select
                 value={value}
                 onChange={e => onChange(e.target.value)}
-                className="appearance-none rounded-[9px] bg-white pl-3 pr-7 py-2 text-xs font-semibold cursor-pointer focus:outline-none"
-                style={{ border: `1px solid ${T.border}`, color: T.ink }}
+                className="paper-select appearance-none pl-3 pr-7 py-2 text-xs cursor-pointer"
             >
                 {children}
             </select>
-            <div className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-[10px]" style={{ color: T.muted }}>▾</div>
+            <div className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-[10px]" style={{ color: mutedColor }}>▾</div>
         </div>
     );
 }
@@ -87,6 +86,8 @@ function smoothCurvePath(pts: [number, number][]): string {
 }
 
 export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; watchlist?: string[] }) {
+    const { paper: PAPER } = useRsHubTheme();
+    const T = useMemo(() => mapTokens(PAPER), [PAPER]);
     const [show, setShow] = useState<RotShow>('sec8');
     const [level, setLevel] = useState<Level>('grp');
     const [zoom, setZoom] = useState<'auto' | 'full'>('auto');
@@ -217,10 +218,10 @@ export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; w
     const showLevelPicker = show === 'sec8' || show === 'secAll';
 
     return (
-        <div className="bg-white rounded-[14px] overflow-hidden" style={{ border: `1px solid ${T.border}` }}>
+        <div className="binder-rail rounded-[4px] overflow-hidden" style={{ background: PAPER.paperLight, border: `1px solid ${T.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
             {/* Toolbar */}
             <div className="flex items-center gap-2.5 p-3.5 md:px-[18px] flex-wrap" style={{ borderBottom: `1px solid ${T.border}` }}>
-                <UniSelect value={show} onChange={v => { stopPlayback(); setRevealRatio(1); setPinnedName(null); setShow(v as RotShow); }}>
+                <UniSelect value={show} mutedColor={T.muted} onChange={v => { stopPlayback(); setRevealRatio(1); setPinnedName(null); setShow(v as RotShow); }}>
                     <option value="sec8">Show: Top 8 Groups</option>
                     <option value="secAll">All Groups</option>
                     <option value="stk90">Elite Stocks · RS 90+</option>
@@ -229,7 +230,7 @@ export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; w
                 </UniSelect>
 
                 {showLevelPicker && (
-                    <UniSelect value={level} onChange={v => { setPinnedName(null); setLevel(v as Level); }}>
+                    <UniSelect value={level} mutedColor={T.muted} onChange={v => { setPinnedName(null); setLevel(v as Level); }}>
                         <option value="grp">Industry Group</option>
                         <option value="sec">Sector</option>
                         <option value="ind">Industry</option>
@@ -237,26 +238,26 @@ export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; w
                     </UniSelect>
                 )}
 
-                <span className="text-[11px] font-semibold" style={{ color: T.muted }}>Period:</span>
+                <span className="text-[11px] font-semibold" style={{ color: T.muted, fontFamily: FONT_SERIF }}>Period:</span>
                 {TIME_LABELS.slice(0, 5).map((lbl, i) => (
                     <Chip key={lbl} active={periodMode === 'preset' && fromIdx === i} onClick={() => setPeriodPreset(i)}>{lbl}</Chip>
                 ))}
                 <Chip active={periodMode === 'custom'} onClick={() => { setPeriodMode('custom'); setCustomOpen(o => !o); }}>Custom…</Chip>
                 {customOpen && periodMode === 'custom' && (
-                    <UniSelect value={String(fromIdx)} onChange={v => { stopPlayback(); setRevealRatio(1); setFromIdx(Number(v)); }}>
+                    <UniSelect value={String(fromIdx)} mutedColor={T.muted} onChange={v => { stopPlayback(); setRevealRatio(1); setFromIdx(Number(v)); }}>
                         {TIME_LABELS.slice(0, 5).map((lbl, i) => <option key={lbl} value={i}>From: {lbl}</option>)}
                     </UniSelect>
                 )}
 
-                <span className="text-[11px] font-semibold" style={{ color: T.muted }}>Zoom:</span>
+                <span className="text-[11px] font-semibold" style={{ color: T.muted, fontFamily: FONT_SERIF }}>Zoom:</span>
                 <Chip active={zoom === 'auto'} onClick={() => setZoom('auto')} title="Frame the visible trail — no wasted space">🔍 Auto</Chip>
                 <Chip active={zoom === 'full'} onClick={() => setZoom('full')}>Full 0-100</Chip>
 
-                <span className="text-[11px] font-semibold" style={{ color: T.muted }}>Center:</span>
+                <span className="text-[11px] font-semibold" style={{ color: T.muted, fontFamily: FONT_SERIF }}>Center:</span>
                 <Chip active={quadCenter === 70} onClick={() => setQuadCenter(70)} title="IBD school: Leading = RS 70+ (leaders vs the pack)">70</Chip>
                 <Chip active={quadCenter === 50} onClick={() => setQuadCenter(50)} title="RRG school: Leading = above market median">50</Chip>
 
-                <span className="text-[11px] font-semibold" style={{ color: T.muted }}>Aa:</span>
+                <span className="text-[11px] font-semibold" style={{ color: T.muted, fontFamily: FONT_SERIF }}>Aa:</span>
                 {(['hide', 'S', 'M', 'L'] as LabelDensity[]).map(d => (
                     <Chip key={d} active={labelDensity === d} onClick={() => setLabelDensity(d)}>{d === 'hide' ? 'Hide' : d}</Chip>
                 ))}
@@ -264,14 +265,14 @@ export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; w
                 <button
                     onClick={play}
                     disabled={isPlaying}
-                    className="rounded-[9px] px-4 py-2 text-xs font-semibold flex items-center gap-1.5"
-                    style={{ background: '#fff', color: T.ink, border: `1px solid ${T.border}`, opacity: isPlaying ? 0.6 : 1 }}
+                    className="stamp flex items-center gap-1.5"
+                    style={{ opacity: isPlaying ? 0.6 : 1 }}
                 >
                     {isPlaying ? '⏳ Playing…' : '▶ Play'}
                 </button>
 
                 <div className="flex-1 hidden md:block" />
-                <span className="text-[11.5px] hidden lg:inline" style={{ color: T.accentText }}>X = RS today · Y = RS velocity (Δ per 4W)</span>
+                <span className="text-[11.5px] hidden lg:inline italic" style={{ color: T.accentText }}>X = RS today · Y = RS velocity (Δ per 4W)</span>
             </div>
 
             {/* Chart Area */}
@@ -280,37 +281,37 @@ export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; w
                     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 'min(62vh, 540px)' }}>
                         <defs>
                             <filter id="rotShadow" x="-50%" y="-50%" width="200%" height="200%">
-                                <feDropShadow dx="0" dy="1.2" stdDeviation="1.6" floodColor="#0f1420" floodOpacity="0.28" />
+                                <feDropShadow dx="0" dy="1.2" stdDeviation="1.6" floodColor={PAPER.ink} floodOpacity="0.32" />
                             </filter>
                         </defs>
 
                         {/* Quadrants */}
-                        <rect x={quadX} y={pad.t} width={sx(xMax) - quadX} height={quadY - pad.t} fill={T.strongBg} opacity="0.45" />
-                        <rect x={pad.l} y={pad.t} width={quadX - pad.l} height={quadY - pad.t} fill={T.neutralBg} opacity="0.45" />
-                        <rect x={pad.l} y={quadY} width={quadX - pad.l} height={sy(yMin) - quadY} fill={T.weakBg} opacity="0.45" />
-                        <rect x={quadX} y={quadY} width={sx(xMax) - quadX} height={sy(yMin) - quadY} fill={T.improveBg} opacity="0.45" />
+                        <rect x={quadX} y={pad.t} width={sx(xMax) - quadX} height={quadY - pad.t} fill={T.strongBg} opacity="0.55" />
+                        <rect x={pad.l} y={pad.t} width={quadX - pad.l} height={quadY - pad.t} fill={T.neutralBg} opacity="0.55" />
+                        <rect x={pad.l} y={quadY} width={quadX - pad.l} height={sy(yMin) - quadY} fill={T.weakBg} opacity="0.55" />
+                        <rect x={quadX} y={quadY} width={sx(xMax) - quadX} height={sy(yMin) - quadY} fill={T.improveBg} opacity="0.55" />
 
-                        {/* Grid lines */}
+                        {/* Grid lines — graph-paper style */}
                         {[0, 20, 40, 60, 80, 100].filter(v => v >= xMin && v <= xMax).map(v => (
                             <g key={`gx${v}`}>
-                                <line x1={sx(v)} y1={pad.t} x2={sx(v)} y2={sy(yMin)} stroke="#e5e7eb" strokeWidth="1" />
-                                <text x={sx(v)} y={H - 12} textAnchor="middle" className="fill-gray-400 font-mono" style={{ fontSize: '9.5px' }}>{v}</text>
+                                <line x1={sx(v)} y1={pad.t} x2={sx(v)} y2={sy(yMin)} stroke={T.border} strokeWidth="1" />
+                                <text x={sx(v)} y={H - 12} textAnchor="middle" fill={T.muted} fontFamily={FONT_MONO} style={{ fontSize: '9.5px' }}>{v}</text>
                             </g>
                         ))}
                         {Array.from({ length: 9 }, (_, i) => Math.round(yMin + ((yMax - yMin) / 8) * i)).map(v => (
                             <g key={`gy${v}`}>
-                                <line x1={pad.l} y1={sy(v)} x2={sx(xMax)} y2={sy(v)} stroke="#e5e7eb" strokeWidth="1" />
-                                <text x={pad.l - 8} y={sy(v) + 3} textAnchor="end" className="fill-gray-400 font-mono" style={{ fontSize: '9px' }}>{v}</text>
+                                <line x1={pad.l} y1={sy(v)} x2={sx(xMax)} y2={sy(v)} stroke={T.border} strokeWidth="1" />
+                                <text x={pad.l - 8} y={sy(v) + 3} textAnchor="end" fill={T.muted} fontFamily={FONT_MONO} style={{ fontSize: '9px' }}>{v}</text>
                             </g>
                         ))}
 
-                        <line x1={quadX} y1={pad.t} x2={quadX} y2={sy(yMin)} stroke="#9ca3af" strokeWidth="1.2" strokeDasharray="4,4" />
-                        <line x1={pad.l} y1={quadY} x2={sx(xMax)} y2={quadY} stroke="#9ca3af" strokeWidth="1.2" strokeDasharray="4,4" />
+                        <line x1={quadX} y1={pad.t} x2={quadX} y2={sy(yMin)} stroke={PAPER.marginRed} strokeWidth="1.2" strokeDasharray="4,4" opacity="0.6" />
+                        <line x1={pad.l} y1={quadY} x2={sx(xMax)} y2={quadY} stroke={PAPER.marginRed} strokeWidth="1.2" strokeDasharray="4,4" opacity="0.6" />
 
-                        <text x={sx(xMax) - 8} y={pad.t + 16} textAnchor="end" style={{ fontSize: '10px', fontWeight: 800, fill: T.strong }}>LEADING</text>
-                        <text x={pad.l + 8} y={pad.t + 16} textAnchor="start" style={{ fontSize: '10px', fontWeight: 800, fill: T.neutral }}>WEAKENING</text>
-                        <text x={pad.l + 8} y={sy(yMin) - 8} textAnchor="start" style={{ fontSize: '10px', fontWeight: 800, fill: T.weak }}>LAGGING</text>
-                        <text x={sx(xMax) - 8} y={sy(yMin) - 8} textAnchor="end" style={{ fontSize: '10px', fontWeight: 800, fill: T.improve }}>IMPROVING</text>
+                        <text x={sx(xMax) - 8} y={pad.t + 16} textAnchor="end" style={{ fontSize: '10px', fontWeight: 800, fill: T.strong, fontFamily: FONT_SERIF }}>LEADING</text>
+                        <text x={pad.l + 8} y={pad.t + 16} textAnchor="start" style={{ fontSize: '10px', fontWeight: 800, fill: T.neutral, fontFamily: FONT_SERIF }}>WEAKENING</text>
+                        <text x={pad.l + 8} y={sy(yMin) - 8} textAnchor="start" style={{ fontSize: '10px', fontWeight: 800, fill: T.weak, fontFamily: FONT_SERIF }}>LAGGING</text>
+                        <text x={sx(xMax) - 8} y={sy(yMin) - 8} textAnchor="end" style={{ fontSize: '10px', fontWeight: 800, fill: T.improve, fontFamily: FONT_SERIF }}>IMPROVING</text>
 
                         {/* Trails + points */}
                         {(() => {
@@ -360,7 +361,7 @@ export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; w
                                         <circle
                                             cx={cx} cy={cy} r={r}
                                             fill={col} fillOpacity={dim ? 0.2 : 1}
-                                            stroke="#fff" strokeWidth={2.2}
+                                            stroke={PAPER.paperLight} strokeWidth={2.2}
                                             filter={dim ? undefined : 'url(#rotShadow)'}
                                             style={{ cursor: 'pointer' }}
                                             onMouseEnter={() => setHoverName(e.name)}
@@ -381,7 +382,7 @@ export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; w
                                 <>
                                     {rendered}
                                     {kept.map((L, i) => (
-                                        <text key={i} x={L.x} y={L.y} fontSize={L.fs} fontWeight={L.strong ? 800 : 700} fill={T.ink} textAnchor={L.anchor}>{L.text}</text>
+                                        <text key={i} x={L.x} y={L.y} fontSize={L.fs} fontWeight={L.strong ? 800 : 700} fill={T.ink} textAnchor={L.anchor} fontFamily={FONT_SERIF}>{L.text}</text>
                                     ))}
                                 </>
                             );
@@ -390,8 +391,8 @@ export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; w
                 </div>
 
                 {/* Side panel */}
-                <div className="p-4 overflow-y-auto max-h-[560px]">
-                    <h4 className="text-xs font-bold mb-2" style={{ color: T.ink }}>How to read it</h4>
+                <div className="p-4 overflow-y-auto max-h-[560px] scrollbar-ledger">
+                    <h4 className="text-xs font-bold mb-2" style={{ color: T.ink, fontFamily: FONT_SERIF }}>How to read it</h4>
                     <div className="flex flex-col gap-1.5 mb-4">
                         {[
                             { label: 'Leading', desc: 'strong & accelerating', color: T.strong, bg: T.strongBg },
@@ -399,7 +400,7 @@ export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; w
                             { label: 'Weakening', desc: 'strong but fading', color: T.neutral, bg: T.neutralBg },
                             { label: 'Lagging', desc: 'weak & falling', color: T.weak, bg: T.weakBg },
                         ].map(item => (
-                            <div key={item.label} className="flex items-center gap-2 text-[11.5px]">
+                            <div key={item.label} className="flex items-center gap-2 text-[11.5px]" style={{ fontFamily: FONT_SERIF }}>
                                 <span className="w-[11px] h-[11px] rounded-[3px]" style={{ background: item.bg, border: `1px solid ${item.color}` }} />
                                 <b>{item.label}</b>
                                 <span style={{ color: T.muted }}>— {item.desc}</span>
@@ -408,7 +409,7 @@ export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; w
                     </div>
 
                     <div className="mt-1">
-                        <h4 className="text-xs font-bold mb-1.5" style={{ color: T.ink }}>Rankings</h4>
+                        <h4 className="text-xs font-bold mb-1.5" style={{ color: T.ink, fontFamily: FONT_SERIF }}>Rankings</h4>
                         <div>
                             {rankedEntries.slice(0, 15).map((e, index) => {
                                 const quad = getQuad(e.rs, e.mom);
@@ -416,16 +417,16 @@ export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; w
                                 return (
                                     <div
                                         key={e.name}
-                                        className="flex items-center gap-1.5 text-[11.5px] py-1.5 cursor-pointer"
-                                        style={{ borderBottom: '1px solid #f0f2f6', background: isActive ? '#f8f9fc' : 'transparent' }}
+                                        className="flex items-center gap-1.5 text-[11.5px] py-1.5 cursor-pointer dashed-divider"
+                                        style={{ background: isActive ? PAPER.paper : 'transparent' }}
                                         onMouseEnter={() => setHoverName(e.name)}
                                         onMouseLeave={() => setHoverName(null)}
                                         onClick={() => togglePin(e.name)}
                                     >
-                                        <span className="w-4 text-[9.5px] font-mono" style={{ color: T.muted }}>{index + 1}</span>
+                                        <span className="w-4 text-[9.5px]" style={{ color: T.muted, fontFamily: FONT_MONO }}>{index + 1}</span>
                                         <span className="w-2 h-2 rounded-full" style={{ background: quadColor(quad) }} />
-                                        <span className="truncate flex-1 font-semibold" style={{ color: '#3a4256' }}>{e.name}</span>
-                                        <b className="font-mono">{e.rs}</b>
+                                        <span className="truncate flex-1 font-semibold" style={{ color: PAPER.ink, fontFamily: FONT_SERIF }}>{e.name}</span>
+                                        <b className="emboss">{e.rs}</b>
                                     </div>
                                 );
                             })}
@@ -434,28 +435,28 @@ export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; w
 
                     {/* Detail card — persists while pinned, previews on hover */}
                     {activeEntry && activeQuad ? (
-                        <div className="rounded-[10px] p-3 mt-3" style={{ border: `1px solid ${T.border}` }}>
+                        <div className="rounded-[3px] p-3 mt-3" style={{ border: `1px solid ${T.border}`, background: PAPER.paper }}>
                             <div className="flex items-start justify-between">
-                                <div className="text-sm font-extrabold font-mono" style={{ color: T.ink }}>{activeEntry.name}</div>
+                                <div className="emboss text-sm">{activeEntry.name}</div>
                                 {pinnedName === activeEntry.name && !hoverName && (
                                     <button onClick={() => setPinnedName(null)} className="text-[10px]" style={{ color: T.muted }}>✕</button>
                                 )}
                             </div>
                             <span
-                                className="text-[10px] font-extrabold rounded px-1.5 py-0.5 inline-block mt-1 mb-1.5"
-                                style={{ background: quadBg(activeQuad), color: quadColor(activeQuad) }}
+                                className="text-[10px] font-extrabold rounded-sm px-1.5 py-0.5 inline-block mt-1 mb-1.5"
+                                style={{ background: quadBg(activeQuad), color: quadColor(activeQuad), fontFamily: FONT_SERIF }}
                             >
                                 {activeQuad.toUpperCase()}
                             </span>
-                            <div className="text-[11px] leading-relaxed" style={{ color: '#3a4256' }}>
+                            <div className="text-[11px] leading-relaxed" style={{ color: PAPER.ink }}>
                                 RS: <b>{activeEntry.rs}</b> · velocity: <b>{activeEntry.mom >= 0 ? '+' : ''}{activeEntry.mom}</b>/4W
                             </div>
-                            <div className="text-[10.5px] mt-1" style={{ color: T.muted }}>
+                            <div className="text-[10.5px] mt-1" style={{ color: T.muted, fontFamily: FONT_MONO }}>
                                 Journey ({TIME_LABELS[fromIdx]}→now): {activeEntry.path.map(p => p.rs).join(' → ')}
                             </div>
                         </div>
                     ) : (
-                        <div className="text-center py-5 text-[11px] rounded-[10px] mt-3" style={{ color: T.muted, border: `1px dashed ${T.border}` }}>
+                        <div className="text-center py-5 text-[11px] rounded-[3px] mt-3 italic" style={{ color: T.muted, border: `1px dashed ${T.border}` }}>
                             Hover or click a point
                         </div>
                     )}
@@ -464,7 +465,7 @@ export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; w
 
             {/* Scrub bar — sweeps the trail reveal, from the period start up to Now */}
             <div className="flex items-center gap-2.5 px-[18px] py-2.5" style={{ borderTop: `1px solid ${T.border}` }}>
-                <span className="font-mono text-[10px] tracking-widest" style={{ color: T.muted }}>{TIME_LABELS[fromIdx]}</span>
+                <span className="text-[10px] tracking-widest" style={{ color: T.muted, fontFamily: FONT_MONO }}>{TIME_LABELS[fromIdx]}</span>
                 <input
                     type="range"
                     min="0"
@@ -472,9 +473,9 @@ export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; w
                     value={Math.round(revealRatio * 1000)}
                     onChange={e => { stopPlayback(); setRevealRatio(Number(e.target.value) / 1000); }}
                     className="flex-1 cursor-pointer"
-                    style={{ accentColor: T.ink }}
+                    style={{ accentColor: PAPER.marginRed }}
                 />
-                <span className="font-mono text-[10px] tracking-widest" style={{ color: T.muted }}>NOW</span>
+                <span className="text-[10px] tracking-widest" style={{ color: T.muted, fontFamily: FONT_MONO }}>NOW</span>
             </div>
         </div>
     );

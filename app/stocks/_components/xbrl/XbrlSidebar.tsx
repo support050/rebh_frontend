@@ -22,24 +22,35 @@ export function XbrlSidebar({ availableSections, currentSection, onSelect }: Pro
   const sections = NAVIGABLE_SECTIONS.filter((s) => availableSections.includes(s) || availableSections.includes(`standardized_${s}`))
 
   return (
-    <aside className="sticky top-16 h-[calc(100vh-4rem)] w-[220px] min-w-[220px] overflow-y-auto border-r border-white/60 bg-white/50 px-3 py-6 backdrop-blur-md">
-      <p className="px-3 pb-3 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400">Statements</p>
-      <div className="space-y-1">
-        {sections.map((sec) => (
-          <button
-            key={sec}
-            onClick={() => onSelect(sec)}
-            className={clsx(
-              'flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium transition-all duration-150',
-              currentSection === sec
-                ? 'bg-white text-[#4338CA] shadow-[0_2px_10px_rgba(67,56,202,0.12)] border border-indigo-100'
-                : 'border border-transparent text-gray-500 hover:bg-white/70 hover:text-[#111827]',
-            )}
-          >
-            <span className="text-[15px] opacity-80">{SECTION_ICONS[sec] ?? '📄'}</span>
-            {SECTION_LABELS[sec] ?? sec}
-          </button>
-        ))}
+    <aside className="sticky top-16 h-[calc(100vh-4rem)] w-[236px] min-w-[236px] overflow-y-auto overflow-x-hidden border-r border-[#E5E7EB] bg-white py-6 pl-3 pr-0">
+      <p className="px-3 pb-4 font-sans text-[10px] font-bold uppercase tracking-[0.18em] text-[#6B7280]">
+        📑 Statements Binder
+      </p>
+      <div className="space-y-2.5">
+        {sections.map((sec) => {
+          const active = currentSection === sec
+          return (
+            <button
+              key={sec}
+              onClick={() => onSelect(sec)}
+              className={clsx(
+                'group relative flex w-[92%] items-center gap-2.5 py-2.5 pl-3.5 pr-3 text-left text-[12.5px] font-semibold transition-all duration-150',
+                'rounded-l-[10px] rounded-r-[3px] border border-r-0',
+                active
+                  ? 'w-full translate-x-0 border-[#E5E7EB] bg-[#F9FAFB] text-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]'
+                  : 'border-[#E5E7EB] bg-white text-[#4B5563] hover:bg-[#F9FAFB] hover:text-[#1A1A1A]',
+              )}
+              style={{
+                // tab "cut" shape like a manila folder tab
+                clipPath: 'polygon(0 0, 100% 0, 96% 50%, 100% 100%, 0 100%)',
+              }}
+            >
+              <span className="text-[14px] opacity-80">{SECTION_ICONS[sec] ?? '📄'}</span>
+              <span className="truncate">{SECTION_LABELS[sec] ?? sec}</span>
+              {active && <span className="absolute -left-[1px] top-0 h-full w-[3px] rounded-l-[10px] bg-[#8C3B32]" />}
+            </button>
+          )
+        })}
       </div>
     </aside>
   )

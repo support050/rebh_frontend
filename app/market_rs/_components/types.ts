@@ -1,3 +1,5 @@
+import { PAPER, type PaperTokens } from './paperTheme';
+
 export interface StockData {
     s: string;       // Symbol
     symbol: string;  // Compatibility with shariah filter (maps to s)
@@ -30,31 +32,32 @@ export interface StockData {
 
 export type TabId = 'rankings' | 'matrix' | 'rotation' | 'map' | 'events';
 
-// Helper functions shared across components
-export function getCatColor(cat: string) {
-    if (cat === 'STRONG') return 'bg-green-100 text-green-700 border-green-200';
-    if (cat === 'IMPROVE') return 'bg-blue-100 text-blue-700 border-blue-200';
-    if (cat === 'NEUTRAL') return 'bg-amber-100 text-amber-700 border-amber-200';
-    return 'bg-red-100 text-red-700 border-red-200';
+// Helper functions shared across components — now return Paper Ledger hex
+// values (used via inline `style`) instead of Tailwind utility classes.
+export function getCatColor(cat: string, paper: PaperTokens = PAPER) {
+    if (cat === 'STRONG') return { color: paper.strong, background: paper.strongBg, borderColor: paper.strongBorder };
+    if (cat === 'IMPROVE') return { color: paper.improve, background: paper.improveBg, borderColor: paper.improveBorder };
+    if (cat === 'NEUTRAL') return { color: paper.neutral, background: paper.neutralBg, borderColor: paper.neutralBorder };
+    return { color: paper.weak, background: paper.weakBg, borderColor: paper.weakBorder };
 }
 
-export function getCatText(cat: string) {
-    if (cat === 'STRONG') return 'text-green-600';
-    if (cat === 'IMPROVE') return 'text-blue-600';
-    if (cat === 'NEUTRAL') return 'text-amber-500';
-    return 'text-red-600';
+export function getCatText(cat: string, paper: PaperTokens = PAPER): string {
+    if (cat === 'STRONG') return paper.strong;
+    if (cat === 'IMPROVE') return paper.improve;
+    if (cat === 'NEUTRAL') return paper.neutral;
+    return paper.weak;
 }
 
-export function getCatBg(cat: string) {
-    if (cat === 'STRONG') return 'bg-green-600';
-    if (cat === 'IMPROVE') return 'bg-blue-600';
-    if (cat === 'NEUTRAL') return 'bg-amber-500';
-    return 'bg-red-600';
+export function getCatBg(cat: string, paper: PaperTokens = PAPER): string {
+    if (cat === 'STRONG') return paper.strong;
+    if (cat === 'IMPROVE') return paper.improve;
+    if (cat === 'NEUTRAL') return paper.neutral;
+    return paper.weak;
 }
 
-export function getCatDot(cat: string) {
-    if (cat === 'STRONG') return 'bg-green-500';
-    if (cat === 'IMPROVE') return 'bg-blue-500';
-    if (cat === 'NEUTRAL') return 'bg-amber-400';
-    return 'bg-red-500';
+export function getCatDot(cat: string, paper: PaperTokens = PAPER): string {
+    if (cat === 'STRONG') return paper.strong;
+    if (cat === 'IMPROVE') return paper.improve;
+    if (cat === 'NEUTRAL') return paper.neutral;
+    return paper.weak;
 }

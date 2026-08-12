@@ -5,8 +5,12 @@ import type React from 'react';
 import { API_BASE_URL } from '@/lib/api/config';
 import { authFetch } from '@/lib/api/authFetch';
 import { ShariahFilterPage, useWatchlistShariah } from '@/components/Watchlist/WatchlistShariahContext';
+import { applyShariahFilter } from '@/lib/watchlist/shariah';
 
-import { StockData, TabId, getCatBg, getCatText } from './_components/types';
+import { StockData, TabId, getCatText } from './_components/types';
+import { FONT_SERIF, FONT_MONO } from './_components/paperTheme';
+import { PaperGlobalStyles } from './_components/PaperUI';
+import { RsHubThemeProvider, useRsHubTheme } from './_components/RsHubThemeContext';
 import { RankingsTab } from './_components/RankingsTab';
 import { MatrixTab } from './_components/MatrixTab';
 import { RotationTab } from './_components/RotationTab';
@@ -15,13 +19,22 @@ import { EventsTab } from './_components/EventsTab';
 
 type UniverseType = 'all' | 'watchlist' | 'shariah';
 
+const TABS: { id: TabId; label: string }[] = [
+    { id: 'rankings', label: 'Rankings' },
+    { id: 'matrix', label: 'Matrix' },
+    { id: 'rotation', label: 'Rotation' },
+    { id: 'map', label: 'RS Map' },
+    { id: 'events', label: 'Events' },
+];
+
 function RSHubContent() {
-    const { filterStocks } = useWatchlistShariah();
+    const { paper: PAPER, isDark, toggleTheme } = useRsHubTheme();
+    const { filterStocks, bySymbol, options: shariahOptions, loading: shariahLoading } = useWatchlistShariah();
     const [stocks, setStocks] = useState<StockData[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<TabId>('rankings');
     const [universe, setUniverse] = useState<UniverseType>('all');
-    
+
     // Local Watchlist (stored in localStorage)
     const [watchlist, setWatchlist] = useState<string[]>([]);
 
@@ -68,18 +81,32 @@ function RSHubContent() {
         });
     }, []);
 
-    // Apply universe filtering first
+    // Same chip as top bar: "متوافقة مع الضوابط" only (not brokerage / نقية)
+    const compliantStatuses = useMemo(() => {
+        const exact = shariahOptions.filter(
+            (o) => o === 'متوافقة مع الضوابط' || o === 'متوافق مع الضوابط',
+        );
+        return exact.length > 0 ? exact : ['متوافقة مع الضوابط'];
+    }, [shariahOptions]);
+
+    const shariahStocks = useMemo(
+        () => applyShariahFilter(stocks, bySymbol, compliantStatuses),
+        [stocks, bySymbol, compliantStatuses],
+    );
+
+    const shariahCount = shariahStocks.length;
+
+    // Apply universe filtering — drives every tab + status cards
     const universeStocks = useMemo(() => {
         if (universe === 'shariah') {
-            // Exact match with REBH-RS-Rating-MOBILE.html: shariah === "متوافقة مع الضوابط"
-            return stocks.filter(st => (st.shariah || '').trim() === 'متوافقة مع الضوابط');
+            return shariahStocks;
         }
         if (universe === 'watchlist') {
             return stocks.filter(st => watchlist.includes(st.s));
         }
-        // "all" still respects the Shariah filter bar when user selects statuses
+        // "all" still respects the top Shariah filter bar when user selects statuses
         return filterStocks(stocks);
-    }, [stocks, universe, watchlist, filterStocks]);
+    }, [stocks, universe, watchlist, filterStocks, shariahStocks]);
 
     // Calculate category distribution
     const dist = useMemo(() => {
@@ -106,57 +133,61 @@ function RSHubContent() {
         const resN = S.filter(x => x.res ?? x.sig?.includes('res'));
         const distN = S.filter(x => x.dist ?? x.sig?.includes('dist'));
 
-        const goRankings = (filter?: string) => {
+        const goRankings = (filter?: string, symbol?: string) => {
             setActiveTab('rankings');
-            if (filter) window.dispatchEvent(new CustomEvent('rs-hub-filter', { detail: filter }));
+            // Defer so RankingsTab is mounted before events fire
+            window.setTimeout(() => {
+                if (filter) window.dispatchEvent(new CustomEvent('rs-hub-filter', { detail: filter }));
+                if (symbol) window.dispatchEvent(new CustomEvent('rs-hub-select', { detail: symbol }));
+            }, 0);
         };
 
         if (fast && fast.d > 0) {
             chips.push({
                 key: 'fast',
-                text: <>🚀 Fastest riser: <b>{fast.c}</b> +{fast.d} pts</>,
-                action: () => goRankings(),
+                text: <>Fastest riser: <b>{fast.c}</b> +{fast.d} pts</>,
+                action: () => goRankings(undefined, fast.s),
             });
         }
         if (newStrong.length) {
             chips.push({
                 key: 'newStrong',
-                text: <>⭐ New to STRONG: <b>{newStrong.map(x => x.c).join(', ')}</b></>,
-                action: () => goRankings('90'),
+                text: <>New to STRONG: <b>{newStrong.map(x => x.c).join(', ')}</b></>,
+                action: () => goRankings('up'),
             });
         }
         if (blues.length) {
             chips.push({
                 key: 'blue',
-                text: <>🔵 <b>{blues.length}</b> stocks: RS hit a new high before price</>,
+                text: <>RS ahead of price: <b>{blues.length}</b></>,
                 action: () => goRankings('blue'),
             });
         }
         if (drop && drop.d < 0) {
             chips.push({
                 key: 'drop',
-                text: <>⚠️ Biggest drop: <b>{drop.c}</b> {drop.d} pts</>,
-                action: () => goRankings(),
+                text: <>Biggest drop: <b>{drop.c}</b> {drop.d} pts</>,
+                action: () => goRankings(undefined, drop.s),
             });
         }
         if (focusN.length) {
             chips.push({
                 key: 'focus',
-                text: <>🎯 Focus list: <b>{focusN.length}</b> stocks</>,
+                text: <>Focus list: <b>{focusN.length}</b></>,
                 action: () => goRankings('focus'),
             });
         }
         if (resN.length) {
             chips.push({
                 key: 'res',
-                text: <>🛡 Gaining RS in a down week: <b>{resN.map(x => x.c).slice(0, 3).join(', ')}{resN.length > 3 ? ` +${resN.length - 3}` : ''}</b></>,
+                text: <>Resilient: <b>{resN.map(x => x.c).slice(0, 3).join(', ')}{resN.length > 3 ? ` +${resN.length - 3}` : ''}</b></>,
                 action: () => goRankings('res'),
             });
         }
         if (distN.length) {
             chips.push({
                 key: 'dist',
-                text: <>🔻 Leaders under distribution: <b>{distN.length}</b></>,
+                text: <>Under distribution: <b>{distN.length}</b></>,
                 action: () => goRankings('dist'),
             });
         }
@@ -165,8 +196,8 @@ function RSHubContent() {
         if (surge || crash) {
             chips.push({
                 key: 'breadth',
-                text: <>⚡ Momentum: <b>{surge}</b> ≥+10 vs <b>{crash}</b> ≤−10</>,
-                action: () => goRankings('all'),
+                text: <>Momentum: <b>{surge}</b> ↑10+ / <b>{crash}</b> ↓10+</>,
+                action: () => goRankings('momentum'),
             });
         }
         const now70 = (S.filter(x => x.rs >= 70).length / (S.length || 1)) * 100;
@@ -175,7 +206,7 @@ function RSHubContent() {
         const dir = dpp > 0.2 ? `▲ +${dpp.toFixed(1)}pp` : dpp < -0.2 ? `▼ ${dpp.toFixed(1)}pp` : 'flat';
         chips.push({
             key: 'lead70',
-            text: <>📊 Leadership breadth: <b>{now70.toFixed(1)}%</b> RS≥70 ({dir})</>,
+            text: <>RS ≥ 70: <b>{now70.toFixed(1)}%</b> ({dir})</>,
             action: () => goRankings('70'),
         });
         return chips;
@@ -183,114 +214,162 @@ function RSHubContent() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="w-12 h-12 border-4 border-gray-200 border-t-gray-800 rounded-full animate-spin"></div>
+            <div className="paper-grain min-h-screen flex items-center justify-center">
+                <PaperGlobalStyles paper={PAPER} />
+                <div className="flex flex-col items-center gap-3">
+                    <div
+                        className="w-12 h-12 rounded-full animate-spin"
+                        style={{ border: `4px solid ${PAPER.cardBorder}`, borderTopColor: PAPER.marginRed }}
+                    />
+                    <span style={{ fontFamily: FONT_SERIF, color: PAPER.inkMuted, fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                        Opening the ledger…
+                    </span>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-[#f6f7f9] text-[#0f1420] p-4 lg:p-8 font-sans select-none">
-            <div className="max-w-[1440px] mx-auto">
-                {/* Header */}
-                <div className="bg-white border border-gray-200 rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4 mb-5 shadow-sm">
-                    <div>
-                        <h1 className="text-xl font-bold flex items-center gap-2">
-                            RS Rating Hub <span className="text-[10px] bg-blue-600 text-white rounded px-2 py-0.5 uppercase tracking-wide">Beta</span>
-                        </h1>
-                        <p className="text-sm text-gray-500 mt-1">LUMIVST Proprietary Relative Strength Analysis</p>
-                    </div>
+        <div className="paper-grain min-h-screen w-full p-3 sm:p-4 lg:p-5 select-none" style={{ color: PAPER.ink, fontFamily: FONT_SERIF }}>
+            <PaperGlobalStyles paper={PAPER} />
+            <div className="w-full max-w-none">
+                {/* Header + categories + insights — one compact panel */}
+                <div
+                    className="rounded-[4px] mb-4 overflow-hidden"
+                    style={{
+                        background: PAPER.paperLight,
+                        border: `1px solid ${PAPER.cardBorder}`,
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                    }}
+                >
+                    <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3" style={{ borderBottom: `1px solid ${PAPER.cardBorder}` }}>
+                        <div className="min-w-0">
+                            <h1 className="text-base font-bold flex items-center gap-2" style={{ fontFamily: FONT_SERIF }}>
+                                RS Rating Hub
+                                <span
+                                    className="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-sm"
+                                    style={{ background: PAPER.stampRed, color: PAPER.paperLight, fontFamily: FONT_SERIF, fontWeight: 700 }}
+                                >
+                                    Beta
+                                </span>
+                            </h1>
+                            <p className="text-[11px] mt-0.5" style={{ color: PAPER.inkMuted }}>Relative Strength Analysis</p>
+                        </div>
 
-                    <div className="flex items-center gap-3">
-                        {/* Universe selector */}
-                        <div className="relative">
+                        <div className="relative flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={toggleTheme}
+                                className="paper-select px-2.5 py-1.5 text-xs cursor-pointer"
+                                aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                                title={isDark ? 'Light mode' : 'Dark mode'}
+                            >
+                                {isDark ? '☀ Light' : '☾ Dark'}
+                            </button>
                             <select
                                 value={universe}
                                 onChange={e => setUniverse(e.target.value as UniverseType)}
-                                className="appearance-none border border-gray-200 bg-white rounded-xl px-4 py-2 pr-8 text-xs font-semibold text-gray-700 cursor-pointer focus:outline-none focus:border-gray-400"
+                                className="paper-select appearance-none px-3 py-1.5 pr-7 text-xs cursor-pointer"
+                                aria-label="Stock universe"
                             >
-                                <option value="all">Universe: All Stocks</option>
+                                <option value="all">Universe: All Stocks ({stocks.length})</option>
                                 <option value="watchlist">Watchlist ({watchlist.length})</option>
-                                <option value="shariah">Shariah Compliant</option>
+                                <option value="shariah">Shariah Compliant ({shariahCount})</option>
                             </select>
-                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
-                                <svg className="fill-current h-4 w-4" viewBox="0 0 20 20">
+                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2" style={{ color: PAPER.inkMuted }}>
+                                <svg className="fill-current h-3.5 w-3.5" viewBox="0 0 20 20">
                                     <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
                                 </svg>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                {/* Status Strips — click filters Rankings by category (HTML goCat) */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                    {(['STRONG', 'IMPROVE', 'NEUTRAL', 'WEAK'] as const).map(cat => {
-                        const count = dist[cat];
-                        const pct = ((count / (universeStocks.length || 1)) * 100).toFixed(1);
-                        return (
-                            <button
-                                key={cat}
-                                type="button"
-                                onClick={() => {
-                                    setActiveTab('rankings');
-                                    window.dispatchEvent(new CustomEvent('rs-hub-filter', { detail: cat }));
-                                }}
-                                className="bg-white border border-gray-200 rounded-xl p-4 relative overflow-hidden shadow-sm hover:shadow-md transition-shadow text-left"
-                            >
-                                <div className={`absolute top-0 left-0 right-0 h-1 ${getCatBg(cat)}`}></div>
-                                <div className={`text-[10px] font-extrabold tracking-wider ${getCatText(cat)}`}>{cat}</div>
-                                <div className="text-2xl font-bold mt-1">
-                                    {count} <span className="text-xs text-gray-400 font-normal">{pct}%</span>
-                                </div>
-                            </button>
-                        );
-                    })}
-                </div>
+                    {universe !== 'all' && universeStocks.length === 0 && (
+                        <div className="px-4 py-2 text-xs" style={{ color: PAPER.inkMuted, borderBottom: `1px solid ${PAPER.cardBorder}` }}>
+                            {universe === 'watchlist'
+                                ? 'Watchlist is empty — star stocks in Rankings (★) to add them here.'
+                                : shariahLoading
+                                    ? 'Loading Shariah statuses…'
+                                    : shariahOptions.length === 0
+                                        ? 'Shariah statuses are not available yet.'
+                                        : 'No Shariah-compliant stocks matched. Try the top “Shariah & Margin” chips for all statuses.'}
+                        </div>
+                    )}
 
-                {/* Insights — REBH reference chips */}
-                {insights.length > 0 && (
-                    <div className="flex gap-2 flex-wrap mb-4">
-                        {insights.map(chip => (
-                            <button
-                                key={chip.key}
-                                type="button"
-                                onClick={chip.action}
-                                className="bg-white border border-gray-200 rounded-full px-3.5 py-1.5 text-xs font-semibold text-gray-700 hover:border-gray-400 transition-colors"
-                            >
-                                {chip.text}
-                            </button>
-                        ))}
+                    <div className="grid grid-cols-4 gap-px" style={{ background: PAPER.cardBorder }}>
+                        {(['STRONG', 'IMPROVE', 'NEUTRAL', 'WEAK'] as const).map(cat => {
+                            const count = dist[cat];
+                            const pct = ((count / (universeStocks.length || 1)) * 100).toFixed(1);
+                            return (
+                                <button
+                                    key={cat}
+                                    type="button"
+                                    onClick={() => {
+                                        setActiveTab('rankings');
+                                        window.setTimeout(() => {
+                                            window.dispatchEvent(new CustomEvent('rs-hub-filter', { detail: cat }));
+                                        }, 0);
+                                    }}
+                                    className="text-left px-3 py-2.5 transition-colors rs-hub-card-hover"
+                                    style={{ background: PAPER.paperLight }}
+                                >
+                                    <div
+                                        className="text-[9px] font-bold tracking-wider uppercase"
+                                        style={{ color: getCatText(cat, PAPER), fontFamily: FONT_SERIF }}
+                                    >
+                                        {cat}
+                                    </div>
+                                    <div className="mt-0.5 flex items-baseline gap-1.5">
+                                        <span className="text-lg font-bold leading-none" style={{ fontFamily: FONT_SERIF }}>{count}</span>
+                                        <span className="text-[11px]" style={{ color: PAPER.inkMuted, fontFamily: FONT_SERIF }}>{pct}%</span>
+                                    </div>
+                                </button>
+                            );
+                        })}
                     </div>
-                )}
 
-                {/* Tabs Switcher */}
-                <div className="flex gap-1 bg-white border border-gray-200 rounded-xl p-1 w-fit mb-5 shadow-sm overflow-x-auto">
-                    {[
-                        { id: 'rankings', label: 'Rankings' },
-                        { id: 'matrix', label: 'Matrix' },
-                        { id: 'rotation', label: 'Rotation' },
-                        { id: 'map', label: 'RS Map' },
-                        { id: 'events', label: 'Events' },
-                    ].map(tab => {
-                        const isActive = activeTab === tab.id;
-                        return (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id as TabId)}
-                                className={`px-5 py-2 text-sm font-semibold rounded-lg transition-colors whitespace-nowrap ${isActive ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-100'}`}
-                            >
-                                {tab.label}
-                            </button>
-                        );
-                    })}
+                    {insights.length > 0 && (
+                        <div className="flex gap-1.5 flex-wrap px-3 py-2.5" style={{ borderTop: `1px solid ${PAPER.cardBorder}` }}>
+                            {insights.map(chip => (
+                                <button
+                                    key={chip.key}
+                                    type="button"
+                                    onClick={chip.action}
+                                    className="rounded-[3px] px-2.5 py-1 text-[11px] font-medium transition-colors rs-hub-card-hover"
+                                    style={{
+                                        background: PAPER.brassLight,
+                                        border: `1px solid ${PAPER.cardBorder}`,
+                                        color: PAPER.ink,
+                                        fontFamily: FONT_SERIF,
+                                    }}
+                                >
+                                    {chip.text}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Tabs */}
+                <div className="folder-tabs mb-0 overflow-x-auto">
+                    {TABS.map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={`folder-tab ${activeTab === tab.id ? 'active' : ''}`}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
                 </div>
 
                 {/* Tab Views */}
+                <div className="mb-5" />
                 {activeTab === 'rankings' && (
-                    <RankingsTab 
-                        stocks={universeStocks} 
-                        watchlist={watchlist} 
-                        onToggleWatchlist={toggleWatchlist} 
+                    <RankingsTab
+                        stocks={universeStocks}
+                        watchlist={watchlist}
+                        onToggleWatchlist={toggleWatchlist}
                     />
                 )}
                 {activeTab === 'matrix' && <MatrixTab stocks={universeStocks} />}
@@ -299,7 +378,7 @@ function RSHubContent() {
                 {activeTab === 'events' && <EventsTab stocks={universeStocks} />}
 
                 {/* Footer Note */}
-                <div className="text-center text-xs text-gray-400 mt-8">
+                <div className="text-center text-xs mt-8 italic" style={{ color: PAPER.inkMuted, fontFamily: FONT_MONO, letterSpacing: '0.02em' }}>
                     REBH · RS Rating Hub · {universeStocks.length} stocks · Sun–Thu trading week · Calibrated vs TASI
                 </div>
             </div>
@@ -309,7 +388,16 @@ function RSHubContent() {
 
 export default function RSHubPage() {
     return (
-        <ShariahFilterPage variant="light">
+        <RsHubThemeProvider>
+            <RSHubThemeShell />
+        </RsHubThemeProvider>
+    );
+}
+
+function RSHubThemeShell() {
+    const { isDark } = useRsHubTheme();
+    return (
+        <ShariahFilterPage variant={isDark ? 'dark' : 'light'}>
             <RSHubContent />
         </ShariahFilterPage>
     );

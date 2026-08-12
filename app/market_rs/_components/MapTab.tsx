@@ -1,47 +1,42 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { StockData } from './types';
+import { FONT_SERIF, FONT_MONO, type PaperTokens } from './paperTheme';
+import { useRsHubTheme } from './RsHubThemeContext';
 
 type LabelDensity = 'hide' | 'S' | 'M' | 'L';
 
-// Design tokens lifted from the REBH reference build (REBH-RS-Rating-MOBILE.html)
-const T = {
-    border: '#e7e9ee',
-    ink: '#0f1420',
-    muted: '#8a92a3',
-    accentText: '#475065',
-    strong: '#16a34a', strongBg: '#ecfdf3',
-    improve: '#2563eb', improveBg: '#eff6ff',
-    neutral: '#d97706', neutralBg: '#fffbeb',
-    weak: '#dc2626', weakBg: '#fef2f2',
-};
+function mapTokens(paper: PaperTokens) {
+    return {
+        border: paper.cardBorder,
+        ink: paper.ink,
+        muted: paper.inkMuted,
+        accentText: paper.inkMuted,
+        strong: paper.strong, strongBg: paper.strongBg,
+        improve: paper.improve, improveBg: paper.improveBg,
+        neutral: paper.neutral, neutralBg: paper.neutralBg,
+        weak: paper.weak, weakBg: paper.weakBg,
+    };
+}
 
 function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
     return (
-        <button
-            type="button"
-            onClick={onClick}
-            className="rounded-2xl px-3 py-1 text-[11px] font-bold whitespace-nowrap transition-colors"
-            style={active
-                ? { background: T.ink, color: '#fff', border: `1px solid ${T.ink}` }
-                : { background: '#fff', color: T.accentText, border: `1px solid ${T.border}` }}
-        >
+        <button type="button" onClick={onClick} className={`stamp ${active ? 'active' : ''}`}>
             {children}
         </button>
     );
 }
 
-function UniSelect({ value, onChange, children }: { value: string; onChange: (v: string) => void; children: React.ReactNode }) {
+function UniSelect({ value, onChange, children, mutedColor }: { value: string; onChange: (v: string) => void; children: React.ReactNode; mutedColor: string }) {
     return (
         <div className="relative">
             <select
                 value={value}
                 onChange={e => onChange(e.target.value)}
-                className="appearance-none rounded-[9px] bg-white pl-3 pr-7 py-2 text-xs font-semibold cursor-pointer focus:outline-none"
-                style={{ border: `1px solid ${T.border}`, color: T.ink }}
+                className="paper-select appearance-none pl-3 pr-7 py-2 text-xs cursor-pointer"
             >
                 {children}
             </select>
-            <div className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-[10px]" style={{ color: T.muted }}>▾</div>
+            <div className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-[10px]" style={{ color: mutedColor }}>▾</div>
         </div>
     );
 }
@@ -54,6 +49,8 @@ function jitter(s: string) {
 }
 
 export function MapTab({ stocks }: { stocks: StockData[] }) {
+    const { paper: PAPER } = useRsHubTheme();
+    const T = useMemo(() => mapTokens(PAPER), [PAPER]);
     const [mode, setMode] = useState<'stocks' | 'sectors'>('stocks');
     const [levelField, setLevelField] = useState<'grp' | 'sec' | 'ind' | 'sub'>('grp');
     const [labelDensity, setLabelDensity] = useState<LabelDensity>('hide');
@@ -104,7 +101,11 @@ export function MapTab({ stocks }: { stocks: StockData[] }) {
         }
         const groups: Record<string, { rs: number[]; rs1w: number[]; cats: string[] }> = {};
         stocks.forEach(s => {
-            const key = s[levelField] || s.grp;
+            // Missing taxonomy becomes "Unclassified" — JS would otherwise stringify null → "null"
+            const raw = s[levelField] || s.grp;
+            const key = (raw == null || String(raw).trim() === '' || String(raw) === 'null')
+                ? 'Unclassified'
+                : String(raw);
             if (!groups[key]) groups[key] = { rs: [], rs1w: [], cats: [] };
             groups[key].rs.push(s.rs);
             groups[key].rs1w.push(s.rs1w);
@@ -185,33 +186,33 @@ export function MapTab({ stocks }: { stocks: StockData[] }) {
         <button
             onClick={() => setZoneFilter(prev => prev === key ? 'all' : key)}
             className="text-[11px] font-bold rounded-2xl px-2.5 py-1 transition-colors"
-            style={zoneFilter === key ? { background: color, color: '#fff' } : { background: bg, color }}
+            style={{ fontFamily: FONT_SERIF, ...(zoneFilter === key ? { background: color, color: PAPER.paperLight } : { background: bg, color }) }}
         >
             {label} {count}
         </button>
     );
 
     return (
-        <div className="bg-white rounded-[14px] overflow-hidden" style={{ border: `1px solid ${T.border}` }}>
+        <div className="binder-rail rounded-[4px] overflow-hidden" style={{ background: PAPER.paperLight, border: `1px solid ${T.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
             {/* Toolbar */}
             <div className="flex items-center gap-2.5 p-3.5 md:px-[18px] flex-wrap" style={{ borderBottom: `1px solid ${T.border}` }}>
-                <span className="font-extrabold text-sm" style={{ color: T.ink }}>RS Range Map</span>
+                <span className="font-extrabold text-sm" style={{ color: T.ink, fontFamily: FONT_SERIF }}>RS Range Map</span>
 
-                <div className="rounded-[9px] p-[3px] flex items-center" style={{ background: '#f2f4f8' }}>
+                <div className="rounded-[4px] p-[3px] flex items-center" style={{ background: PAPER.paper, border: `1px solid ${T.border}` }}>
                     <button
                         onClick={() => { setMode('stocks'); setPinnedName(null); }}
-                        className="px-4 py-1.5 rounded-[7px] text-xs font-semibold transition-colors"
-                        style={mode === 'stocks' ? { background: T.ink, color: '#fff' } : { color: '#5a6376' }}
+                        className="px-4 py-1.5 rounded-[3px] text-xs font-semibold transition-colors"
+                        style={{ fontFamily: FONT_SERIF, ...(mode === 'stocks' ? { background: T.ink, color: PAPER.paperLight } : { color: T.muted }) }}
                     >Stocks</button>
                     <button
                         onClick={() => { setMode('sectors'); setPinnedName(null); }}
-                        className="px-4 py-1.5 rounded-[7px] text-xs font-semibold transition-colors"
-                        style={mode === 'sectors' ? { background: T.ink, color: '#fff' } : { color: '#5a6376' }}
+                        className="px-4 py-1.5 rounded-[3px] text-xs font-semibold transition-colors"
+                        style={{ fontFamily: FONT_SERIF, ...(mode === 'sectors' ? { background: T.ink, color: PAPER.paperLight } : { color: T.muted }) }}
                     >Groups</button>
                 </div>
 
                 {mode === 'sectors' && (
-                    <UniSelect value={levelField} onChange={v => { setLevelField(v as any); setPinnedName(null); }}>
+                    <UniSelect value={levelField} mutedColor={T.muted} onChange={v => { setLevelField(v as any); setPinnedName(null); }}>
                         <option value="grp">Industry Group</option>
                         <option value="sec">Sector</option>
                         <option value="ind">Industry</option>
@@ -220,7 +221,7 @@ export function MapTab({ stocks }: { stocks: StockData[] }) {
                 )}
 
                 <div className="flex items-center gap-2 flex-wrap">
-                    {zoneChip('all', 'ALL', live.length, T.ink, '#f2f4f8')}
+                    {zoneChip('all', 'ALL', live.length, T.ink, PAPER.paper)}
                     {zoneChip('elite', 'STRONG', zoneCounts.elite, T.strong, T.strongBg)}
                     {zoneChip('strong', 'IMPROVE', zoneCounts.strong, T.improve, T.improveBg)}
                     {zoneChip('mid', 'NEUTRAL', zoneCounts.mid, T.neutral, T.neutralBg)}
@@ -228,9 +229,9 @@ export function MapTab({ stocks }: { stocks: StockData[] }) {
                 </div>
 
                 <div className="flex-1 hidden md:block" />
-                <span className="text-[11.5px] hidden lg:inline" style={{ color: T.accentText }}>X = RS today · Y = weekly change</span>
+                <span className="text-[11.5px] hidden lg:inline italic" style={{ color: T.accentText }}>X = RS today · Y = weekly change</span>
 
-                <span className="text-[11px] font-semibold" style={{ color: T.muted }}>Aa:</span>
+                <span className="text-[11px] font-semibold" style={{ color: T.muted, fontFamily: FONT_SERIF }}>Aa:</span>
                 {(['hide', 'S', 'M', 'L'] as LabelDensity[]).map(d => (
                     <Chip key={d} active={labelDensity === d} onClick={() => setLabelDensity(d)}>
                         {d === 'hide' ? 'Hide' : d}
@@ -240,48 +241,48 @@ export function MapTab({ stocks }: { stocks: StockData[] }) {
                 <button
                     onClick={triggerReplay}
                     disabled={isReplaying}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-[9px] text-xs font-semibold transition-colors"
-                    style={{ background: T.ink, color: '#fff', opacity: isReplaying ? 0.6 : 1 }}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-[3px] text-xs font-semibold transition-colors"
+                    style={{ background: T.ink, color: PAPER.paperLight, opacity: isReplaying ? 0.6 : 1, fontFamily: FONT_SERIF }}
                 >
                     {isReplaying ? 'Replaying...' : '▶ Replay this week'}
                 </button>
             </div>
 
             {/* Scatter Plot Chart */}
-            <div className="p-2 bg-white relative">
+            <div className="p-2 relative" style={{ background: PAPER.paperLight }}>
                 <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 'min(58vh, 520px)' }}>
                     <defs>
                         <filter id="mapShadow" x="-50%" y="-50%" width="200%" height="200%">
-                            <feDropShadow dx="0" dy="1.2" stdDeviation="1.6" floodColor="#0f1420" floodOpacity="0.28" />
+                            <feDropShadow dx="0" dy="1.2" stdDeviation="1.6" floodColor={PAPER.ink} floodOpacity="0.32" />
                         </filter>
                     </defs>
 
                     {/* Zone bands — match category thresholds 90 / 80 / 70 */}
-                    <rect x={sx(90)} y={pad.t} width={sx(100) - sx(90)} height={iH} fill={T.strongBg} opacity="0.45" />
-                    <rect x={sx(80)} y={pad.t} width={sx(90) - sx(80)} height={iH} fill={T.improveBg} opacity="0.35" />
-                    <rect x={sx(70)} y={pad.t} width={sx(80) - sx(70)} height={iH} fill={T.neutralBg} opacity="0.35" />
-                    <rect x={sx(0)} y={pad.t} width={sx(70) - sx(0)} height={iH} fill={T.weakBg} opacity="0.35" />
+                    <rect x={sx(90)} y={pad.t} width={sx(100) - sx(90)} height={iH} fill={T.strongBg} opacity="0.55" />
+                    <rect x={sx(80)} y={pad.t} width={sx(90) - sx(80)} height={iH} fill={T.improveBg} opacity="0.45" />
+                    <rect x={sx(70)} y={pad.t} width={sx(80) - sx(70)} height={iH} fill={T.neutralBg} opacity="0.45" />
+                    <rect x={sx(0)} y={pad.t} width={sx(70) - sx(0)} height={iH} fill={T.weakBg} opacity="0.45" />
 
-                    {/* Grid Lines */}
+                    {/* Grid Lines — graph-paper style */}
                     {[0, 20, 40, 60, 80, 100].map(v => (
                         <g key={`gx${v}`}>
-                            <line x1={sx(v)} y1={pad.t} x2={sx(v)} y2={sy(yMin)} stroke="#e5e7eb" strokeWidth="1" />
-                            <text x={sx(v)} y={H - 12} textAnchor="middle" className="fill-gray-400 font-mono" style={{ fontSize: '9.5px' }}>{v}</text>
+                            <line x1={sx(v)} y1={pad.t} x2={sx(v)} y2={sy(yMin)} stroke={T.border} strokeWidth="1" />
+                            <text x={sx(v)} y={H - 12} textAnchor="middle" fill={T.muted} fontFamily={FONT_MONO} style={{ fontSize: '9.5px' }}>{v}</text>
                         </g>
                     ))}
                     {Array.from({ length: 9 }, (_, i) => Math.round(yMin + ((yMax - yMin) / 8) * i)).map(v => (
                         <g key={`gy${v}`}>
-                            <line x1={pad.l} y1={sy(v)} x2={sx(xMax)} y2={sy(v)} stroke="#e5e7eb" strokeWidth="1" />
-                            <text x={pad.l - 8} y={sy(v) + 3} textAnchor="end" className="fill-gray-400 font-mono" style={{ fontSize: '9px' }}>{v}</text>
+                            <line x1={pad.l} y1={sy(v)} x2={sx(xMax)} y2={sy(v)} stroke={T.border} strokeWidth="1" />
+                            <text x={pad.l - 8} y={sy(v) + 3} textAnchor="end" fill={T.muted} fontFamily={FONT_MONO} style={{ fontSize: '9px' }}>{v}</text>
                         </g>
                     ))}
 
-                    <line x1={pad.l} y1={sy(0)} x2={sx(xMax)} y2={sy(0)} stroke="#9ca3af" strokeWidth="1.2" strokeDasharray="3,3" />
+                    <line x1={pad.l} y1={sy(0)} x2={sx(xMax)} y2={sy(0)} stroke={PAPER.marginRed} strokeWidth="1.2" strokeDasharray="3,3" opacity="0.6" />
 
-                    <text x={sx(35)} y={pad.t + 16} textAnchor="middle" style={{ fontSize: '10px', fontWeight: 800, fill: T.weak, letterSpacing: '1px' }}>WEAK</text>
-                    <text x={sx(75)} y={pad.t + 16} textAnchor="middle" style={{ fontSize: '10px', fontWeight: 800, fill: T.neutral, letterSpacing: '1px' }}>NEUTRAL</text>
-                    <text x={sx(85)} y={pad.t + 16} textAnchor="middle" style={{ fontSize: '10px', fontWeight: 800, fill: T.improve, letterSpacing: '1px' }}>IMPROVE</text>
-                    <text x={sx(95)} y={pad.t + 16} textAnchor="middle" style={{ fontSize: '10px', fontWeight: 800, fill: T.strong, letterSpacing: '1px' }}>STRONG</text>
+                    <text x={sx(35)} y={pad.t + 16} textAnchor="middle" style={{ fontSize: '10px', fontWeight: 800, fill: T.weak, letterSpacing: '1px', fontFamily: FONT_SERIF }}>WEAK</text>
+                    <text x={sx(75)} y={pad.t + 16} textAnchor="middle" style={{ fontSize: '10px', fontWeight: 800, fill: T.neutral, letterSpacing: '1px', fontFamily: FONT_SERIF }}>NEUTRAL</text>
+                    <text x={sx(85)} y={pad.t + 16} textAnchor="middle" style={{ fontSize: '10px', fontWeight: 800, fill: T.improve, letterSpacing: '1px', fontFamily: FONT_SERIF }}>IMPROVE</text>
+                    <text x={sx(95)} y={pad.t + 16} textAnchor="middle" style={{ fontSize: '10px', fontWeight: 800, fill: T.strong, letterSpacing: '1px', fontFamily: FONT_SERIF }}>STRONG</text>
 
                     {(() => {
                         const total = filtered.length;
@@ -301,7 +302,10 @@ export function MapTab({ stocks }: { stocks: StockData[] }) {
                             if ((!dim && (p.isGroup || (labelDensity !== 'hide' && shouldShowLabel(p, idx, total)))) || isActive) {
                                 const fs = (isActive || p.isGroup ? 10.5 : 9.5);
                                 const flip = cx + r + 4 + p.name.length * fs * 0.58 > sx(xMax) - 4;
-                                labels.push({ x: flip ? cx - r - 4 : cx + r + 4, y: Math.max(pad.t + 14, Math.min(sy(yMin) - 4, cy + 4)), text: p.name, strong: isActive || p.isGroup, anchor: flip ? 'end' : 'start', fs });
+                                // Only truly "active" points are protected from collision pruning.
+                                // Group labels are no longer force-kept, so they get thinned like stock labels
+                                // instead of stacking on top of one another when there are many groups.
+                                labels.push({ x: flip ? cx - r - 4 : cx + r + 4, y: Math.max(pad.t + 14, Math.min(sy(yMin) - 4, cy + 4)), text: p.name, strong: isActive, anchor: flip ? 'end' : 'start', fs });
                             }
 
                             return (
@@ -312,7 +316,7 @@ export function MapTab({ stocks }: { stocks: StockData[] }) {
                                     <circle
                                         cx={cx} cy={cy} r={r}
                                         fill={zone.color} fillOpacity={dim ? 0.15 : 0.92}
-                                        stroke="#fff" strokeWidth={1.8}
+                                        stroke={PAPER.paperLight} strokeWidth={1.8}
                                         filter={(p.isGroup || isActive) && !dim ? 'url(#mapShadow)' : undefined}
                                         style={{ cursor: 'pointer' }}
                                         onMouseEnter={() => setHoverName(p.name)}
@@ -333,7 +337,9 @@ export function MapTab({ stocks }: { stocks: StockData[] }) {
                             <>
                                 {rendered}
                                 {kept.map((L, i) => (
-                                    <text key={i} x={L.x} y={L.y} fontSize={L.fs} fontWeight={L.strong ? 800 : 700} fill={T.ink} textAnchor={L.anchor}>{L.text}</text>
+                                    // pointerEvents="none" so label text never intercepts clicks meant for the
+                                    // circle underneath it — fixes "can't click points in Groups mode".
+                                    <text key={i} x={L.x} y={L.y} pointerEvents="none" fontSize={L.fs} fontWeight={L.strong ? 800 : 700} fill={T.ink} textAnchor={L.anchor} fontFamily={FONT_SERIF}>{L.text}</text>
                                 ))}
                             </>
                         );
@@ -344,30 +350,36 @@ export function MapTab({ stocks }: { stocks: StockData[] }) {
                 {activePoint && (() => {
                     const leftPct = (sx(activePoint.rs) / W) * 100;
                     const topPct = (sy(activePoint.delta) / H) * 100;
-                    const flip = leftPct > 68;
+                    const flipX = leftPct > 68;
+                    // Flip the card above the point when the point sits in the lower half of the chart,
+                    // so the card never sits directly under the cursor covering the numbers.
+                    const flipY = topPct > 55;
                     return (
                         <div
-                            className="absolute z-10 rounded-[10px] p-3 bg-white shadow-lg pointer-events-none"
+                            className="absolute z-10 rounded-[4px] p-3 pointer-events-none"
                             style={{
+                                background: PAPER.paperLight,
                                 border: `1px solid ${T.border}`,
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
                                 width: 220,
-                                left: flip ? undefined : `calc(${leftPct}% + 16px)`,
-                                right: flip ? `calc(${100 - leftPct}% + 16px)` : undefined,
-                                top: `max(6px, calc(${topPct}% - 20px))`,
+                                left: flipX ? undefined : `calc(${leftPct}% + 16px)`,
+                                right: flipX ? `calc(${100 - leftPct}% + 16px)` : undefined,
+                                top: flipY ? undefined : `calc(${topPct}% + 16px)`,
+                                bottom: flipY ? `calc(${100 - topPct}% + 16px)` : undefined,
                             }}
                         >
                             <div className="flex items-center justify-between">
-                                <span className="text-[13px] font-extrabold" style={{ color: T.ink }}>
+                                <span className="text-[13px] font-extrabold" style={{ color: T.ink, fontFamily: FONT_SERIF }}>
                                     {activePoint.label}{activePoint.isGroup ? '' : ` · ${activePoint.name}`}
                                 </span>
                                 {pinnedName === activePoint.name && !hoverName && (
                                     <button onClick={() => setPinnedName(null)} className="pointer-events-auto text-[10px]" style={{ color: T.muted }}>✕</button>
                                 )}
                             </div>
-                            <div className="text-[11.5px] mt-1" style={{ color: '#3a4256' }}>
+                            <div className="text-[11.5px] mt-1" style={{ color: PAPER.ink }}>
                                 RS <b style={{ color: getZone(activePoint.rs).color }}>{activePoint.rs}</b> · {activePoint.cat} · Δ1W {activePoint.endRS - activePoint.startRS >= 0 ? '+' : ''}{activePoint.endRS - activePoint.startRS}
                             </div>
-                            <div className="text-[10.5px] mt-1" style={{ color: T.muted }}>RS Zone: {getZone(activePoint.rs).label}</div>
+                            <div className="text-[10.5px] mt-1" style={{ color: T.muted, fontFamily: FONT_MONO }}>RS Zone: {getZone(activePoint.rs).label}</div>
                         </div>
                     );
                 })()}

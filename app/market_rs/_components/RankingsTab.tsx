@@ -5,11 +5,39 @@ import Link from 'next/link';
 import { StockData, getCatColor, getCatText } from './types';
 import { API_BASE_URL } from '@/lib/api/config';
 import { authFetch } from '@/lib/api/authFetch';
+import { FONT_SERIF, FONT_MONO } from './paperTheme';
+import { Stamp, LedgerLabel } from './PaperUI';
+import { useRsHubTheme } from './RsHubThemeContext';
 
-type FilterKey = 'all' | '90' | '80' | '70' | 'blue' | 'up' | 'dn' | 'rsnh' | 'focus' | 'dist' | 'burst' | 'bull' | 'bear' | 'res' | 'STRONG' | 'IMPROVE' | 'NEUTRAL' | 'WEAK';
+type FilterKey = 'all' | '90' | '80' | '70' | 'blue' | 'up' | 'dn' | 'rsnh' | 'focus' | 'dist' | 'burst' | 'bull' | 'bear' | 'res' | 'STRONG' | 'IMPROVE' | 'NEUTRAL' | 'WEAK' | 'momentum';
 type SortKey = 's' | 'c' | 'rs' | 'd1w' | 'm1' | 'm3' | 'm6' | 'm9' | 'm12' | 'age' | 'grp';
 
-const CMP_COLORS = ['#0f1420', '#2b4bf2', '#d97706'];
+interface SortConfig {
+    key: SortKey;
+    direction: 'asc' | 'desc';
+}
+
+function SortIndicator({ sortConfigs, colKey, paper }: { sortConfigs: SortConfig[]; colKey: SortKey; paper: { inkMuted: string; improve: string; paperLight: string } }) {
+    const idx = sortConfigs.findIndex(c => c.key === colKey);
+    if (idx === -1) {
+        return (
+            <span className="inline-flex flex-col ml-1 leading-[8px] opacity-50" style={{ color: paper.inkMuted, fontSize: 8 }}>
+                <span>▲</span><span>▼</span>
+            </span>
+        );
+    }
+    return (
+        <span className="inline-flex items-center ml-1 gap-0.5">
+            <span className="text-[10px] font-bold">{sortConfigs[idx].direction === 'asc' ? '▲' : '▼'}</span>
+            <span
+                className="inline-flex items-center justify-center w-4 h-4 text-[9px] font-bold rounded-full"
+                style={{ background: paper.improve, color: paper.paperLight }}
+            >
+                {idx + 1}
+            </span>
+        </span>
+    );
+}
 
 function wizardChecks(x: StockData) {
     const trailVals = (x.trail || []).map((p: any) => p[1]).filter((v: any) => typeof v === 'number');
@@ -37,12 +65,14 @@ export function RankingsTab({
     watchlist: string[];
     onToggleWatchlist: (symbol: string) => void;
 }) {
+    const { paper: PAPER } = useRsHubTheme();
+    const CMP_COLORS = [PAPER.ink, PAPER.improve, PAPER.neutral];
+
     const [selectedStock, setSelectedStock] = useState<StockData | null>(null);
     const [search, setSearch] = useState('');
     const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
     const [levelField, setLevelField] = useState<'grp' | 'sec' | 'ind' | 'sub'>('grp');
-    const [sortKey, setSortKey] = useState<SortKey>('rs');
-    const [sortDir, setSortDir] = useState<-1 | 1>(-1);
+    const [sortConfigs, setSortConfigs] = useState<SortConfig[]>([{ key: 'rs', direction: 'desc' }]);
 
     const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [historyLoading, setHistoryLoading] = useState(false);
@@ -65,7 +95,28 @@ export function RankingsTab({
         bear: stocks.filter(s => s.sig?.includes('bear')).length,
     }), [stocks]);
 
-    const filtered = useMemo(() => {
+    const sortValue = useCallback((x: StockData, key: SortKey): string | number => {
+        if (key === 'd1w') return x.rs - x.rs1w;
+        if (key === 'age') return x.age ?? (x.m1 - x.m12);
+        if (key === 'grp') return (x[levelField] || x.grp || '') as string;
+        if (key === 's' || key === 'c') return (x[key] || '') as string;
+        return (x[key as keyof StockData] as number) ?? 0;
+    }, [levelField]);
+
+    const handleSort = useCallback((key: SortKey) => {
+        setSortConfigs(prev => {
+            const idx = prev.findIndex(c => c.key === key);
+            if (idx === -1) return [...prev, { key, direction: 'asc' }];
+            if (prev[idx].direction === 'asc') {
+                const next = [...prev];
+                next[idx] = { ...next[idx], direction: 'desc' };
+                return next;
+            }
+            return prev.filter((_, i) => i !== idx);
+        });
+    }, []);
+
+    const filteredOnly = useMemo(() => {
         let result = [...stocks];
         if (search) {
             const q = search.toLowerCase();
@@ -88,30 +139,60 @@ export function RankingsTab({
             case 'burst': result = result.filter(s => s.sig?.includes('burst')); break;
             case 'bull': result = result.filter(s => s.sig?.includes('bull')); break;
             case 'bear': result = result.filter(s => s.sig?.includes('bear')); break;
+            case 'momentum': result = result.filter(s => Math.abs(s.rs - s.rs1w) >= 10); break;
         }
+        return result;
+    }, [stocks, search, activeFilter]);
 
-        const val = (x: StockData): string | number => {
-            if (sortKey === 'd1w') return x.rs - x.rs1w;
-            if (sortKey === 'age') return x.age ?? (x.m1 - x.m12);
-            if (sortKey === 's' || sortKey === 'c' || sortKey === 'grp') return (x[sortKey] || '') as string;
-            return (x[sortKey] as number) ?? 0;
-        };
+    const filtered = useMemo(() => {
+        const result = [...filteredOnly];
+        const configs = sortConfigs.length > 0 ? sortConfigs : [{ key: 'rs' as SortKey, direction: 'desc' as const }];
         result.sort((a, b) => {
-            const va = val(a), vb = val(b);
-            if (typeof va === 'string' && typeof vb === 'string') return va.localeCompare(vb) * sortDir * -1;
-            return ((va as number) - (vb as number)) * sortDir;
+            for (const config of configs) {
+                const va = sortValue(a, config.key);
+                const vb = sortValue(b, config.key);
+                if (va === vb) continue;
+                if (typeof va === 'string' && typeof vb === 'string') {
+                    const cmp = va.localeCompare(vb);
+                    if (cmp !== 0) return config.direction === 'asc' ? cmp : -cmp;
+                } else {
+                    const diff = Number(va) - Number(vb);
+                    if (diff !== 0) return config.direction === 'asc' ? diff : -diff;
+                }
+            }
+            return 0;
         });
         return result;
-    }, [stocks, search, activeFilter, sortKey, sortDir]);
+    }, [filteredOnly, sortConfigs, sortValue]);
 
     useEffect(() => {
-        const handler = (e: Event) => {
+        if (activeFilter === 'burst') setSortConfigs([{ key: 'm1', direction: 'desc' }]);
+        else if (activeFilter === 'momentum') setSortConfigs([{ key: 'd1w', direction: 'desc' }]);
+    }, [activeFilter]);
+
+    useEffect(() => {
+        const onFilter = (e: Event) => {
             const f = (e as CustomEvent).detail as FilterKey;
-            if (f) setActiveFilter(f === 'all' ? 'all' : f);
+            if (f) {
+                setSearch('');
+                setActiveFilter(f === 'all' ? 'all' : f);
+            }
         };
-        window.addEventListener('rs-hub-filter', handler);
-        return () => window.removeEventListener('rs-hub-filter', handler);
-    }, []);
+        const onSelect = (e: Event) => {
+            const sym = String((e as CustomEvent).detail || '');
+            if (!sym) return;
+            setActiveFilter('all');
+            setSearch(sym);
+            const st = stocks.find(s => s.s === sym);
+            if (st) setSelectedStock(st);
+        };
+        window.addEventListener('rs-hub-filter', onFilter);
+        window.addEventListener('rs-hub-select', onSelect);
+        return () => {
+            window.removeEventListener('rs-hub-filter', onFilter);
+            window.removeEventListener('rs-hub-select', onSelect);
+        };
+    }, [stocks]);
 
     useEffect(() => {
         if (filtered.length > 0) {
@@ -181,16 +262,21 @@ export function RankingsTab({
     }, [filtered, selectedStock, onToggleWatchlist, toggleCompare, handleOpenHistory]);
 
     const exportCSV = () => {
+        const csvCell = (value: unknown) => {
+            const text = value == null ? '' : String(value);
+            return `"${text.replace(/"/g, '""')}"`;
+        };
+
         const headers = ['Symbol', 'Company', 'RS', 'D1W', '1M', '3M', '6M', '9M', '12M', 'Trend', 'Group', 'Signals'];
         const rows = filtered.map(st => [
             st.s,
-            `"${st.c.replace(/"/g, '""')}"`,
+            csvCell(st.c),
             st.rs,
             st.rs - st.rs1w,
             st.m1, st.m3, st.m6, st.m9, st.m12,
             st.ageTag || '',
-            `"${st.grp.replace(/"/g, '""')}"`,
-            `"${[
+            csvCell(st.grp),
+            csvCell([
                 st.sig?.includes('blue') ? 'RS_LEAD' : '',
                 (st.rsnh || st.sig?.includes('rsnh')) ? 'RS_1Y_HIGH' : '',
                 (st.res || st.sig?.includes('res')) ? 'RESILIENT' : '',
@@ -198,7 +284,7 @@ export function RankingsTab({
                 (st.dist || st.sig?.includes('dist')) ? 'DIST' : '',
                 st.sig?.includes('up') ? 'UP' : '',
                 st.sig?.includes('dn') ? 'DOWN' : '',
-            ].filter(Boolean).join('|')}"`
+            ].filter(Boolean).join('|')),
         ]);
         const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
         const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -209,6 +295,7 @@ export function RankingsTab({
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     };
 
     const percentile = useMemo(() => {
@@ -229,22 +316,25 @@ export function RankingsTab({
         [compare, stocks]
     );
 
-    const toggleSort = (k: SortKey) => {
-        if (sortKey === k) setSortDir(d => (d === -1 ? 1 : -1));
-        else { setSortKey(k); setSortDir(-1); }
+    const toggleSort = handleSort;
+
+    const th = (k: SortKey, label: string, align: 'left' | 'right' = 'left') => {
+        const isSorted = sortConfigs.some(c => c.key === k);
+        return (
+            <th
+                key={k}
+                onClick={() => toggleSort(k)}
+                className={`px-2 py-2.5 text-${align} text-[9.5px] uppercase cursor-pointer select-none whitespace-nowrap${isSorted ? ' sort-active' : ''}`}
+                style={{ fontFamily: FONT_SERIF, letterSpacing: '0.08em' }}
+                title="Click: asc → desc → remove. Shift+click adds secondary sort."
+            >
+                <span className="inline-flex items-center">
+                    {label}
+                    <SortIndicator sortConfigs={sortConfigs} colKey={k} paper={PAPER} />
+                </span>
+            </th>
+        );
     };
-
-    const chipClass = (f: FilterKey) =>
-        `px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-colors whitespace-nowrap cursor-pointer ${activeFilter === f ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`;
-
-    const th = (k: SortKey, label: string, align: 'left' | 'right' = 'left') => (
-        <th
-            onClick={() => toggleSort(k)}
-            className={`px-2 py-2.5 text-${align} text-[9.5px] font-mono text-gray-400 tracking-widest uppercase cursor-pointer hover:text-gray-700 select-none whitespace-nowrap`}
-        >
-            {label}{sortKey === k ? (sortDir === -1 ? ' ▾' : ' ▴') : ''}
-        </th>
-    );
 
     const wizard = selectedStock ? wizardChecks(selectedStock) : null;
     const trailPersist = selectedStock?.trail
@@ -252,64 +342,85 @@ export function RankingsTab({
         : null;
 
     return (
-        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-            <div className="flex items-center gap-2 p-3 border-b border-gray-200 flex-wrap bg-white">
+        <div
+            className="binder-rail rounded-[4px] overflow-hidden"
+            style={{ background: PAPER.paperLight, border: `1px solid ${PAPER.cardBorder}`, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
+        >
+            <div className="flex items-center gap-2 p-3 dashed-divider flex-wrap">
                 <input
                     type="text"
                     placeholder="Search symbol or name…"
                     value={search}
                     onChange={e => setSearch(e.target.value)}
-                    className="border border-gray-200 rounded-lg px-3 py-2 text-sm w-48 focus:outline-none focus:border-gray-400"
+                    className="paper-input px-3 py-2 text-sm w-48"
                 />
                 <select
                     value={levelField}
                     onChange={e => setLevelField(e.target.value as any)}
-                    className="border border-gray-200 rounded-lg px-3 py-2 text-xs font-semibold text-gray-700 cursor-pointer focus:outline-none"
+                    className="paper-select px-3 py-2 text-xs cursor-pointer"
                 >
                     <option value="grp">Industry Group</option>
                     <option value="sec">Sector</option>
                     <option value="ind">Industry</option>
                     <option value="sub">Sub Industry</option>
                 </select>
-                <span className={chipClass('all')} onClick={() => setActiveFilter('all')}>All</span>
-                <span className={chipClass('90')} onClick={() => setActiveFilter('90')}>90+</span>
-                <span className={chipClass('80')} onClick={() => setActiveFilter('80')}>80+</span>
-                <span className={chipClass('70')} onClick={() => setActiveFilter('70')}>70+</span>
-                <span className={chipClass('blue')} onClick={() => setActiveFilter('blue')}>RS Lead <b className="ml-1 text-[10px] opacity-70">{counts.blue}</b></span>
-                <span className={chipClass('up')} onClick={() => setActiveFilter('up')}>Upgraded <b className="ml-1 text-[10px] opacity-70">{counts.up}</b></span>
-                <span className={chipClass('dn')} onClick={() => setActiveFilter('dn')}>Downgraded <b className="ml-1 text-[10px] opacity-70">{counts.dn}</b></span>
-                <span className={chipClass('rsnh')} onClick={() => setActiveFilter('rsnh')}>RS 1Y-High <b className="ml-1 text-[10px] opacity-70">{counts.rsnh}</b></span>
-                <span className={chipClass('focus')} onClick={() => setActiveFilter('focus')}>Focus <b className="ml-1 text-[10px] opacity-70">{counts.focus}</b></span>
-                <span className={chipClass('res')} onClick={() => setActiveFilter('res')}>Resilient <b className="ml-1 text-[10px] opacity-70">{counts.res}</b></span>
-                <span className={chipClass('dist')} onClick={() => setActiveFilter('dist')}>Distribution <b className="ml-1 text-[10px] opacity-70">{counts.dist}</b></span>
-                <span className={chipClass('burst')} onClick={() => setActiveFilter('burst')}>Burst <b className="ml-1 text-[10px] opacity-70">{counts.burst}</b></span>
-                <span className={chipClass('bull')} onClick={() => setActiveFilter('bull')}>Bullish <b className="ml-1 text-[10px] opacity-70">{counts.bull}</b></span>
-                <span className={chipClass('bear')} onClick={() => setActiveFilter('bear')}>Bearish <b className="ml-1 text-[10px] opacity-70">{counts.bear}</b></span>
+                <Stamp active={activeFilter === 'all'} onClick={() => setActiveFilter('all')}>All</Stamp>
+                <Stamp active={activeFilter === '90'} onClick={() => setActiveFilter('90')}>90+</Stamp>
+                <Stamp active={activeFilter === '80'} onClick={() => setActiveFilter('80')}>80+</Stamp>
+                <Stamp active={activeFilter === '70'} onClick={() => setActiveFilter('70')}>70+</Stamp>
+                <Stamp active={activeFilter === 'blue'} onClick={() => setActiveFilter('blue')}>RS Lead ({counts.blue})</Stamp>
+                <Stamp active={activeFilter === 'up'} onClick={() => setActiveFilter('up')} green>Upgraded ({counts.up})</Stamp>
+                <Stamp active={activeFilter === 'dn'} onClick={() => setActiveFilter('dn')}>Downgraded ({counts.dn})</Stamp>
+                <Stamp active={activeFilter === 'rsnh'} onClick={() => setActiveFilter('rsnh')}>RS 1Y-High ({counts.rsnh})</Stamp>
+                <Stamp active={activeFilter === 'focus'} onClick={() => setActiveFilter('focus')} tiltRight>Focus ({counts.focus})</Stamp>
+                <Stamp active={activeFilter === 'res'} onClick={() => setActiveFilter('res')}>Resilient ({counts.res})</Stamp>
+                <Stamp active={activeFilter === 'dist'} onClick={() => setActiveFilter('dist')}>Distribution ({counts.dist})</Stamp>
+                <Stamp active={activeFilter === 'burst'} onClick={() => setActiveFilter('burst')}>Burst ({counts.burst})</Stamp>
+                <Stamp active={activeFilter === 'bull'} onClick={() => setActiveFilter('bull')} green>Bullish ({counts.bull})</Stamp>
+                <Stamp active={activeFilter === 'bear'} onClick={() => setActiveFilter('bear')}>Bearish ({counts.bear})</Stamp>
 
                 {compare.length > 0 && (
                     <button
                         onClick={() => compare.length >= 2 ? setShowCompare(true) : undefined}
-                        className="px-3 py-1.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200"
+                        className="px-3 py-1.5 rounded-full text-[11px] font-bold"
+                        style={{ background: PAPER.improveBg, color: PAPER.improve, border: `1px solid ${PAPER.improveBorder}`, fontFamily: FONT_SERIF }}
                     >
                         Compare {compare.length}/3 {compare.length >= 2 ? '↗' : ''}
                     </button>
                 )}
 
-                <button
-                    onClick={exportCSV}
-                    className="ml-auto flex items-center gap-1.5 px-4 py-2 border border-gray-200 bg-white rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                >
-                    Export CSV
-                </button>
+                <div className="ml-auto flex items-center gap-2">
+                    {sortConfigs.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={() => setSortConfigs([{ key: 'rs', direction: 'desc' }])}
+                            className="text-[10px] font-semibold underline-offset-2 hover:underline"
+                            style={{ color: PAPER.inkMuted, fontFamily: FONT_SERIF }}
+                            title="Reset to RS descending"
+                        >
+                            Clear sort
+                        </button>
+                    )}
+                    <span className="text-xs font-semibold" style={{ color: PAPER.inkMuted, fontFamily: FONT_SERIF }}>
+                        {filtered.length} stocks
+                    </span>
+                    <button
+                        onClick={exportCSV}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-[3px] text-xs font-semibold"
+                        style={{ background: PAPER.brassLight, color: PAPER.ink, border: `1px solid ${PAPER.brass}`, fontFamily: FONT_SERIF }}
+                    >
+                        Export CSV
+                    </button>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] min-h-[620px]">
-                <div className="overflow-auto max-h-[620px] border-r border-gray-200">
-                    <table className="w-full border-collapse">
-                        <thead className="bg-white sticky top-0 z-10">
-                            <tr className="border-b border-gray-200">
+                <div className="overflow-auto max-h-[620px] scrollbar-ledger" style={{ borderRight: `1px solid ${PAPER.cardBorder}` }}>
+                    <table className="w-full border-collapse ledger-table">
+                        <thead className="sticky top-0 z-10" style={{ background: PAPER.brassLight }}>
+                            <tr>
                                 <th className="w-6 px-2 py-2.5"></th>
-                                <th className="w-6 px-1 py-2.5 text-[9px] text-gray-400 font-mono">#</th>
+                                <th className="w-6 px-1 py-2.5 text-[9px]" style={{ fontFamily: FONT_MONO, color: PAPER.inkMuted }}>#</th>
                                 {th('s', 'Symbol')}
                                 {th('c', 'Company')}
                                 {th('rs', 'RS')}
@@ -318,7 +429,7 @@ export function RankingsTab({
                                 {th('m3', '3M')}
                                 {th('m12', '12M')}
                                 {th('age', 'Trend')}
-                                <th className="px-2 py-2.5 text-right text-[9.5px] font-mono text-gray-400 tracking-widest uppercase">Signals</th>
+                                <th className="px-2 py-2.5 text-right text-[9.5px] uppercase" style={{ fontFamily: FONT_SERIF, letterSpacing: '0.08em' }}>Signals</th>
                                 {th('grp', levelField === 'grp' ? 'Group' : levelField === 'sec' ? 'Sector' : levelField === 'ind' ? 'Industry' : 'Sub')}
                             </tr>
                         </thead>
@@ -331,39 +442,43 @@ export function RankingsTab({
                                     <tr
                                         key={st.s}
                                         onClick={() => setSelectedStock(st)}
-                                        className={`border-b border-gray-50 cursor-pointer ${isSel ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}
+                                        className={`cursor-pointer ${isSel ? 'selected' : ''}`}
                                     >
                                         <td className="px-2 py-2 text-center" onClick={(e) => { e.stopPropagation(); onToggleWatchlist(st.s); }}>
-                                            <span className={`text-base ${isFav ? 'text-amber-400' : 'text-gray-300'}`}>★</span>
+                                            <span className="text-base" style={{ color: isFav ? PAPER.brass : PAPER.cardBorder }}>★</span>
                                         </td>
-                                        <td className="px-1 py-2 text-[9px] font-mono text-gray-400 text-center">{idx + 1}</td>
-                                        <td className="px-2 py-2 text-xs font-bold font-mono">{st.s}</td>
-                                        <td className="px-2 py-2 text-xs text-gray-600 font-semibold max-w-[120px] truncate">{st.c}</td>
-                                        <td className={`px-2 py-2 text-sm font-extrabold ${getCatText(st.cat)}`}>{st.rs}</td>
-                                        <td className={`px-2 py-2 text-xs font-mono font-bold ${d1w > 0 ? 'text-green-600' : d1w < 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                                        <td className="px-1 py-2 text-[9px] text-center" style={{ color: PAPER.inkMuted }}>{idx + 1}</td>
+                                        <td className="px-2 py-2 text-xs font-bold">{st.s}</td>
+                                        <td className="px-2 py-2 text-xs font-semibold max-w-[120px] truncate" style={{ fontFamily: FONT_SERIF, color: PAPER.ink }}>{st.c}</td>
+                                        <td className="emboss px-2 py-2 text-sm" style={{ color: getCatText(st.cat, PAPER) }}>{st.rs}</td>
+                                        <td className={`px-2 py-2 text-xs font-bold ${d1w > 0 ? 'num-positive' : d1w < 0 ? 'num-negative' : ''}`} style={d1w === 0 ? { color: PAPER.inkMuted } : undefined}>
                                             {d1w > 0 ? '+' : ''}{d1w}
                                         </td>
-                                        <td className="px-2 py-2 text-[11px] font-mono text-gray-600">{st.m1}</td>
-                                        <td className="px-2 py-2 text-[11px] font-mono text-gray-600">{st.m3}</td>
-                                        <td className="px-2 py-2 text-[11px] font-mono text-gray-600">{st.m12}</td>
+                                        <td className="px-2 py-2 text-[11px]" style={{ color: PAPER.inkMuted }}>{st.m1}</td>
+                                        <td className="px-2 py-2 text-[11px]" style={{ color: PAPER.inkMuted }}>{st.m3}</td>
+                                        <td className="px-2 py-2 text-[11px]" style={{ color: PAPER.inkMuted }}>{st.m12}</td>
                                         <td className="px-2 py-2">
-                                            <span className={`text-[9px] font-extrabold rounded px-1.5 py-0.5 ${
-                                                st.ageTag === 'YOUNG' ? 'bg-green-100 text-green-700' :
-                                                st.ageTag === 'MATURE' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'
-                                            }`}>{st.ageTag || '—'}</span>
+                                            <span
+                                                className="text-[9px] font-extrabold rounded-sm px-1.5 py-0.5"
+                                                style={{
+                                                    fontFamily: FONT_SERIF,
+                                                    background: st.ageTag === 'YOUNG' ? PAPER.strongBg : st.ageTag === 'MATURE' ? PAPER.weakBg : PAPER.paper,
+                                                    color: st.ageTag === 'YOUNG' ? PAPER.strong : st.ageTag === 'MATURE' ? PAPER.weak : PAPER.inkMuted,
+                                                }}
+                                            >{st.ageTag || '—'}</span>
                                         </td>
                                         <td className="px-2 py-2 text-right">
                                             <div className="flex gap-0.5 justify-end flex-wrap">
-                                                {st.sig?.includes('blue') && <span className="bg-blue-100 text-blue-700 px-1 py-0.5 rounded text-[8px] font-bold">LEAD</span>}
-                                                {(st.rsnh || st.sig?.includes('rsnh')) && <span className="bg-amber-100 text-amber-700 px-1 py-0.5 rounded text-[8px] font-bold">1Y</span>}
-                                                {st.sig?.includes('up') && <span className="bg-green-100 text-green-700 px-1 py-0.5 rounded text-[8px] font-bold">UP</span>}
-                                                {st.sig?.includes('dn') && <span className="bg-red-100 text-red-700 px-1 py-0.5 rounded text-[8px] font-bold">DN</span>}
-                                                {(st.focus || st.sig?.includes('focus')) && <span className="bg-purple-100 text-purple-700 px-1 py-0.5 rounded text-[8px] font-bold">FOC</span>}
-                                                {(st.res || st.sig?.includes('res')) && <span className="bg-sky-100 text-sky-800 px-1 py-0.5 rounded text-[8px] font-bold">RES</span>}
-                                                {(st.dist || st.sig?.includes('dist')) && <span className="bg-rose-100 text-rose-700 px-1 py-0.5 rounded text-[8px] font-bold">DIST</span>}
+                                                {st.sig?.includes('blue') && <SignalTag color={PAPER.improve} bg={PAPER.improveBg}>LEAD</SignalTag>}
+                                                {(st.rsnh || st.sig?.includes('rsnh')) && <SignalTag color={PAPER.neutral} bg={PAPER.neutralBg}>1Y</SignalTag>}
+                                                {st.sig?.includes('up') && <SignalTag color={PAPER.strong} bg={PAPER.strongBg}>UP</SignalTag>}
+                                                {st.sig?.includes('dn') && <SignalTag color={PAPER.weak} bg={PAPER.weakBg}>DN</SignalTag>}
+                                                {(st.focus || st.sig?.includes('focus')) && <SignalTag color="#6B4C8A" bg="#E7DFEE">FOC</SignalTag>}
+                                                {(st.res || st.sig?.includes('res')) && <SignalTag color="#3F6B7A" bg="#DEE7EA">RES</SignalTag>}
+                                                {(st.dist || st.sig?.includes('dist')) && <SignalTag color="#8A3F52" bg="#EDDDE1">DIST</SignalTag>}
                                             </div>
                                         </td>
-                                        <td className="px-2 py-2 text-[11px] text-gray-500 max-w-[100px] truncate">{st[levelField] || st.grp}</td>
+                                        <td className="px-2 py-2 text-[11px] max-w-[100px] truncate" style={{ color: PAPER.inkMuted }}>{st[levelField] || st.grp}</td>
                                     </tr>
                                 );
                             })}
@@ -372,31 +487,36 @@ export function RankingsTab({
                 </div>
 
                 {/* Detail */}
-                <div className="p-4 overflow-y-auto max-h-[620px] bg-[#fafbfd]">
+                <div className="p-4 overflow-y-auto max-h-[620px] scrollbar-ledger" style={{ background: PAPER.paper }}>
                     {selectedStock ? (
                         <div>
                             <div className="flex items-start justify-between mb-2">
                                 <div>
-                                    <h2 className="text-xl font-extrabold font-mono tracking-tight">
+                                    <h2 className="emboss text-xl tracking-tight">
                                         {selectedStock.s}{' '}
                                         <span
-                                            className={`cursor-pointer ${watchlist.includes(selectedStock.s) ? 'text-amber-400' : 'text-gray-300'}`}
+                                            className="cursor-pointer"
+                                            style={{ color: watchlist.includes(selectedStock.s) ? PAPER.brass : PAPER.cardBorder }}
                                             onClick={() => onToggleWatchlist(selectedStock.s)}
                                         >★</span>
                                     </h2>
-                                    <p className="text-xs text-gray-500">{selectedStock.c}</p>
-                                    <p className="text-[10px] text-gray-400 mt-0.5">
+                                    <p className="text-xs" style={{ color: PAPER.inkMuted, fontFamily: FONT_SERIF }}>{selectedStock.c}</p>
+                                    <p className="text-[10px] mt-0.5" style={{ color: PAPER.inkMuted }}>
                                         {selectedStock.sec} ▸ {selectedStock.grp} ▸ {selectedStock.ind} ▸ {selectedStock.sub}
                                     </p>
                                 </div>
-                                <span className={`px-3 py-2 rounded-xl text-xl font-extrabold border ${getCatColor(selectedStock.cat)}`}>{selectedStock.rs}</span>
+                                <span
+                                    className="emboss px-3 py-2 rounded-[3px] text-xl"
+                                    style={{ ...getCatColor(selectedStock.cat, PAPER), border: `1px solid ${getCatColor(selectedStock.cat, PAPER).borderColor}` }}
+                                >{selectedStock.rs}</span>
                             </div>
 
                             {/* Histogram */}
-                            <div className="border border-gray-200 rounded-lg p-3 mb-3 bg-white">
-                                <div className="text-[9px] text-gray-400 font-mono tracking-wider uppercase mb-1">
-                                    Where it sits · stronger than <span className={getCatText(selectedStock.cat)}>{percentile}%</span>
-                                </div>
+                            <div className="index-card p-3 mb-3">
+                                <span className="tape" />
+                                <LedgerLabel>
+                                    Where it sits · stronger than <span style={{ color: getCatText(selectedStock.cat, PAPER) }}>{percentile}%</span>
+                                </LedgerLabel>
                                 <svg viewBox="0 0 260 56" className="w-full h-14">
                                     {histogram.bins.map((b, i) => {
                                         const bh = (b / histogram.mx) * 40;
@@ -409,31 +529,31 @@ export function RankingsTab({
                                                 width={248 / 10 - 3}
                                                 height={bh}
                                                 rx={2.5}
-                                                fill={i === histogram.myBin ? '#16a34a' : '#e5e8ef'}
+                                                fill={i === histogram.myBin ? PAPER.stampGreen : PAPER.cardBorder}
                                             />
                                         );
                                     })}
-                                    <text x="6" y="55" fontSize="7.5" fill="#b6bdcb" fontFamily="monospace">0</text>
-                                    <text x="246" y="55" fontSize="7.5" fill="#b6bdcb" fontFamily="monospace">99</text>
+                                    <text x="6" y="55" fontSize="7.5" fill={PAPER.inkMuted} fontFamily={FONT_MONO}>0</text>
+                                    <text x="246" y="55" fontSize="7.5" fill={PAPER.inkMuted} fontFamily={FONT_MONO}>99</text>
                                 </svg>
                             </div>
 
                             {/* Wizard */}
                             {wizard && (
-                                <div className="border border-gray-200 rounded-lg p-3 mb-3 bg-white">
-                                    <div className="text-[9px] text-gray-400 font-mono tracking-wider uppercase mb-1.5">
-                                        Wizard checks · alignment {wizard.align}/6
-                                    </div>
+                                <div className="index-card p-3 mb-3">
+                                    <span className="tape" />
+                                    <LedgerLabel>Wizard checks · alignment {wizard.align}/6</LedgerLabel>
                                     <div className="flex gap-1.5 mb-2">
                                         {wizard.checks.map(([lbl, ok]) => (
                                             <span
                                                 key={lbl}
                                                 title={lbl}
-                                                className={`w-4 h-4 rounded ${ok ? 'bg-green-500' : 'bg-gray-200'}`}
+                                                className="w-4 h-4 rounded-sm"
+                                                style={{ background: ok ? PAPER.stampGreen : PAPER.cardBorder }}
                                             />
                                         ))}
                                     </div>
-                                    <div className="text-[11px] text-gray-600 leading-relaxed">
+                                    <div className="text-[11px] leading-relaxed" style={{ color: PAPER.ink }}>
                                         {wizard.green ? '🟢' : '🔴'} RS {wizard.green ? 'above' : 'below'} trail avg ({wizard.sma10})
                                         {trailPersist && (
                                             <> · Persistence ≥80: <b>{trailPersist.cons}/{trailPersist.total}</b></>
@@ -444,7 +564,7 @@ export function RankingsTab({
 
                             <div className="grid grid-cols-2 gap-2 mb-3">
                                 {[
-                                    { label: 'Δ 1W', value: `${selectedStock.mom >= 0 ? '+' : ''}${selectedStock.mom}` },
+                                    { label: 'Δ 1W', value: `${(selectedStock.rs - selectedStock.rs1w) >= 0 ? '+' : ''}${selectedStock.rs - selectedStock.rs1w}` },
                                     { label: 'Category', value: selectedStock.cat },
                                     { label: '1M', value: selectedStock.m1 },
                                     { label: '3M', value: selectedStock.m3 },
@@ -453,26 +573,28 @@ export function RankingsTab({
                                     { label: 'A/D', value: selectedStock.ad || '-' },
                                     { label: 'Group #', value: selectedStock.gRank ?? '—' },
                                 ].map(item => (
-                                    <div key={item.label} className="border border-gray-200 rounded-lg p-2 bg-white">
-                                        <div className="text-[9px] text-gray-400 font-mono uppercase">{item.label}</div>
-                                        <div className="text-sm font-extrabold text-gray-800 mt-0.5">{item.value}</div>
+                                    <div key={item.label} className="rounded-[3px] p-2" style={{ background: PAPER.paperLight, border: `1px solid ${PAPER.cardBorder}` }}>
+                                        <div className="text-[9px] uppercase" style={{ color: PAPER.inkMuted, fontFamily: FONT_SERIF }}>{item.label}</div>
+                                        <div className="emboss text-sm mt-0.5">{item.value}</div>
                                     </div>
                                 ))}
                             </div>
 
                             {/* Trail */}
-                            <div className="border border-gray-200 rounded-lg p-3 mb-3 bg-white">
-                                <div className="text-[9px] text-gray-400 font-mono tracking-wider uppercase mb-2">RS TRAIL</div>
+                            <div className="index-card p-3 mb-3">
+                                <span className="tape" />
+                                <LedgerLabel>RS Trail</LedgerLabel>
                                 <div className="flex items-end gap-1 h-12">
                                     {(selectedStock.trail || []).map((t: any, i: number) => {
                                         const val = typeof t[1] === 'number' ? t[1] : 0;
+                                        const barColor = val >= 70 ? PAPER.strong : val >= 50 ? PAPER.improve : val >= 30 ? PAPER.neutral : PAPER.weak;
                                         return (
                                             <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
                                                 <div
-                                                    className={`w-full rounded-sm ${val >= 70 ? 'bg-green-400' : val >= 50 ? 'bg-blue-400' : val >= 30 ? 'bg-amber-400' : 'bg-red-400'}`}
-                                                    style={{ height: `${Math.max(val * 0.48, 3)}px` }}
+                                                    className="w-full rounded-sm"
+                                                    style={{ height: `${Math.max(val * 0.48, 3)}px`, background: barColor }}
                                                 />
-                                                <span className="text-[8px] text-gray-400">{t[0]}</span>
+                                                <span className="text-[8px]" style={{ color: PAPER.inkMuted }}>{t[0]}</span>
                                             </div>
                                         );
                                     })}
@@ -480,20 +602,25 @@ export function RankingsTab({
                             </div>
 
                             {/* Expert read */}
-                            <div className="border border-gray-200 rounded-lg p-3 mb-3 bg-white text-[11px] text-gray-700 space-y-1 leading-relaxed">
-                                <div className="text-[9px] text-gray-400 font-mono tracking-wider uppercase mb-1">Expert read</div>
+                            <div className="index-card p-3 mb-3 text-[11px] space-y-1 leading-relaxed" style={{ color: PAPER.ink }}>
+                                <span className="tape" />
+                                <LedgerLabel>Expert read</LedgerLabel>
                                 {selectedStock.ageTag && (
                                     <div>
-                                        <span className={`inline-block text-[9px] font-extrabold rounded px-1.5 py-0.5 mr-1 ${
-                                            selectedStock.ageTag === 'YOUNG' ? 'bg-green-100 text-green-700' :
-                                            selectedStock.ageTag === 'MATURE' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'
-                                        }`}>{selectedStock.ageTag}</span>
+                                        <span
+                                            className="inline-block text-[9px] font-extrabold rounded-sm px-1.5 py-0.5 mr-1"
+                                            style={{
+                                                fontFamily: FONT_SERIF,
+                                                background: selectedStock.ageTag === 'YOUNG' ? PAPER.strongBg : selectedStock.ageTag === 'MATURE' ? PAPER.weakBg : PAPER.paper,
+                                                color: selectedStock.ageTag === 'YOUNG' ? PAPER.strong : selectedStock.ageTag === 'MATURE' ? PAPER.weak : PAPER.inkMuted,
+                                            }}
+                                        >{selectedStock.ageTag}</span>
                                     </div>
                                 )}
                                 {selectedStock.rs >= 90 ? <div>Elite strength (top decile)</div>
                                     : selectedStock.rs >= 80 ? <div>Institutional-grade strength (RS 80+)</div>
-                                    : selectedStock.rs >= 70 ? <div>Minervini minimum met (RS 70+)</div>
-                                    : <div>Below leadership threshold</div>}
+                                        : selectedStock.rs >= 70 ? <div>Minervini minimum met (RS 70+)</div>
+                                            : <div>Below leadership threshold</div>}
                                 {selectedStock.gconf && <div>Group confirms: {selectedStock.grp} top-5 (#{selectedStock.gRank})</div>}
                                 {(selectedStock.focus || selectedStock.sig?.includes('focus')) && <div>🎯 On focus list</div>}
                                 {(selectedStock.rsnh || selectedStock.sig?.includes('rsnh')) && <div>🏔 RS at 1-year high</div>}
@@ -503,14 +630,16 @@ export function RankingsTab({
                             </div>
 
                             {/* Technical checklist */}
-                            <div className="border border-gray-200 rounded-lg p-3 mb-3 bg-white">
-                                <div className="text-[9px] text-gray-400 font-mono tracking-wider uppercase mb-2">
-                                    Technical checklist ({selectedStock.tts}/8)
-                                </div>
+                            <div className="index-card p-3 mb-3">
+                                <span className="tape" />
+                                <LedgerLabel>Technical checklist ({selectedStock.tts}/8)</LedgerLabel>
                                 <div className="space-y-1">
                                     {(selectedStock.tt || []).map((chk: any, i: number) => (
-                                        <div key={i} className="flex items-center gap-2 text-[11px] text-gray-700">
-                                            <span className={`w-4 h-4 rounded flex items-center justify-center text-[9px] font-bold text-white shrink-0 ${chk[1] ? 'bg-green-500' : 'bg-gray-300'}`}>
+                                        <div key={i} className="flex items-center gap-2 text-[11px]" style={{ color: PAPER.ink }}>
+                                            <span
+                                                className="w-4 h-4 rounded-sm flex items-center justify-center text-[9px] font-bold shrink-0"
+                                                style={{ background: chk[1] ? PAPER.stampGreen : PAPER.cardBorder, color: PAPER.paperLight }}
+                                            >
                                                 {chk[1] ? '✓' : '✗'}
                                             </span>
                                             {chk[0]}
@@ -521,7 +650,8 @@ export function RankingsTab({
 
                             <button
                                 onClick={() => toggleCompare(selectedStock.s)}
-                                className="w-full border border-dashed border-indigo-300 hover:border-indigo-600 bg-white py-2 rounded-lg text-xs font-bold text-indigo-800 mb-2"
+                                className="stamp w-full py-2 mb-2"
+                                style={{ width: '100%' }}
                             >
                                 {compare.includes(selectedStock.s)
                                     ? `✓ In compare (${compare.length}/3) — click to remove`
@@ -530,40 +660,43 @@ export function RankingsTab({
 
                             <button
                                 onClick={handleOpenHistory}
-                                className="w-full border border-dashed border-gray-300 hover:border-gray-900 bg-white py-2 rounded-lg text-xs font-bold text-gray-800 mb-3"
+                                className="stamp w-full py-2 mb-3"
+                                style={{ width: '100%' }}
                             >
                                 📈 History chart (H)
                             </button>
 
                             <Link
                                 href={`/stocks/${selectedStock.s}`}
-                                className="block w-full text-center bg-gray-900 text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-gray-800"
+                                className="block w-full text-center py-2.5 rounded-[3px] text-sm font-semibold"
+                                style={{ background: PAPER.ink, color: PAPER.paperLight, fontFamily: FONT_SERIF }}
                             >
                                 View Full Profile →
                             </Link>
                         </div>
                     ) : (
-                        <div className="text-sm text-gray-400 text-center mt-20">Select a stock</div>
+                        <div className="text-sm text-center mt-20 italic" style={{ color: PAPER.inkMuted }}>Select a stock</div>
                     )}
                 </div>
             </div>
 
             {/* Compare Modal */}
             {showCompare && compareStocks.length >= 2 && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl relative">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.35)' }}>
+                    <div className="rounded-[4px] max-w-3xl w-full p-6 relative" style={{ background: PAPER.paperLight, border: `1px solid ${PAPER.cardBorder}`, boxShadow: '0 4px 12px rgba(0,0,0,0.12)' }}>
                         <button
                             onClick={() => setShowCompare(false)}
-                            className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-bold"
+                            className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center font-bold"
+                            style={{ background: PAPER.paper, color: PAPER.inkMuted }}
                         >×</button>
-                        <h3 className="text-lg font-bold mb-3">RS Journey — Compare</h3>
+                        <h3 className="text-lg font-bold mb-3" style={{ fontFamily: FONT_SERIF, color: PAPER.ink }}>RS Journey — Compare</h3>
                         <div className="flex flex-wrap gap-3 mb-3">
                             {compareStocks.map((x, si) => (
-                                <span key={x.s} className="inline-flex items-center gap-2 text-xs font-bold">
-                                    <span className="w-2.5 h-2.5 rounded" style={{ background: CMP_COLORS[si] }} />
+                                <span key={x.s} className="inline-flex items-center gap-2 text-xs font-bold" style={{ color: PAPER.ink }}>
+                                    <span className="w-2.5 h-2.5 rounded-sm" style={{ background: CMP_COLORS[si] }} />
                                     {x.c} ({x.rs})
                                     <button
-                                        className="text-gray-400 hover:text-red-500"
+                                        style={{ color: PAPER.inkMuted }}
                                         onClick={() => {
                                             const next = compare.filter(s => s !== x.s);
                                             setCompare(next);
@@ -578,13 +711,13 @@ export function RankingsTab({
                                 const y = 310 - (g / 100) * 280;
                                 return (
                                     <g key={g}>
-                                        <line x1="60" y1={y} x2="820" y2={y} stroke="#eef0f5" />
-                                        <text x="826" y={y + 3} fontSize="9" fill="#b6bdcb" fontFamily="monospace">{g}</text>
+                                        <line x1="60" y1={y} x2="820" y2={y} stroke={PAPER.cardBorder} />
+                                        <text x="826" y={y + 3} fontSize="9" fill={PAPER.inkMuted} fontFamily={FONT_MONO}>{g}</text>
                                     </g>
                                 );
                             })}
                             {['1Y', '6M', '3M', '4W', '1W', 'NOW'].map((l, i) => (
-                                <text key={l} x={60 + (i / 5) * 760} y="330" fontSize="10" fill="#8a92a3" textAnchor="middle" fontFamily="monospace">{l}</text>
+                                <text key={l} x={60 + (i / 5) * 760} y="330" fontSize="10" fill={PAPER.inkMuted} textAnchor="middle" fontFamily={FONT_MONO}>{l}</text>
                             ))}
                             {compareStocks.map((x, si) => {
                                 const labels = ['1Y', '6M', '3M', '4W', '1W', 'NOW'];
@@ -619,25 +752,26 @@ export function RankingsTab({
 
             {/* History Modal */}
             {showHistoryModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative flex flex-col max-h-[90vh]">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.35)' }}>
+                    <div className="rounded-[4px] max-w-2xl w-full p-6 relative flex flex-col max-h-[90vh]" style={{ background: PAPER.paperLight, border: `1px solid ${PAPER.cardBorder}`, boxShadow: '0 4px 12px rgba(0,0,0,0.12)' }}>
                         <button
                             onClick={() => setShowHistoryModal(false)}
-                            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl font-bold bg-gray-100 w-8 h-8 rounded-full flex items-center justify-center"
+                            className="absolute top-4 right-4 text-xl font-bold w-8 h-8 rounded-full flex items-center justify-center"
+                            style={{ background: PAPER.paper, color: PAPER.inkMuted }}
                         >×</button>
-                        <h3 className="text-lg font-bold mb-1">{selectedStock?.s} Historical RS</h3>
-                        <p className="text-xs text-gray-500 mb-4">{selectedStock?.c}</p>
-                        <div className="flex-1 min-h-[300px] flex items-center justify-center border border-gray-100 rounded-xl p-4 bg-gray-50">
+                        <h3 className="text-lg font-bold mb-1" style={{ fontFamily: FONT_SERIF, color: PAPER.ink }}>{selectedStock?.s} Historical RS</h3>
+                        <p className="text-xs mb-4" style={{ color: PAPER.inkMuted }}>{selectedStock?.c}</p>
+                        <div className="flex-1 min-h-[300px] flex items-center justify-center rounded-[3px] p-4" style={{ background: PAPER.paper, border: `1px solid ${PAPER.cardBorder}` }}>
                             {historyLoading ? (
-                                <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-800 rounded-full animate-spin" />
+                                <div className="w-8 h-8 rounded-full animate-spin" style={{ border: `3px solid ${PAPER.cardBorder}`, borderTopColor: PAPER.marginRed }} />
                             ) : historyData.length > 0 ? (
                                 <svg viewBox="0 0 600 300" className="w-full h-full">
                                     {[0, 25, 50, 75, 100].map(val => {
                                         const y = 260 - (val / 100) * 220;
                                         return (
                                             <g key={val}>
-                                                <line x1="40" y1={y} x2="570" y2={y} stroke="#e5e7eb" strokeWidth="1" strokeDasharray="3,3" />
-                                                <text x="30" y={y + 4} textAnchor="end" className="text-[10px] fill-gray-400 font-mono">{val}</text>
+                                                <line x1="40" y1={y} x2="570" y2={y} stroke={PAPER.cardBorder} strokeWidth="1" strokeDasharray="3,3" />
+                                                <text x="30" y={y + 4} textAnchor="end" fontSize="10" fill={PAPER.inkMuted} fontFamily={FONT_MONO}>{val}</text>
                                             </g>
                                         );
                                     })}
@@ -646,17 +780,28 @@ export function RankingsTab({
                                         const xStep = 530 / (n - 1 || 1);
                                         const pathPoints = historyData.map((d, i) => `${40 + i * xStep},${260 - (d.rs_rating / 100) * 220}`);
                                         return (
-                                            <path d={`M ${pathPoints.join(' L ')}`} fill="none" stroke="#4f46e5" strokeWidth="2.5" strokeLinecap="round" />
+                                            <path d={`M ${pathPoints.join(' L ')}`} fill="none" stroke={PAPER.marginRed} strokeWidth="2.5" strokeLinecap="round" />
                                         );
                                     })()}
                                 </svg>
                             ) : (
-                                <div className="text-xs text-gray-400">No history found.</div>
+                                <div className="text-xs italic" style={{ color: PAPER.inkMuted }}>No history found.</div>
                             )}
                         </div>
                     </div>
                 </div>
             )}
         </div>
+    );
+}
+
+function SignalTag({ children, color, bg }: { children: React.ReactNode; color: string; bg: string }) {
+    return (
+        <span
+            className="px-1 py-0.5 rounded-sm text-[8px] font-bold"
+            style={{ background: bg, color, fontFamily: FONT_SERIF }}
+        >
+            {children}
+        </span>
     );
 }
