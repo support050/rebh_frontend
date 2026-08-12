@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { API_ENDPOINTS } from '@/lib/api/config';
+import { getCsrfToken } from '@/lib/api/authFetch';
 
 export default function ForgotPassword() {
     const [email, setEmail] = useState('');
@@ -14,7 +15,7 @@ export default function ForgotPassword() {
             // Always returns success to user
             await fetch(API_ENDPOINTS.AUTH.FORGOT_PASSWORD, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-csrf-token': '1' },
+                headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
                 body: JSON.stringify({ email })
             });
             // Show success regardless of actual API response details

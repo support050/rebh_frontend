@@ -6,6 +6,7 @@ import {
   Tooltip, ResponsiveContainer,
 } from "recharts";
 import type { RSPoint, RSLineSummary, RSLineResponse } from "@/types/rs-line";
+import { getCsrfToken } from '@/lib/api/authFetch';
 
 interface Props {
   symbol: string; benchmark?: string; startDate?: string;
@@ -156,7 +157,7 @@ export default function RSLineChart({
       try {
         const res = await authFetch("/api/indicators/rs-line/", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
+          headers: { "Content-Type": "application/json", "x-csrf-token": getCsrfToken() },
           credentials: "include",
           body: JSON.stringify({ symbol, benchmark, start_date: startDate, ma1_type: ma1Type, ma1_period: ma1Period, ma2_type: ma2Type, ma2_period: ma2Period, scale_factor: 3000 }),
         });

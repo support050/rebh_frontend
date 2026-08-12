@@ -4,6 +4,7 @@ import { ShieldCheck, Mail, Lock, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api/axiosClient';
 import { API_ENDPOINTS } from '@/lib/api/config';
+import { getCsrfToken } from '@/lib/api/authFetch';
 
 export default function AdminLoginPage() {
     const [email, setEmail] = useState('');
@@ -22,7 +23,7 @@ export default function AdminLoginPage() {
                 email,
                 password
             }, {
-                headers: { 'x-csrf-token': '1' },
+                headers: { 'x-csrf-token': getCsrfToken() },
             });
 
             // Backend now issues HttpOnly session cookies.

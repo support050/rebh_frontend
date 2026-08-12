@@ -2,8 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { Upload, FileSpreadsheet, X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
-import { API_BASE_URL } from '@/lib/api/config';
-import { authFetch } from '@/lib/api/authFetch';
+import { uploadExcelReportAction } from './actions';
 
 export default function DashboardUploadPage() {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -13,8 +12,6 @@ export default function DashboardUploadPage() {
     const [uploadResult, setUploadResult] = useState<{ success: boolean; message: string } | null>(null);
     const [dragActive, setDragActive] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const API_BASE = API_BASE_URL;
 
     const handleDrag = (e: React.DragEvent) => {
         e.preventDefault();
@@ -78,21 +75,14 @@ export default function DashboardUploadPage() {
                 formData.append('description', description.trim());
             }
 
-            const res = await authFetch(`${API_BASE}/api/scraper/upload-excel`, {
-                method: 'POST',
-                credentials: 'include',
-                body: formData
-            });
-
-            if (!res.ok) {
-                const error = await res.json();
-                throw new Error(error.detail || 'Upload failed');
+            const result = await uploadExcelReportAction(formData);
+            if (!result.success) {
+                throw new Error(result.error || 'Upload failed');
             }
 
-            const result = await res.json();
             setUploadResult({
                 success: true,
-                message: `Successfully uploaded ${result.file_name}`
+                message: `Successfully uploaded ${result.data?.file_name || selectedFile.name}`
             });
 
             // Reset form

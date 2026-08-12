@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api/axiosClient';
+import { getCsrfToken } from '@/lib/api/authFetch';
 
 export interface User {
   id: number;
@@ -17,7 +18,7 @@ export const AdminService = {
 
     async approveUser(userId: number): Promise<void> {
         await apiClient.post(`/api/admin/approve-user/${userId}`, {}, {
-            headers: { 'x-csrf-token': '1' },
+            headers: { 'x-csrf-token': getCsrfToken() },
         });
     }
 }

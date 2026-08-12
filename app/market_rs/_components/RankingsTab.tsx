@@ -663,16 +663,8 @@ export function RankingsTab({
                                 className="stamp w-full py-2 mb-3"
                                 style={{ width: '100%' }}
                             >
-                                📈 History chart (H)
+                                History chart (H)
                             </button>
-
-                            <Link
-                                href={`/stocks/${selectedStock.s}`}
-                                className="block w-full text-center py-2.5 rounded-[3px] text-sm font-semibold"
-                                style={{ background: PAPER.ink, color: PAPER.paperLight, fontFamily: FONT_SERIF }}
-                            >
-                                View Full Profile →
-                            </Link>
                         </div>
                     ) : (
                         <div className="text-sm text-center mt-20 italic" style={{ color: PAPER.inkMuted }}>Select a stock</div>

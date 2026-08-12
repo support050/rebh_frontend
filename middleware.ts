@@ -1,15 +1,19 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+/**
+ * UX / navigation guard only.
+ *
+ * Cookie presence is NOT authentication. FastAPI remains the security boundary.
+ * This middleware never trusts cookie contents as proof of identity.
+ */
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
-  // Skip middleware for proxied API requests (handled by rewrites)
   if (path.startsWith('/api/')) {
     return NextResponse.next();
   }
 
-  // Normalize path for comparison (remove trailing slash except for root)
   const normalizedPath = path === '/' ? '/' : path.replace(/\/+$/, '');
 
   const publicPaths = [
@@ -27,45 +31,71 @@ export async function middleware(request: NextRequest) {
     '/contact',
   ];
 
-  const isPublicPath =
-    publicPaths.some((p) => normalizedPath === p || normalizedPath.startsWith(p + '/'));
+  const isPublicPath = publicPaths.some(
+    (p) => normalizedPath === p || normalizedPath.startsWith(p + '/')
+  );
 
-  // Now that API is proxied through the same origin, backend HttpOnly cookies
-  // (session_token, refresh_token, pending_token) are first-party and visible here.
+  // Presence-only checks for UX redirects — backend validates JWT + Redis JTI
   const hasSession = request.cookies.has('session_token');
   const hasRefresh = request.cookies.has('refresh_token');
   const hasPending = request.cookies.has('pending_token');
 
-  // session_token = valid access session; refresh_token alone = client will silent-refresh
-  const isAuthenticated = hasSession || hasRefresh;
+  const mayHaveSession = hasSession || hasRefresh;
 
-  // Not authenticated and trying to access protected page → redirect to login
-  if (!isAuthenticated && !isPublicPath) {
+  if (!mayHaveSession && !isPublicPath) {
     if (hasPending) {
-      return NextResponse.redirect(new URL('/pending-approval', request.url));
+      // Pending users go to waiting page; if cookie is stale, that page handles cleanup
+      return withSecurityHeaders(
+        NextResponse.redirect(new URL('/pending-approval', request.url))
+      );
     }
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('callbackUrl', `${path}${request.nextUrl.search}`);
-    return NextResponse.redirect(loginUrl);
+    return withSecurityHeaders(NextResponse.redirect(loginUrl));
   }
 
-  // Active session cookie → skip login/register (refresh-only users stay on login until client refreshes)
+  // Avoid bounce loops: pending cookie alone must not keep forcing login↔pending
+  if (hasPending && !hasSession && !hasRefresh) {
+    if (normalizedPath === '/login' || normalizedPath === '/register') {
+      return withSecurityHeaders(
+        NextResponse.redirect(new URL('/pending-approval', request.url))
+      );
+    }
+  }
+
+  // Only redirect away from login when an access cookie exists (refresh-only stays on login)
   if (hasSession && (normalizedPath === '/login' || normalizedPath === '/register')) {
-    return NextResponse.redirect(new URL('/', request.url));
+    return withSecurityHeaders(NextResponse.redirect(new URL('/', request.url)));
   }
 
-  return NextResponse.next();
+  return withSecurityHeaders(NextResponse.next());
+}
+
+function withSecurityHeaders(response: NextResponse): NextResponse {
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  // CSP kept compatible with Next.js (inline scripts/styles may be required)
+  response.headers.set(
+    'Content-Security-Policy',
+    [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob: https:",
+      "font-src 'self' data:",
+      "connect-src 'self' https: wss:",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join('; ')
+  );
+  return response;
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder files (images, etc.)
-     */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 };

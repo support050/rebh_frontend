@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '../providers/AuthProvider';
 import Link from 'next/link';
-import { GoogleIcon, FacebookIcon } from '../_components/ui/SocialIcons';
+import { GoogleIcon } from '../_components/ui/SocialIcons';
 import { API_ENDPOINTS } from '@/lib/api/config';
 import { safeCallbackUrl } from '@/lib/api/authFetch';
 
@@ -54,19 +54,7 @@ export default function LoginPage() {
       return;
     }
 
-    if (provider === 'Facebook') {
-      try {
-        const res = await fetch(API_ENDPOINTS.AUTH.FACEBOOK_LOGIN, { credentials: 'include' });
-        const data = await res.json();
-        if (data.url) {
-          window.location.href = data.url;
-        }
-      } catch (error) {
-        console.error('Facebook login error:', error);
-        alert('Failed to initialize Facebook Login');
-      }
-      return;
-    }
+    // Facebook OAuth is not production-supported (incomplete account-linking UX).
   };
 
   if (authLoading || user) {
@@ -91,14 +79,6 @@ export default function LoginPage() {
           >
             <GoogleIcon className="w-5 h-5" />
             <span>Sign in with Google</span>
-          </button>
-
-          <button
-            onClick={() => handleSocialLogin('Facebook')}
-            className="w-full flex items-center justify-center gap-3 bg-white border border-gray-300 rounded-lg py-2.5 px-4 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
-          >
-            <FacebookIcon className="w-5 h-5" />
-            <span>Sign in with Facebook</span>
           </button>
         </div>
 

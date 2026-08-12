@@ -1,6 +1,7 @@
 import { API_BASE_URL } from "./config";
 import { authFetch } from "./authFetch";
 import type {
+import { getCsrfToken } from '@/lib/api/authFetch';
   RiskFinanceRequest, RiskFinanceResponse,
   RBAFRequest, RBAFResponse,
   PortfolioRequest, PortfolioSummary,
@@ -22,7 +23,7 @@ async function handleRes(response: Response) {
 export async function calcRiskFinance(data: RiskFinanceRequest): Promise<RiskFinanceResponse> {
   const response = await authFetch(`${API_BASE_URL}/api/wallet/calculator/calculate`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
+    headers: { "Content-Type": "application/json", "x-csrf-token": getCsrfToken() },
     credentials: "include",
     body: JSON.stringify(data),
   });
@@ -32,7 +33,7 @@ export async function calcRiskFinance(data: RiskFinanceRequest): Promise<RiskFin
 export async function calcRBAF(data: RBAFRequest): Promise<RBAFResponse> {
   const response = await authFetch(`${API_BASE_URL}/api/wallet/rbaf/calculate`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
+    headers: { "Content-Type": "application/json", "x-csrf-token": getCsrfToken() },
     credentials: "include",
     body: JSON.stringify(data),
   });
@@ -49,7 +50,7 @@ export async function getRbafSettings(): Promise<RBAFRequest> {
 export async function analyzePortfolio(data: PortfolioRequest): Promise<PortfolioSummary> {
   const response = await authFetch(`${API_BASE_URL}/api/wallet/portfolio/analyze`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
+    headers: { "Content-Type": "application/json", "x-csrf-token": getCsrfToken() },
     credentials: "include",
     body: JSON.stringify(data),
   });
@@ -66,7 +67,7 @@ export async function fetchPortfolioPositions(): Promise<WalletPositionDB[]> {
 export async function createPortfolioPosition(data: PortfolioPositionCreate): Promise<WalletPositionDB> {
   const response = await authFetch(`${API_BASE_URL}/api/wallet/portfolio/positions`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
+    headers: { "Content-Type": "application/json", "x-csrf-token": getCsrfToken() },
     credentials: "include",
     body: JSON.stringify(data),
   });
@@ -76,7 +77,7 @@ export async function createPortfolioPosition(data: PortfolioPositionCreate): Pr
 export async function closePortfolioPosition(id: number, data: { sell_price: number; exit_date: string }): Promise<any> {
   const response = await authFetch(`${API_BASE_URL}/api/wallet/portfolio/positions/${id}/close`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
+    headers: { "Content-Type": "application/json", "x-csrf-token": getCsrfToken() },
     credentials: "include",
     body: JSON.stringify(data),
   });
@@ -86,7 +87,7 @@ export async function closePortfolioPosition(id: number, data: { sell_price: num
 export async function deletePortfolioPosition(id: number): Promise<any> {
   const response = await authFetch(`${API_BASE_URL}/api/wallet/portfolio/positions/${id}`, {
     method: "DELETE",
-    headers: { "x-csrf-token": "1" },
+    headers: { "x-csrf-token": getCsrfToken() },
     credentials: "include",
   });
   if (response.status === 204) return null;
@@ -103,7 +104,7 @@ export async function getMonthlyTracker(year: number): Promise<MonthlyTrackerRes
 export async function createMonthlyTrade(data: WalletTradeCreate): Promise<WalletTradeResponse> {
   const response = await authFetch(`${API_BASE_URL}/api/wallet/tracker/trades`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
+    headers: { "Content-Type": "application/json", "x-csrf-token": getCsrfToken() },
     credentials: "include",
     body: JSON.stringify(data),
   });
@@ -113,7 +114,7 @@ export async function createMonthlyTrade(data: WalletTradeCreate): Promise<Walle
 export async function calcMonthlyTracker(year: number, trades: any[]): Promise<MonthlyTrackerResponse> {
   const response = await authFetch(`${API_BASE_URL}/api/wallet/tracker/calculate`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
+    headers: { "Content-Type": "application/json", "x-csrf-token": getCsrfToken() },
     credentials: "include",
     body: JSON.stringify({ year, trades }),
   });
@@ -137,7 +138,7 @@ export async function getWeeklyStudy(): Promise<WeeklyStudyResponse> {
 export async function updateWeeklyStudy(data: WeeklyStudyRequest): Promise<WeeklyStudyResponse> {
   const response = await authFetch(`${API_BASE_URL}/api/wallet/weekly/update`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
+    headers: { "Content-Type": "application/json", "x-csrf-token": getCsrfToken() },
     credentials: "include",
     body: JSON.stringify(data),
   });
@@ -154,7 +155,7 @@ export async function getLatestPrice(symbol: string): Promise<{ symbol: string; 
 export async function updatePortfolioPosition(id: number, data: any): Promise<WalletPositionDB> {
   const response = await authFetch(`${API_BASE_URL}/api/wallet/portfolio/positions/${id}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
+    headers: { "Content-Type": "application/json", "x-csrf-token": getCsrfToken() },
     credentials: "include",
     body: JSON.stringify(data),
   });
@@ -164,7 +165,7 @@ export async function updatePortfolioPosition(id: number, data: any): Promise<Wa
 export async function addSharesToPosition(id: number, data: { qty: number; buy_price: number; trade_date: string }): Promise<WalletPositionDB> {
   const response = await authFetch(`${API_BASE_URL}/api/wallet/portfolio/positions/${id}/add`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
+    headers: { "Content-Type": "application/json", "x-csrf-token": getCsrfToken() },
     credentials: "include",
     body: JSON.stringify(data),
   });
@@ -174,7 +175,7 @@ export async function addSharesToPosition(id: number, data: { qty: number; buy_p
 export async function partialSellPosition(id: number, data: { qty: number; sell_price: number; trade_date: string }): Promise<any> {
   const response = await authFetch(`${API_BASE_URL}/api/wallet/portfolio/positions/${id}/sell`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
+    headers: { "Content-Type": "application/json", "x-csrf-token": getCsrfToken() },
     credentials: "include",
     body: JSON.stringify(data),
   });
@@ -212,7 +213,7 @@ export async function getPortfolioCash(): Promise<{ cash: number }> {
 export async function updatePortfolioCash(cash: number): Promise<{ cash: number }> {
   const response = await authFetch(`${API_BASE_URL}/api/wallet/portfolio/settings/cash`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
+    headers: { "Content-Type": "application/json", "x-csrf-token": getCsrfToken() },
     credentials: "include",
     body: JSON.stringify({ cash }),
   });

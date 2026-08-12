@@ -79,9 +79,11 @@ async function main() {
         } catch {
             // Fallback to API fetch inside browser context
             await loginPage.evaluate(async (backendUrl, email, password) => {
+                const csrfRes = await fetch(`${backendUrl}/api/auth/csrf`, { credentials: 'include' });
+                const { csrf_token: csrf } = await csrfRes.json();
                 await fetch(`${backendUrl}/api/auth/login`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-csrf-token': '1' },
+                    headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
                     credentials: 'include',
                     body: JSON.stringify({ email, password }),
                 });

@@ -1,4 +1,6 @@
-import { useMemo } from 'react';
+'use client';
+
+import { useMemo, useState, useCallback } from 'react';
 import { StockData, getCatText } from './types';
 import { FONT_SERIF, FONT_MONO, type PaperTokens } from './paperTheme';
 import { useRsHubTheme } from './RsHubThemeContext';
@@ -61,9 +63,44 @@ function buildEventGroups(paper: PaperTokens): EventGroupDef[] {
     ];
 }
 
+type TipState = { label: string; x: number; y: number } | null;
+
+function Tip({
+    label,
+    children,
+    onShow,
+    onHide,
+}: {
+    label: string;
+    children: React.ReactNode;
+    onShow: (label: string, rect: DOMRect) => void;
+    onHide: () => void;
+}) {
+    return (
+        <span
+            className="inline-flex cursor-help"
+            onMouseEnter={(e) => onShow(label, e.currentTarget.getBoundingClientRect())}
+            onMouseLeave={onHide}
+        >
+            {children}
+        </span>
+    );
+}
+
 export function EventsTab({ stocks }: { stocks: StockData[] }) {
     const { paper: PAPER } = useRsHubTheme();
     const eventGroupsDef = useMemo(() => buildEventGroups(PAPER), [PAPER]);
+    const [tip, setTip] = useState<TipState>(null);
+
+    const showTip = useCallback((label: string, rect: DOMRect) => {
+        setTip({
+            label,
+            x: rect.left + rect.width / 2,
+            y: rect.top - 8,
+        });
+    }, []);
+
+    const hideTip = useCallback(() => setTip(null), []);
 
     const eventData = useMemo(() => {
         return eventGroupsDef.map(g => ({
@@ -100,16 +137,32 @@ export function EventsTab({ stocks }: { stocks: StockData[] }) {
                         </div>
                         <div className="max-h-[260px] overflow-y-auto scrollbar-ledger min-h-[60px] flex flex-col justify-center" style={{ background: PAPER.paperLight }}>
                             {group.items.map(st => (
-                                <div key={st.s} className="flex items-center gap-2 px-3 py-2 dashed-divider hover:opacity-90 cursor-pointer transition-opacity text-xs">
+                                <div key={st.s} className="flex items-center gap-2 px-3 py-2 dashed-divider hover:opacity-90 transition-opacity text-xs">
                                     <span className="font-bold w-12" style={{ fontFamily: FONT_MONO, color: PAPER.ink }}>{st.s}</span>
                                     <span className="truncate flex-1" style={{ color: PAPER.inkMuted }}>{st.c}</span>
-                                    <span className="emboss" style={{ color: getCatText(st.cat, PAPER) }}>{st.rs}</span>
-                                    <span
-                                        className="text-[10px] font-semibold"
-                                        style={{ fontFamily: FONT_MONO, color: st.mom >= 0 ? PAPER.stampGreen : PAPER.stampRed }}
+                                    <Tip
+                                        label={`Current RS: ${st.rs}`}
+                                        onShow={showTip}
+                                        onHide={hideTip}
                                     >
-                                        {st.mom >= 0 ? '+' : ''}{st.mom}
-                                    </span>
+                                        <span className="emboss" style={{ color: getCatText(st.cat, PAPER) }}>{st.rs}</span>
+                                    </Tip>
+                                    <Tip
+                                        label={
+                                            st.rs1w != null
+                                                ? `Weekly change: ${st.mom >= 0 ? '+' : ''}${st.mom} (${st.rs1w} → ${st.rs})`
+                                                : `Weekly change: ${st.mom >= 0 ? '+' : ''}${st.mom}`
+                                        }
+                                        onShow={showTip}
+                                        onHide={hideTip}
+                                    >
+                                        <span
+                                            className="text-[10px] font-semibold"
+                                            style={{ fontFamily: FONT_MONO, color: st.mom >= 0 ? PAPER.stampGreen : PAPER.stampRed }}
+                                        >
+                                            {st.mom >= 0 ? '+' : ''}{st.mom}
+                                        </span>
+                                    </Tip>
                                 </div>
                             ))}
                         </div>
@@ -122,6 +175,22 @@ export function EventsTab({ stocks }: { stocks: StockData[] }) {
                     </div>
                 )}
             </div>
+
+            {tip && (
+                <div
+                    className="pointer-events-none fixed z-[9999] -translate-x-1/2 -translate-y-full rounded px-2 py-1 text-[10px] font-medium whitespace-nowrap"
+                    style={{
+                        left: tip.x,
+                        top: tip.y,
+                        background: PAPER.ink,
+                        color: PAPER.paperLight,
+                        fontFamily: FONT_SERIF,
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
+                    }}
+                >
+                    {tip.label}
+                </div>
+            )}
         </div>
     );
 }

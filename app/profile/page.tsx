@@ -5,6 +5,7 @@ import { User, Mail, Lock, AlertCircle, Check, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { API_BASE_URL } from '@/lib/api/config';
 import { authFetch } from '@/lib/api/authFetch';
+import { getCsrfToken } from '@/lib/api/authFetch';
 
 export default function ProfilePage() {
     const { user, loading } = useAuth();
@@ -42,7 +43,7 @@ export default function ProfilePage() {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'x-csrf-token': '1',
+                    'x-csrf-token': getCsrfToken(),
                 },
                 credentials: 'include',
                 body: JSON.stringify({
@@ -212,7 +213,7 @@ export default function ProfilePage() {
                                         const API_URL = API_BASE_URL;
                                         const res = await fetch(`${API_URL}/api/auth/delete-account`, {
                                             method: 'DELETE',
-                                            headers: { 'x-csrf-token': '1' },
+                                            headers: { 'x-csrf-token': getCsrfToken() },
                                             credentials: 'include'
                                         });
 

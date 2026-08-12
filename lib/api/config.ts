@@ -22,6 +22,8 @@ export const API_ENDPOINTS = {
     GOOGLE_CALLBACK: `${API_BASE_URL}/api/auth/google/callback`,
     FACEBOOK_LOGIN: `${API_BASE_URL}/api/auth/facebook/login`,
     FACEBOOK_CALLBACK: `${API_BASE_URL}/api/auth/facebook/callback`,
+    OAUTH_CONFIRM_LINK: `${API_BASE_URL}/api/auth/oauth/confirm-link`,
+    CSRF: `${API_BASE_URL}/api/auth/csrf`,
   },
   ADMIN: {
     LOGIN: `${API_BASE_URL}/api/auth/login`,

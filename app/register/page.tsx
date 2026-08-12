@@ -3,7 +3,7 @@ import { useState, FormEvent } from 'react';
 import { Eye, EyeOff, Check, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../providers/AuthProvider';
 import Link from 'next/link';
-import { GoogleIcon, FacebookIcon } from '../_components/ui/SocialIcons';
+import { GoogleIcon } from '../_components/ui/SocialIcons';
 import { motion, AnimatePresence } from 'framer-motion';
 import { API_ENDPOINTS } from '@/lib/api/config';
 
@@ -45,14 +45,6 @@ const LandingView = ({ onEmailClick, onSocialLogin }: LandingViewProps) => (
       >
         <GoogleIcon className="w-5 h-5" />
         <span>Continue with Google</span>
-      </button>
-
-      <button
-        onClick={() => onSocialLogin('Facebook')}
-        className="w-full flex items-center justify-center gap-3 bg-white border border-gray-300 rounded-lg py-2.5 px-4 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
-      >
-        <FacebookIcon className="w-5 h-5" />
-        <span>Continue with Facebook</span>
       </button>
     </div>
 
@@ -238,22 +230,7 @@ export default function RegisterPage() {
       return;
     }
 
-    if (provider === 'Facebook') {
-      try {
-        const res = await fetch(API_ENDPOINTS.AUTH.FACEBOOK_LOGIN, { credentials: 'include' });
-        const data = await res.json();
-        if (data.url) {
-          window.location.href = data.url;
-        }
-      } catch (error) {
-        console.error('Facebook login error:', error);
-        alert('Failed to initialize Facebook Login');
-      }
-      return;
-    }
-
-    console.log(`Register with ${provider}`);
-    alert(`Register with ${provider} is coming soon!`);
+    // Facebook OAuth is not production-supported (incomplete account-linking UX).
   };
 
   return (

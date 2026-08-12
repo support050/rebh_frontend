@@ -1,10 +1,19 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { API_BASE_URL } from './config';
-import { refreshSession } from './authFetch';
+import { ensureCsrfToken, getCsrfToken, refreshSession } from './authFetch';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
+});
+
+apiClient.interceptors.request.use(async (config) => {
+  const headers = config.headers ?? {};
+  if (!headers['x-csrf-token'] && !headers['X-CSRF-Token']) {
+    headers['x-csrf-token'] = await ensureCsrfToken();
+  }
+  config.headers = headers;
+  return config;
 });
 
 apiClient.interceptors.response.use(
@@ -27,6 +36,9 @@ apiClient.interceptors.response.use(
     config._retry = true;
     const refreshed = await refreshSession();
     if (refreshed) {
+      if (config.headers) {
+        config.headers['x-csrf-token'] = getCsrfToken() || (await ensureCsrfToken());
+      }
       return apiClient(config);
     }
     return Promise.reject(error);

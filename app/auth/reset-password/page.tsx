@@ -2,6 +2,7 @@
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useState, Suspense } from 'react';
 import { API_ENDPOINTS } from '@/lib/api/config';
+import { getCsrfToken } from '@/lib/api/authFetch';
 
 function ResetPasswordContent() {
     const searchParams = useSearchParams();
@@ -21,7 +22,7 @@ function ResetPasswordContent() {
         try {
             const res = await fetch(API_ENDPOINTS.AUTH.RESET_PASSWORD, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-csrf-token': '1' },
+                headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() },
                 body: JSON.stringify({
                     token: token,
                     password: password

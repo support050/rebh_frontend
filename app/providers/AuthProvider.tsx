@@ -23,7 +23,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 import { API_ENDPOINTS } from '@/lib/api/config';
-import { authFetch, safeCallbackUrl } from '@/lib/api/authFetch';
+import { authFetch, ensureCsrfToken, getCsrfToken, safeCallbackUrl } from '@/lib/api/authFetch';
 
 const AUTH_ENABLED = process.env.NEXT_PUBLIC_AUTH_ENABLED !== 'false';
 
@@ -56,6 +56,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       return;
     }
+    // Warm CSRF cookie (UX only — not a security boundary)
+    fetch(API_ENDPOINTS.AUTH.CSRF, { credentials: 'include' }).catch(() => {});
     checkAuth();
   }, []);
 
@@ -89,6 +91,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      // Network / 503: do not force redirect loop
+      if (res.status >= 500) {
+        return;
+      }
+
       setUser(null);
       if (typeof window !== 'undefined' && !isPublicPath(window.location.pathname)) {
         const callbackUrl = encodeURIComponent(
@@ -96,8 +103,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         );
         window.location.href = `/login?callbackUrl=${callbackUrl}`;
       }
-    } catch (error) {
-      console.warn('Auth check encountered a network error or fetch was aborted:', error);
+    } catch {
+      // Network errors: keep current UX, avoid leaking details
     } finally {
       setLoading(false);
     }
@@ -106,9 +113,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     if (!AUTH_ENABLED) return;
 
+    const csrf = await ensureCsrfToken();
     const res = await fetch(API_ENDPOINTS.AUTH.LOGIN, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-csrf-token': '1' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-csrf-token': csrf,
+      },
       credentials: 'include',
       body: JSON.stringify({ email, password }),
     });
@@ -127,7 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      throw new Error(errorMessage);
+      throw new Error(typeof errorMessage === 'string' ? errorMessage : 'فشل تسجيل الدخول');
     }
 
     const data = await res.json();
@@ -148,9 +159,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    const csrf = await ensureCsrfToken();
     const res = await fetch(API_ENDPOINTS.AUTH.REGISTER, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-csrf-token': '1' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-csrf-token': csrf,
+      },
       credentials: 'include',
       body: JSON.stringify({ email, password, full_name: fullName || '' }),
     });
@@ -163,7 +178,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch {
         // use default message
       }
-      throw new Error(errorMessage);
+      throw new Error(typeof errorMessage === 'string' ? errorMessage : 'فشل التسجيل');
     }
 
     window.location.href = '/pending-approval';
@@ -175,7 +190,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await fetch(API_ENDPOINTS.AUTH.LOGOUT, {
         method: 'POST',
-        headers: { 'x-csrf-token': '1' },
+        headers: { 'x-csrf-token': getCsrfToken() },
         credentials: 'include',
       });
     } catch {

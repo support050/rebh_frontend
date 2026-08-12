@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Mail, Phone, MapPin, Send } from 'lucide-react';
 import Link from 'next/link';
 import { API_BASE_URL } from '@/lib/api/config';
+import { getCsrfToken } from '@/lib/api/authFetch';
 
 export default function ContactPage() {
     const [formData, setFormData] = useState({
@@ -40,7 +41,7 @@ export default function ContactPage() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'x-csrf-token': '1',
+                    'x-csrf-token': getCsrfToken(),
                 },
                 body: JSON.stringify({
                     name: formData.name,

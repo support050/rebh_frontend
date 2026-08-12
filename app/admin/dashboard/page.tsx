@@ -13,6 +13,7 @@ import {
     RefreshCw
 } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/api/config';
+import { getCsrfToken } from '@/lib/api/authFetch';
 
 const API_URL = API_BASE_URL;
 
@@ -62,7 +63,7 @@ export default function AdminDashboard() {
         setDeletingId(id);
         try {
             await apiClient.delete(`/api/contact/${id}`, {
-                headers: { 'x-csrf-token': '1' },
+                headers: { 'x-csrf-token': getCsrfToken() },
             });
             setMessages(messages.filter(msg => msg.id !== id));
         } catch (error) {
@@ -75,7 +76,7 @@ export default function AdminDashboard() {
 
     const handleLogout = async () => {
         try {
-            await fetch(`${API_URL}/api/auth/logout`, { method: 'POST', headers: { 'x-csrf-token': '1' }, credentials: 'include' });
+            await fetch(`${API_URL}/api/auth/logout`, { method: 'POST', headers: { 'x-csrf-token': getCsrfToken() }, credentials: 'include' });
         } catch {}
         router.push('/admin/login');
     };

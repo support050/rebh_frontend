@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 
 import { API_ENDPOINTS } from '@/lib/api/config';
 import { authFetch } from '@/lib/api/authFetch';
+import { getCsrfToken } from '@/lib/api/authFetch';
 
 export default function PendingApproval() {
     const [message, setMessage] = useState('');
@@ -75,7 +76,7 @@ export default function PendingApproval() {
             authFetch(API_ENDPOINTS.AUTH.ACTIVATE_SESSION, {
                 method: 'POST',
                 credentials: 'include',
-                headers: { 'x-csrf-token': '1' },
+                headers: { 'x-csrf-token': getCsrfToken() },
             }).then(res => {
                 if (res.ok) {
                     window.location.href = '/';

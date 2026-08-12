@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 
 import { API_ENDPOINTS } from '@/lib/api/config';
 import { authFetch } from '@/lib/api/authFetch';
+import { getCsrfToken } from '@/lib/api/authFetch';
 
 function FacebookCallbackContent() {
     const searchParams = useSearchParams();
@@ -27,7 +28,7 @@ function FacebookCallbackContent() {
                 const res = await authFetch(`${API_ENDPOINTS.AUTH.FACEBOOK_CALLBACK}?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`, {
                     method: 'POST',
                     credentials: 'include',
-                    headers: { 'x-csrf-token': '1' },
+                    headers: { 'x-csrf-token': getCsrfToken() },
                 });
 
                 if (!res.ok) {
