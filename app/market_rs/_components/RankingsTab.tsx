@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { StockData, getCatColor, getCatText } from './types';
 import { API_BASE_URL } from '@/lib/api/config';
 import { authFetch } from '@/lib/api/authFetch';
-import { FONT_SERIF, FONT_MONO } from './paperTheme';
+import { FONT_SERIF, FONT_MONO, type PaperTokens } from './paperTheme';
 import { Stamp, LedgerLabel } from './PaperUI';
 import { useRsHubTheme } from './RsHubThemeContext';
 
@@ -76,7 +76,8 @@ export function RankingsTab({
 
     const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [historyLoading, setHistoryLoading] = useState(false);
-    const [historyData, setHistoryData] = useState<any[]>([]);
+    const [historyData, setHistoryData] = useState<{ date: string; rs_rating: number }[]>([]);
+    const [histHover, setHistHover] = useState<{ i: number; x: number; y: number } | null>(null);
 
     // Compare (max 3) — REBH reference
     const [compare, setCompare] = useState<string[]>([]);
@@ -225,7 +226,14 @@ export function RankingsTab({
             const res = await authFetch(`${API_BASE_URL}/api/rs/${selectedStock.s}/`, { cache: 'no-store' });
             if (res.ok) {
                 const data = await res.json();
-                setHistoryData(data.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+                setHistoryData(
+                    (Array.isArray(data) ? data : []).map((d: any) => ({
+                        date: d.date,
+                        rs_rating: Number(d.rs_rating),
+                    })).sort((a: { date: string }, b: { date: string }) =>
+                        new Date(a.date).getTime() - new Date(b.date).getTime()
+                    )
+                );
             }
         } catch (e) {
             console.error('Error loading history', e);
@@ -742,48 +750,195 @@ export function RankingsTab({
                 </div>
             )}
 
-            {/* History Modal */}
+            {/* History Modal — data from GET /api/rs/{symbol}/ (rs_daily_v2), not rs_data.json */}
             {showHistoryModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.35)' }}>
-                    <div className="rounded-[4px] max-w-2xl w-full p-6 relative flex flex-col max-h-[90vh]" style={{ background: PAPER.paperLight, border: `1px solid ${PAPER.cardBorder}`, boxShadow: '0 4px 12px rgba(0,0,0,0.12)' }}>
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                    style={{ background: 'rgba(0,0,0,0.45)' }}
+                    onClick={() => { setShowHistoryModal(false); setHistHover(null); }}
+                >
+                    <div
+                        className="rounded-[4px] max-w-2xl w-full p-6 relative flex flex-col max-h-[90vh]"
+                        style={{ background: PAPER.paperLight, border: `1px solid ${PAPER.cardBorder}`, boxShadow: '0 8px 28px rgba(0,0,0,0.18)' }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <button
-                            onClick={() => setShowHistoryModal(false)}
+                            type="button"
+                            onClick={() => { setShowHistoryModal(false); setHistHover(null); }}
                             className="absolute top-4 right-4 text-xl font-bold w-8 h-8 rounded-full flex items-center justify-center"
                             style={{ background: PAPER.paper, color: PAPER.inkMuted }}
+                            aria-label="Close"
                         >×</button>
-                        <h3 className="text-lg font-bold mb-1" style={{ fontFamily: FONT_SERIF, color: PAPER.ink }}>{selectedStock?.s} Historical RS</h3>
-                        <p className="text-xs mb-4" style={{ color: PAPER.inkMuted }}>{selectedStock?.c}</p>
-                        <div className="flex-1 min-h-[300px] flex items-center justify-center rounded-[3px] p-4" style={{ background: PAPER.paper, border: `1px solid ${PAPER.cardBorder}` }}>
+                        <h3 className="text-lg font-bold mb-0.5" style={{ fontFamily: FONT_SERIF, color: PAPER.ink }}>
+                            {selectedStock?.s} Historical RS
+                        </h3>
+                        <p className="text-xs mb-1" style={{ color: PAPER.inkMuted }}>{selectedStock?.c}</p>
+                        {!historyLoading && historyData.length > 0 && (
+                            <p className="text-[10px] mb-3" style={{ color: PAPER.inkMuted, fontFamily: FONT_MONO }}>
+                                {historyData.length} sessions · {fmtHistDate(historyData[0].date)} → {fmtHistDate(historyData[historyData.length - 1].date)}
+                                {' · '}latest RS {historyData[historyData.length - 1].rs_rating}
+                            </p>
+                        )}
+                        <div
+                            className="flex-1 min-h-[320px] flex items-center justify-center rounded-[3px] p-3 relative"
+                            style={{ background: PAPER.paper, border: `1px solid ${PAPER.cardBorder}` }}
+                        >
                             {historyLoading ? (
                                 <div className="w-8 h-8 rounded-full animate-spin" style={{ border: `3px solid ${PAPER.cardBorder}`, borderTopColor: PAPER.marginRed }} />
                             ) : historyData.length > 0 ? (
-                                <svg viewBox="0 0 600 300" className="w-full h-full">
-                                    {[0, 25, 50, 75, 100].map(val => {
-                                        const y = 260 - (val / 100) * 220;
-                                        return (
-                                            <g key={val}>
-                                                <line x1="40" y1={y} x2="570" y2={y} stroke={PAPER.cardBorder} strokeWidth="1" strokeDasharray="3,3" />
-                                                <text x="30" y={y + 4} textAnchor="end" fontSize="10" fill={PAPER.inkMuted} fontFamily={FONT_MONO}>{val}</text>
-                                            </g>
-                                        );
-                                    })}
-                                    {(() => {
-                                        const n = historyData.length;
-                                        const xStep = 530 / (n - 1 || 1);
-                                        const pathPoints = historyData.map((d, i) => `${40 + i * xStep},${260 - (d.rs_rating / 100) * 220}`);
-                                        return (
-                                            <path d={`M ${pathPoints.join(' L ')}`} fill="none" stroke={PAPER.marginRed} strokeWidth="2.5" strokeLinecap="round" />
-                                        );
-                                    })()}
-                                </svg>
+                                <HistoryRsChart
+                                    data={historyData}
+                                    paper={PAPER}
+                                    hover={histHover}
+                                    setHover={setHistHover}
+                                />
                             ) : (
                                 <div className="text-xs italic" style={{ color: PAPER.inkMuted }}>No history found.</div>
                             )}
                         </div>
+                        <p className="text-[10px] mt-2 text-center" style={{ color: PAPER.inkMuted }}>
+                            Hover the chart for date &amp; RS · click outside to close
+                        </p>
                     </div>
                 </div>
             )}
         </div>
+    );
+}
+
+function fmtHistDate(d: string) {
+    try {
+        const dt = new Date(d);
+        return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' });
+    } catch {
+        return d;
+    }
+}
+
+function HistoryRsChart({
+    data,
+    paper,
+    hover,
+    setHover,
+}: {
+    data: { date: string; rs_rating: number }[];
+    paper: PaperTokens;
+    hover: { i: number; x: number; y: number } | null;
+    setHover: (v: { i: number; x: number; y: number } | null) => void;
+}) {
+    const W = 640, H = 320;
+    const pad = { l: 44, r: 16, t: 16, b: 36 };
+    const iW = W - pad.l - pad.r;
+    const iH = H - pad.t - pad.b;
+    const n = data.length;
+    const xAt = (i: number) => pad.l + (n <= 1 ? iW / 2 : (i / (n - 1)) * iW);
+    const yAt = (rs: number) => pad.t + iH - (Math.max(0, Math.min(100, rs)) / 100) * iH;
+
+    const linePts = data.map((d, i) => `${xAt(i)},${yAt(d.rs_rating)}`).join(' ');
+    const areaD = n > 0
+        ? `M ${xAt(0)},${yAt(data[0].rs_rating)} L ${linePts.split(' ').slice(1).join(' L ')} L ${xAt(n - 1)},${pad.t + iH} L ${xAt(0)},${pad.t + iH} Z`
+        : '';
+
+    // ~5 evenly spaced date labels on X
+    const labelIdx = (() => {
+        if (n <= 1) return [0];
+        const count = Math.min(5, n);
+        const out: number[] = [];
+        for (let k = 0; k < count; k++) out.push(Math.round((k / (count - 1)) * (n - 1)));
+        return [...new Set(out)];
+    })();
+
+    const onMove = (e: React.MouseEvent<SVGSVGElement>) => {
+        const svg = e.currentTarget;
+        const rect = svg.getBoundingClientRect();
+        const mx = ((e.clientX - rect.left) / rect.width) * W;
+        if (mx < pad.l || mx > W - pad.r || n === 0) {
+            setHover(null);
+            return;
+        }
+        const t = n <= 1 ? 0 : (mx - pad.l) / iW;
+        const i = Math.max(0, Math.min(n - 1, Math.round(t * (n - 1))));
+        setHover({ i, x: xAt(i), y: yAt(data[i].rs_rating) });
+    };
+
+    const h = hover ? data[hover.i] : null;
+
+    return (
+        <svg
+            viewBox={`0 0 ${W} ${H}`}
+            className="w-full h-full select-none"
+            onMouseMove={onMove}
+            onMouseLeave={() => setHover(null)}
+        >
+            {/* zone bands */}
+            <rect x={pad.l} y={yAt(100)} width={iW} height={yAt(90) - yAt(100)} fill={paper.strongBg} opacity="0.55" />
+            <rect x={pad.l} y={yAt(90)} width={iW} height={yAt(80) - yAt(90)} fill={paper.improveBg} opacity="0.5" />
+            <rect x={pad.l} y={yAt(80)} width={iW} height={yAt(70) - yAt(80)} fill={paper.neutralBg} opacity="0.45" />
+            <rect x={pad.l} y={yAt(70)} width={iW} height={yAt(0) - yAt(70)} fill={paper.weakBg} opacity="0.35" />
+
+            {[0, 25, 50, 70, 80, 90, 100].map(val => {
+                const y = yAt(val);
+                return (
+                    <g key={val}>
+                        <line x1={pad.l} y1={y} x2={W - pad.r} y2={y} stroke={paper.cardBorder} strokeWidth="1" strokeDasharray={val % 25 === 0 ? undefined : '3,3'} />
+                        <text x={pad.l - 8} y={y + 3} textAnchor="end" fontSize="10" fill={paper.inkMuted} fontFamily={FONT_MONO}>{val}</text>
+                    </g>
+                );
+            })}
+
+            {labelIdx.map(i => (
+                <text
+                    key={i}
+                    x={xAt(i)}
+                    y={H - 10}
+                    textAnchor="middle"
+                    fontSize="9.5"
+                    fill={paper.inkMuted}
+                    fontFamily={FONT_MONO}
+                >
+                    {fmtHistDate(data[i].date)}
+                </text>
+            ))}
+
+            {areaD && (
+                <path d={areaD} fill={paper.marginRed} opacity="0.1" />
+            )}
+            <polyline
+                points={linePts}
+                fill="none"
+                stroke={paper.marginRed}
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+
+            {/* invisible hit strip handled via mouse move */}
+            {hover && h && (
+                <g>
+                    <line x1={hover.x} y1={pad.t} x2={hover.x} y2={pad.t + iH} stroke={paper.inkMuted} strokeWidth="1" strokeDasharray="3,3" opacity="0.7" />
+                    <circle cx={hover.x} cy={hover.y} r="5" fill={paper.marginRed} stroke={paper.paperLight} strokeWidth="2" />
+                    {(() => {
+                        const tipW = 118;
+                        const tipH = 40;
+                        let tipX = hover.x - tipW / 2;
+                        tipX = Math.max(pad.l, Math.min(W - pad.r - tipW, tipX));
+                        let tipY = hover.y - tipH - 12;
+                        if (tipY < pad.t) tipY = hover.y + 12;
+                        return (
+                            <g>
+                                <rect x={tipX} y={tipY} width={tipW} height={tipH} rx="4" fill={paper.ink} opacity="0.92" />
+                                <text x={tipX + tipW / 2} y={tipY + 15} textAnchor="middle" fontSize="10" fill={paper.paperLight} fontFamily={FONT_SERIF}>
+                                    {fmtHistDate(h.date)}
+                                </text>
+                                <text x={tipX + tipW / 2} y={tipY + 30} textAnchor="middle" fontSize="12" fontWeight="700" fill={paper.paperLight} fontFamily={FONT_MONO}>
+                                    RS {h.rs_rating}
+                                </text>
+                            </g>
+                        );
+                    })()}
+                </g>
+            )}
+        </svg>
     );
 }
 
