@@ -1,7 +1,6 @@
 import { API_BASE_URL } from "./config";
-import { authFetch } from "./authFetch";
+import { authFetch, getCsrfToken } from "./authFetch";
 import type {
-import { getCsrfToken } from '@/lib/api/authFetch';
   RiskFinanceRequest, RiskFinanceResponse,
   RBAFRequest, RBAFResponse,
   PortfolioRequest, PortfolioSummary,

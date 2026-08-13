@@ -246,12 +246,7 @@ function RSHubContent() {
                         <div className="min-w-0">
                             <h1 className="text-base font-bold flex items-center gap-2" style={{ fontFamily: FONT_SERIF }}>
                                 RS Rating Hub
-                                <span
-                                    className="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-sm"
-                                    style={{ background: PAPER.stampRed, color: PAPER.paperLight, fontFamily: FONT_SERIF, fontWeight: 700 }}
-                                >
-                                    Beta
-                                </span>
+                                
                             </h1>
                             <p className="text-[11px] mt-0.5" style={{ color: PAPER.inkMuted }}>Relative Strength Analysis</p>
                         </div>
