@@ -5,7 +5,7 @@ import { usePathname, useParams } from 'next/navigation';
 const TABS = [
     { name: "Summary", path: "" },
     { name: "Ratings", path: "/ratings" },
-    { name: "Financials", path: "/income-statement" },
+    { name: "Financials", path: "/financials" },
     { name: "Earnings", path: "/earnings" },
     { name: "Dividends", path: "/dividends" },
     { name: "Valuation", path: "/valuation" },
@@ -29,9 +29,8 @@ export function StockTabs({ symbol: propSymbol }: { symbol?: string }) {
         if (path === "") {
             return pathname?.endsWith(`/${symbol}`) || pathname === `/stocks/${symbol}`;
         }
-        // Special case for Financials tab to be active for all financial sub-pages
-        if (path === "/income-statement") {
-            return pathname?.includes("/income-statement") || pathname?.includes("/balance-sheet") || pathname?.includes("/cash-flow");
+        if (path === "/financials") {
+            return pathname?.includes("/financials") || pathname?.includes("/income-statement") || pathname?.includes("/balance-sheet") || pathname?.includes("/cash-flow");
         }
         return pathname?.startsWith(`/stocks/${symbol}${path}`);
     };

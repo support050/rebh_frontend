@@ -187,8 +187,8 @@ export default function FinancialReportsTable({ symbol }: { symbol: string }) {
                     <button
                         onClick={() => setCurrentLanguage('en')}
                         className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${currentLanguage === 'en'
-                                ? 'bg-white text-gray-900 shadow-sm'
-                                : 'text-gray-500 hover:text-gray-900'
+                            ? 'bg-white text-gray-900 shadow-sm'
+                            : 'text-gray-500 hover:text-gray-900'
                             }`}
                     >
                         English
@@ -196,8 +196,8 @@ export default function FinancialReportsTable({ symbol }: { symbol: string }) {
                     <button
                         onClick={() => setCurrentLanguage('ar')}
                         className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${currentLanguage === 'ar'
-                                ? 'bg-white text-gray-900 shadow-sm'
-                                : 'text-gray-500 hover:text-gray-900'
+                            ? 'bg-white text-gray-900 shadow-sm'
+                            : 'text-gray-500 hover:text-gray-900'
                             }`}
                     >
                         العربية

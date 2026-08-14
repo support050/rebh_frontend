@@ -50,7 +50,7 @@ export default function ReportsPage() {
         <div className="min-h-screen bg-gray-50">
             {/* Header */}
             <div className="bg-white border-b border-gray-200 shadow-sm">
-                <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                         <div>
                             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -89,7 +89,7 @@ export default function ReportsPage() {
             </div>
 
             {/* Main Content */}
-            <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
                 <FinancialReportsTable symbol={currentSymbol} />
             </div>
         </div>

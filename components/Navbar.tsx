@@ -256,7 +256,7 @@ export default function Navbar() {
       en: 'Home',
       href: '/',
       items: [
-        { en: 'Dashboard', href: '/dashboard' },
+        // { en: 'Dashboard', href: '/stocks/1010/financials' },
         { en: 'Portfolios', href: '/portfolios' },
         { en: 'Membership', href: '/membership' },
         { en: 'About Us', href: '/about' },
