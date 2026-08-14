@@ -16,9 +16,26 @@ export const AdminService = {
         return response.data;
     },
 
+    async getAllUsers(): Promise<User[]> {
+        const response = await apiClient.get<User[]>('/api/admin/users');
+        return response.data;
+    },
+
     async approveUser(userId: number): Promise<void> {
         await apiClient.post(`/api/admin/approve-user/${userId}`, {}, {
             headers: { 'x-csrf-token': getCsrfToken() },
         });
-    }
+    },
+
+    async revokeUser(userId: number): Promise<void> {
+        await apiClient.post(`/api/admin/revoke-user/${userId}`, {}, {
+            headers: { 'x-csrf-token': getCsrfToken() },
+        });
+    },
+
+    async deleteUser(userId: number): Promise<void> {
+        await apiClient.delete(`/api/admin/users/${userId}`, {
+            headers: { 'x-csrf-token': getCsrfToken() },
+        });
+    },
 }
