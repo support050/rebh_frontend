@@ -392,6 +392,7 @@ export default function Navbar() {
             { en: 'Market Pulse', href: '/market-pulse' },
             { en: 'Weekly Update', href: '/weekly-update' },
             { en: 'Saudi Analytics', href: '/saudi-analytics' },
+            { en: 'RS HUB', href: '/market_rs' },
           ],
         },
         {
