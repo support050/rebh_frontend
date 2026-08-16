@@ -9,7 +9,7 @@ export interface StockData {
     rs1w: number;    // Previous RS (1W)
     cat: string;     // Category: STRONG, IMPROVE, NEUTRAL, WEAK
     sig: string[];   // Signals: blue, up, dn, rsnh, focus, burst, dist, res, bull, bear
-    m1: number; m3: number; m6: number; m9: number; m12: number; // Ranks
+    m1: number | null; m3: number | null; m6: number | null; m9: number | null; m12: number | null; // Ranks
     ad?: string;     // A/D Rating
     price: number; chg: number;
     offh?: number; offl?: number | null;

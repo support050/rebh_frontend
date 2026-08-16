@@ -38,6 +38,9 @@ function RSHubContent() {
     // Local Watchlist (stored in localStorage)
     const [watchlist, setWatchlist] = useState<string[]>([]);
 
+    const [dataDate, setDataDate] = useState<string>('');
+    const [isStale, setIsStale] = useState<boolean>(false);
+
     useEffect(() => {
         // Load watchlist from localStorage on mount
         const saved = localStorage.getItem('rs_hub_watchlist');
@@ -60,6 +63,15 @@ function RSHubContent() {
                         symbol: st.s
                     }));
                     setStocks(formatted);
+
+                    if (data.meta?.date) {
+                        setDataDate(data.meta.date);
+                        // Check if data is stale (> 3 days old to account for weekends)
+                        const dDate = new Date(data.meta.date);
+                        const now = new Date();
+                        const diffDays = Math.floor((now.getTime() - dDate.getTime()) / (1000 * 3600 * 24));
+                        setIsStale(diffDays > 3);
+                    }
                 } else {
                     const text = await res.text();
                     console.error('Failed to load RS Hub Data, Status:', res.status, text);
@@ -244,9 +256,18 @@ function RSHubContent() {
                 >
                     <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3" style={{ borderBottom: `1px solid ${PAPER.cardBorder}` }}>
                         <div className="min-w-0">
-                            <h1 className="text-base font-bold flex items-center gap-2" style={{ fontFamily: FONT_SERIF }}>
+                            <h1 className="text-base font-bold flex items-center gap-2 flex-wrap" style={{ fontFamily: FONT_SERIF }}>
                                 RS Rating Hub
-                                
+                                {dataDate && (
+                                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded border" style={{ background: PAPER.paper, color: PAPER.inkMuted, borderColor: PAPER.cardBorder }}>
+                                        Data as of {dataDate}
+                                    </span>
+                                )}
+                                {isStale && (
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded border animate-pulse" style={{ background: PAPER.weakBg, color: PAPER.weak, borderColor: PAPER.weakBorder }}>
+                                        ⚠️ Data Stale
+                                    </span>
+                                )}
                             </h1>
                             <p className="text-[11px] mt-0.5" style={{ color: PAPER.inkMuted }}>Relative Strength Analysis</p>
                         </div>

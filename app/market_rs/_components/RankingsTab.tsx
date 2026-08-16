@@ -98,10 +98,17 @@ export function RankingsTab({
 
     const sortValue = useCallback((x: StockData, key: SortKey): string | number => {
         if (key === 'd1w') return x.rs - x.rs1w;
-        if (key === 'age') return x.age ?? (x.m1 - x.m12);
+        if (key === 'age') {
+            if (x.age !== undefined && x.age !== null) return x.age;
+            const m1Val = x.m1 ?? 50;
+            const m12Val = x.m12 ?? 50;
+            return m1Val - m12Val;
+        }
         if (key === 'grp') return (x[levelField] || x.grp || '') as string;
         if (key === 's' || key === 'c') return (x[key] || '') as string;
-        return (x[key as keyof StockData] as number) ?? 0;
+        const val = x[key as keyof StockData];
+        if (val === null || val === undefined) return -999999;
+        return val as number;
     }, [levelField]);
 
     const handleSort = useCallback((key: SortKey) => {
@@ -435,6 +442,8 @@ export function RankingsTab({
                                 {th('d1w', 'Δ1W')}
                                 {th('m1', '1M')}
                                 {th('m3', '3M')}
+                                {th('m6', '6M')}
+                                {th('m9', '9M')}
                                 {th('m12', '12M')}
                                 {th('age', 'Trend')}
                                 <th className="px-2 py-2.5 text-right text-[9.5px] uppercase" style={{ fontFamily: FONT_SERIF, letterSpacing: '0.08em' }}>Signals</th>
@@ -462,9 +471,11 @@ export function RankingsTab({
                                         <td className={`px-2 py-2 text-xs font-bold ${d1w > 0 ? 'num-positive' : d1w < 0 ? 'num-negative' : ''}`} style={d1w === 0 ? { color: PAPER.inkMuted } : undefined}>
                                             {d1w > 0 ? '+' : ''}{d1w}
                                         </td>
-                                        <td className="px-2 py-2 text-[11px]" style={{ color: PAPER.inkMuted }}>{st.m1}</td>
-                                        <td className="px-2 py-2 text-[11px]" style={{ color: PAPER.inkMuted }}>{st.m3}</td>
-                                        <td className="px-2 py-2 text-[11px]" style={{ color: PAPER.inkMuted }}>{st.m12}</td>
+                                        <td className="px-2 py-2 text-[11px]" style={{ color: PAPER.inkMuted }}>{st.m1 ?? '—'}</td>
+                                        <td className="px-2 py-2 text-[11px]" style={{ color: PAPER.inkMuted }}>{st.m3 ?? '—'}</td>
+                                        <td className="px-2 py-2 text-[11px]" style={{ color: PAPER.inkMuted }}>{st.m6 ?? '—'}</td>
+                                        <td className="px-2 py-2 text-[11px]" style={{ color: PAPER.inkMuted }}>{st.m9 ?? '—'}</td>
+                                        <td className="px-2 py-2 text-[11px]" style={{ color: PAPER.inkMuted }}>{st.m12 ?? '—'}</td>
                                         <td className="px-2 py-2">
                                             <span
                                                 className="text-[9px] font-extrabold rounded-sm px-1.5 py-0.5"
@@ -574,10 +585,11 @@ export function RankingsTab({
                                 {[
                                     { label: 'Δ 1W', value: `${(selectedStock.rs - selectedStock.rs1w) >= 0 ? '+' : ''}${selectedStock.rs - selectedStock.rs1w}` },
                                     { label: 'Category', value: selectedStock.cat },
-                                    { label: '1M', value: selectedStock.m1 },
-                                    { label: '3M', value: selectedStock.m3 },
-                                    { label: '6M', value: selectedStock.m6 },
-                                    { label: '12M', value: selectedStock.m12 },
+                                    { label: '1M', value: selectedStock.m1 ?? '—' },
+                                    { label: '3M', value: selectedStock.m3 ?? '—' },
+                                    { label: '6M', value: selectedStock.m6 ?? '—' },
+                                    { label: '9M', value: selectedStock.m9 ?? '—' },
+                                    { label: '12M', value: selectedStock.m12 ?? '—' },
                                     { label: 'A/D', value: selectedStock.ad || '-' },
                                     { label: 'Group #', value: selectedStock.gRank ?? '—' },
                                 ].map(item => (
