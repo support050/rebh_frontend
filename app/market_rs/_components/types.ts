@@ -28,6 +28,7 @@ export interface StockData {
     focus?: boolean;
     res?: boolean;
     dist?: boolean;
+    rs_avg10?: number;
 }
 
 export type TabId = 'rankings' | 'matrix' | 'rotation' | 'map' | 'events';

@@ -9,7 +9,7 @@ import { FONT_SERIF, FONT_MONO, type PaperTokens } from './paperTheme';
 import { Stamp, LedgerLabel } from './PaperUI';
 import { useRsHubTheme } from './RsHubThemeContext';
 
-type FilterKey = 'all' | '90' | '80' | '70' | 'blue' | 'up' | 'dn' | 'rsnh' | 'focus' | 'dist' | 'burst' | 'bull' | 'bear' | 'res' | 'STRONG' | 'IMPROVE' | 'NEUTRAL' | 'WEAK' | 'momentum';
+type FilterKey = 'all' | '90' | '80' | '70' | 'blue' | 'blue52' | 'blue13' | 'up' | 'dn' | 'rsnh' | 'focus' | 'dist' | 'burst' | 'bull' | 'bear' | 'res' | 'STRONG' | 'IMPROVE' | 'NEUTRAL' | 'WEAK' | 'momentum';
 type SortKey = 's' | 'c' | 'rs' | 'd1w' | 'm1' | 'm3' | 'm6' | 'm9' | 'm12' | 'age' | 'grp';
 
 interface SortConfig {
@@ -41,9 +41,10 @@ function SortIndicator({ sortConfigs, colKey, paper }: { sortConfigs: SortConfig
 
 function wizardChecks(x: StockData) {
     const trailVals = (x.trail || []).map((p: any) => p[1]).filter((v: any) => typeof v === 'number');
-    const sma10 = trailVals.length
-        ? Math.round(trailVals.slice(-Math.min(4, trailVals.length)).reduce((a: number, b: number) => a + b, 0) / Math.min(4, trailVals.length))
+    const fallbackSma = trailVals.length
+        ? Math.round(trailVals.reduce((a: number, b: number) => a + b, 0) / trailVals.length)
         : x.rs;
+    const sma10 = x.rs_avg10 !== undefined && x.rs_avg10 !== null ? Math.round(x.rs_avg10) : fallbackSma;
     const green = x.rs >= sma10;
     const checks: [string, boolean][] = [
         ['RS ≥ 80', x.rs >= 80],
@@ -84,7 +85,8 @@ export function RankingsTab({
     const [showCompare, setShowCompare] = useState(false);
 
     const counts = useMemo(() => ({
-        blue: stocks.filter(s => s.sig?.includes('blue')).length,
+        blue: stocks.filter(s => s.sig?.includes('blue') || s.sig?.includes('blue52')).length,
+        blue13: stocks.filter(s => s.sig?.includes('blue13')).length,
         up: stocks.filter(s => s.sig?.includes('up')).length,
         dn: stocks.filter(s => s.sig?.includes('dn')).length,
         rsnh: stocks.filter(s => !!(s.rsnh ?? s.sig?.includes('rsnh'))).length,
@@ -137,7 +139,8 @@ export function RankingsTab({
             case 'IMPROVE': result = result.filter(s => s.cat === 'IMPROVE'); break;
             case 'NEUTRAL': result = result.filter(s => s.cat === 'NEUTRAL'); break;
             case 'WEAK': result = result.filter(s => s.cat === 'WEAK'); break;
-            case 'blue': result = result.filter(s => s.sig?.includes('blue')); break;
+            case 'blue': case 'blue52': result = result.filter(s => s.sig?.includes('blue') || s.sig?.includes('blue52')); break;
+            case 'blue13': result = result.filter(s => s.sig?.includes('blue13')); break;
             case 'up': result = result.filter(s => s.sig?.includes('up')); break;
             case 'dn': result = result.filter(s => s.sig?.includes('dn')); break;
             case 'rsnh': result = result.filter(s => !!(s.rsnh ?? s.sig?.includes('rsnh'))); break;
@@ -384,6 +387,7 @@ export function RankingsTab({
                 <Stamp active={activeFilter === '80'} onClick={() => setActiveFilter('80')}>80+</Stamp>
                 <Stamp active={activeFilter === '70'} onClick={() => setActiveFilter('70')}>70+</Stamp>
                 <Stamp active={activeFilter === 'blue'} onClick={() => setActiveFilter('blue')}>RS Lead ({counts.blue})</Stamp>
+                <Stamp active={activeFilter === 'blue13'} onClick={() => setActiveFilter('blue13')}>RS Lead 13W ({counts.blue13})</Stamp>
                 <Stamp active={activeFilter === 'up'} onClick={() => setActiveFilter('up')} green>Upgraded ({counts.up})</Stamp>
                 <Stamp active={activeFilter === 'dn'} onClick={() => setActiveFilter('dn')}>Downgraded ({counts.dn})</Stamp>
                 <Stamp active={activeFilter === 'rsnh'} onClick={() => setActiveFilter('rsnh')}>RS 1Y-High ({counts.rsnh})</Stamp>
