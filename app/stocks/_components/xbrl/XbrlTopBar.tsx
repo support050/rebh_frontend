@@ -80,17 +80,12 @@ export function XbrlTopBar({ meta }: Props) {
 
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-[#E5E7EB] bg-white px-6 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-      <Link
-        href="/"
-        className="whitespace-nowrap rounded-[3px] border border-[#E5E7EB] bg-white px-3 py-1 font-sans text-[15px] font-bold tracking-tight text-[#8C3B32]"
-      >
-        📒 XBRL Ledger
-      </Link>
+
 
       <div className="h-6 w-px bg-[#E5E7EB]" />
 
       {meta ? (
-        <div className="flex items-center gap-3 rounded-[3px] border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-1.5">
+        <div className="flex items-center gap-3 rounded-[4px] border border-[#E5E7EB] bg-[#F3F4F6] px-3 py-1.5">
           <span className="truncate max-w-[150px] md:max-w-[240px] font-sans text-[14px] font-bold text-[#1A1A1A]">
             {meta.company_name}
           </span>
@@ -102,7 +97,7 @@ export function XbrlTopBar({ meta }: Props) {
               </span>
             )}
             {meta.sector && <span className="text-[11px] italic text-[#6B7280]">{meta.sector}</span>}
-            {meta.currency && <Badge>{meta.currency}</Badge>}
+            {meta.currency && <Badge variant="blue">{meta.currency}</Badge>}
             {meta.rounding && <Badge variant="amber">{meta.rounding}</Badge>}
             {meta.status && <Badge variant="green">{meta.status}</Badge>}
           </div>
@@ -148,7 +143,7 @@ export function XbrlTopBar({ meta }: Props) {
                 <button
                   key={stock.symbol}
                   onClick={() => handleSelect(stock.symbol)}
-                  className="flex w-full items-center justify-between rounded-[3px] px-3 py-2 text-left transition-colors hover:bg-[#F3F4F6]"
+                  className="flex w-full items-center justify-between rounded-[4px] px-3 py-2 text-left transition-colors hover:bg-[#F3F4F6]"
                 >
                   <div className="flex flex-col">
                     <span className="font-sans text-[12px] font-semibold text-[#1A1A1A] line-clamp-1">
@@ -156,7 +151,7 @@ export function XbrlTopBar({ meta }: Props) {
                     </span>
                     <span className="text-[10px] italic text-[#6B7280]">{stock.sector}</span>
                   </div>
-                  <span className="rounded-[3px] border border-[#E5E7EB] bg-[#F9FAFB] px-1.5 py-0.5 font-sans text-[10px] font-bold text-[#1A1A1A]">
+                  <span className="rounded-[4px] border border-[#E5E7EB] bg-[#F3F4F6] px-1.5 py-0.5 font-sans text-[10px] font-bold text-[#1A1A1A]">
                     {stock.symbol}
                   </span>
                 </button>
@@ -169,9 +164,9 @@ export function XbrlTopBar({ meta }: Props) {
       <div className={meta ? 'hidden md:block' : 'ml-0'}>
         <Link
           href="/stocks"
-          className="rounded-[3px] border border-[#E5E7EB] bg-white px-4 py-1.5 font-sans text-[12px] font-semibold text-[#1A1A1A] transition-colors hover:bg-[#F9FAFB]"
+          className="rounded-[4px] border border-[#E5E7EB] bg-white px-4 py-1.5 font-sans text-[12px] font-semibold text-[#1A1A1A] transition-colors hover:bg-[#F3F4F6]"
         >
-          ↩ Back to Stocks
+          ← Back to Stocks
         </Link>
       </div>
     </header>
@@ -186,13 +181,13 @@ function Badge({
   variant?: 'blue' | 'green' | 'amber'
 }) {
   const cls = {
-    blue: 'border-[#E5E7EB] bg-[#F3F4F6] text-[#374151]',
-    green: 'border-[#86EFAC] bg-[#F0FDF4] text-[#166534]',
-    amber: 'border-[#FDE68A] bg-[#FFFBEB] text-[#92400E]',
+    blue: 'border-[#93C5FD] bg-[#EFF6FF] text-[#2563EB]',
+    green: 'border-[#86EFAC] bg-[#F0FDF4] text-[#16A34A]',
+    amber: 'border-[#FDE68A] bg-[#FFFBEB] text-[#D97706]',
   }[variant]
 
   return (
-    <span className={`rounded-[3px] border px-2 py-0.5 font-sans text-[10px] font-bold ${cls}`}>
+    <span className={`rounded-[4px] border px-2 py-0.5 font-sans text-[10px] font-bold ${cls}`}>
       {children}
     </span>
   )

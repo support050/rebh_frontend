@@ -44,7 +44,7 @@ export function XbrlCompanyDashboard({ symbol }: { symbol: string }) {
       <div className="relative flex">
         <XbrlSidebar availableSections={availableSections} currentSection={baseSection} onSelect={setBaseSection} />
         <main className="flex-1 min-w-0 space-y-5 p-6">
-          <LedgerPanel rail={false} className="flex flex-wrap justify-between items-center gap-4 p-3">
+          <LedgerPanel className="flex flex-wrap justify-between items-center gap-4 p-3">
             {/* View Mode Switcher — hidden for equity and info sections */}
             {!isEquityMatrix && !isInfoSection ? (
               <div className="flex items-center gap-1.5">
@@ -76,7 +76,7 @@ export function XbrlCompanyDashboard({ symbol }: { symbol: string }) {
           </LedgerPanel>
 
           {error ? (
-            <div className="rounded-[3px] border border-[#DC2626]/40 bg-white p-4 font-sans text-sm text-[#DC2626] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+            <div className="rounded-[4px] border border-[#FECACA] bg-[#FEF2F2] p-4 font-sans text-sm text-[#DC2626] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
               ✖ {error}
             </div>
           ) : isEquityMatrix ? (

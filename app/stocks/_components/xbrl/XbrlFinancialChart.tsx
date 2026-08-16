@@ -17,7 +17,9 @@ import {
 import { fmtAxisNum, fmtNum, periodLabel } from '@/lib/xbrl-format'
 import type { FinancialItem, PeriodMeta } from '@/types/xbrl-financials'
 
-const COLORS = ['#8C3B32', '#2563EB', '#16A34A', '#D97706', '#7C3AED', '#0891B2']
+// Primary accent first, then the status palette (info / positive / neutral / negative),
+// plus two extra hues for decks that need more than four series.
+const COLORS = ['#8C3B32', '#2563EB', '#16A34A', '#D97706', '#DC2626', '#7C3AED']
 
 const DEFAULT_METRICS: Record<string, string[]> = {
   balance_sheet: ['total assets', 'total equity', 'total liabilities'],
@@ -123,15 +125,15 @@ export function XbrlFinancialChart({ items, periods, periodMeta, sectionKey, loa
     return (
       <LedgerPanel className="p-6">
         <div className="mb-4 h-4 w-40 animate-pulse rounded-full bg-[#F3F4F6]" />
-        <div className="h-[240px] w-full animate-pulse rounded-[3px] bg-[#F3F4F6]" />
+        <div className="h-[240px] w-full animate-pulse rounded-[4px] bg-[#F3F4F6]" />
       </LedgerPanel>
     )
   }
 
   return (
     <LedgerPanel className="p-6">
-      <div className="relative mb-5 flex flex-wrap items-center gap-3">
-        <span className="font-sans text-[13px] font-bold uppercase tracking-[0.08em] text-[#1A1A1A]">📊 Graph Sheet</span>
+      <div className="mb-5 flex flex-wrap items-center gap-3">
+        <span className="font-sans text-[13px] font-bold uppercase tracking-[0.08em] text-[#1A1A1A]">Trend Chart</span>
         <div className="flex gap-1.5">
           {(['bar', 'line'] as const).map((t) => (
             <StampButton key={t} active={chartType === t} onClick={() => setChartType(t)} size="sm">
@@ -141,7 +143,7 @@ export function XbrlFinancialChart({ items, periods, periodMeta, sectionKey, loa
         </div>
       </div>
 
-      <div className="relative mb-5 flex flex-wrap gap-1.5">
+      <div className="mb-5 flex flex-wrap gap-1.5">
         {chartableItems.slice(0, 18).map((item) => {
           const displayLabel = getLabel(item.label, item.label_ar, langMode)
           return (
@@ -149,10 +151,10 @@ export function XbrlFinancialChart({ items, periods, periodMeta, sectionKey, loa
               key={item.label}
               onClick={() => toggleMetric(item.label)}
               className={clsx(
-                'whitespace-nowrap rounded-[3px] border px-2.5 py-1 font-sans text-[10px] font-medium transition-colors',
+                'whitespace-nowrap rounded-[4px] border px-2.5 py-1 font-sans text-[10px] font-medium transition-colors',
                 isActive(item.label)
-                  ? 'border-[#8C3B32] bg-white text-[#8C3B32]'
-                  : 'border-[#E5E7EB] bg-[#F9FAFB] text-[#6B7280] hover:text-[#1A1A1A]',
+                  ? 'border-[#E5E7EB] bg-white text-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]'
+                  : 'border-[#E5E7EB] bg-[#F3F4F6] text-[#6B7280] hover:text-[#1A1A1A]',
               )}
             >
               {displayLabel.length > 32 ? `${displayLabel.slice(0, 30)}...` : displayLabel}
@@ -161,8 +163,8 @@ export function XbrlFinancialChart({ items, periods, periodMeta, sectionKey, loa
         })}
       </div>
 
-      <div className="relative rounded-[3px] border border-[#E5E7EB] bg-white p-2">
-        <ResponsiveContainer width="100%" height={260} className="relative">
+      <div className="rounded-[4px] border border-[#E5E7EB] bg-white p-2">
+        <ResponsiveContainer width="100%" height={260}>
           {chartType === 'bar' ? (
             <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />

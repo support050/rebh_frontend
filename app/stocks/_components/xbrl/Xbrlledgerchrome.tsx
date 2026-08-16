@@ -4,62 +4,41 @@ import type { ReactNode } from 'react'
 import clsx from 'clsx'
 
 /**
- * Shared "paper ledger" skeuomorphic chrome.
- * Signature element: a red margin rule + brass hole-punch rail down the
- * left edge of every panel, like loose-leaf ledger paper in a binder.
+ * Shared "White Paper" chrome primitives.
+ * Design tokens: white surfaces (#FFFFFF) on a soft off-white canvas
+ * (#F7F8FA), 1px #E5E7EB borders, crisp 4px radii, and a single
+ * restrained accent (#8C3B32) reserved for active/selected states.
  */
 
-export const PAPER_TEXTURE =
-    'bg-[#F3EAD3] bg-[radial-gradient(circle_at_1px_1px,rgba(139,109,58,0.08)_1px,transparent_0)] [background-size:13px_13px]'
+export const SURFACE = '#FFFFFF'
+export const BORDER = '#E5E7EB'
+export const TEXT_PRIMARY = '#1A1A1A'
+export const TEXT_MUTED = '#6B7280'
+export const ACCENT = '#8C3B32'
 
-export const INK = '#3C2A18'
-export const INK_SOFT = '#7A6244'
-export const BRASS = '#A9803F'
-
-export function HolePunchRail({ count = 7 }: { count?: number }) {
-    return (
-        <div className="pointer-events-none absolute left-0 top-0 z-20 flex h-full w-7 flex-col items-center justify-evenly py-4">
-            {Array.from({ length: count }).map((_, i) => (
-                <span
-                    key={i}
-                    className="h-[9px] w-[9px] rounded-full bg-[#EAE0C4] shadow-[inset_0_1px_2px_rgba(60,42,24,0.5),0_1px_0_rgba(255,255,255,0.65)]"
-                />
-            ))}
-        </div>
-    )
-}
-
+/** Flat white card container used for every panel/table/chart wrapper. */
 export function LedgerPanel({
     children,
     className = '',
-    rail = true,
 }: {
     children: ReactNode
     className?: string
+    /** @deprecated kept for backwards-compat with older call sites; no longer affects rendering */
     rail?: boolean
 }) {
     return (
         <div
             className={clsx(
-                'relative overflow-hidden rounded-[3px] border border-[#C6AF7C]',
-                'shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_14px_28px_-8px_rgba(60,42,24,0.28),0_3px_6px_rgba(60,42,24,0.14)]',
-                PAPER_TEXTURE,
-                rail && 'pl-8',
+                'relative rounded-[4px] border border-[#E5E7EB] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)]',
                 className,
             )}
         >
-            {rail && (
-                <>
-                    <HolePunchRail />
-                    <div className="pointer-events-none absolute left-7 top-0 h-full w-px bg-[#B5453A]/45" />
-                </>
-            )}
             {children}
         </div>
     )
 }
 
-/** Rubber-stamp style toggle button, for switch-groups (view mode, language, chart type, filters). */
+/** Flat toggle/filter button used for switch-groups (view mode, language, chart type, filters). */
 export function StampButton({
     active,
     children,
@@ -75,11 +54,12 @@ export function StampButton({
         <button
             onClick={onClick}
             className={clsx(
-                'relative font-serif font-semibold uppercase tracking-[0.06em] transition-all duration-150',
-                size === 'sm' ? 'rounded-[4px] px-2.5 py-1 text-[10px]' : 'rounded-[5px] px-3.5 py-1.5 text-[11px]',
+                'font-sans font-semibold uppercase tracking-wider transition-colors duration-150',
+                'rounded-[4px] border',
+                size === 'sm' ? 'px-2.5 py-1 text-[10px]' : 'px-3.5 py-1.5 text-[11px]',
                 active
-                    ? '-rotate-1 border-2 border-[#8C3B32] bg-[#FBF6E9] text-[#8C3B32] shadow-[0_2px_0_#8C3B32,inset_0_0_0_1px_rgba(140,59,50,0.15)]'
-                    : 'rotate-0 border-2 border-[#C6AF7C]/70 bg-[#EFE3C4]/70 text-[#7A6244] shadow-[0_1px_0_rgba(60,42,24,0.15)] hover:border-[#B5453A]/40 hover:text-[#8C3B32]',
+                    ? 'border-[#E5E7EB] bg-white text-[#1A1A1A] shadow-[0_1px_3px_rgba(0,0,0,0.06)]'
+                    : 'border-[#E5E7EB] bg-[#F3F4F6] text-[#6B7280] hover:bg-[#E5E7EB]/70 hover:text-[#1A1A1A]',
             )}
         >
             {children}
@@ -87,18 +67,7 @@ export function StampButton({
     )
 }
 
-/** Small washi-tape strip decoration for card corners. */
-export function WashiTape({ rotate = -6, color = '#C9A66B' }: { rotate?: number; color?: string }) {
-    return (
-        <div
-            className="pointer-events-none absolute -top-2 left-4 h-4 w-14 opacity-70 mix-blend-multiply"
-            style={{
-                backgroundColor: color,
-                transform: `rotate(${rotate}deg)`,
-                boxShadow: '0 1px 2px rgba(60,42,24,0.25)',
-                maskImage:
-                    'repeating-linear-gradient(90deg, black 0 6px, rgba(0,0,0,0.75) 6px 7px)',
-            }}
-        />
-    )
+/** Small colored status/accent dot, e.g. for KPI trend or section markers. */
+export function AccentDot({ color = ACCENT }: { color?: string }) {
+    return <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
 }

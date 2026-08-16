@@ -140,7 +140,7 @@ export function XbrlFinancialTable({ items, periods, loading, langMode = 'both' 
   return (
     <LedgerPanel>
       <div className="flex flex-wrap items-center gap-3 border-b border-[#E5E7EB] px-5 py-4">
-        <span className="font-sans text-[11px] font-bold uppercase tracking-[0.1em] text-[#6B7280]">Ledger Sheet</span>
+        <span className="font-sans text-[11px] font-bold uppercase tracking-[0.1em] text-[#6B7280]">Line Items</span>
         <input
           type="text"
           placeholder="Search line items..."
@@ -161,13 +161,13 @@ export function XbrlFinancialTable({ items, periods, loading, langMode = 'both' 
         <table className="w-full border-separate border-spacing-0 text-[13px]">
           <thead>
             <tr>
-              <th className="sticky left-0 z-30 min-w-[320px] border-b border-[#E5E7EB] bg-[#F9FAFB] px-5 py-3 text-left font-sans text-[11px] font-bold uppercase tracking-wide text-[#374151]">
+              <th className="sticky left-0 z-30 min-w-[320px] border-b border-[#E5E7EB] bg-[#F3F4F6] px-5 py-3 text-left font-sans text-[10px] font-bold uppercase tracking-wider text-[#6B7280]">
                 Line Item
               </th>
               {shownPeriods.map((p) => (
                 <th
                   key={p}
-                  className="whitespace-nowrap border-b border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-right font-sans text-[11px] font-bold uppercase tracking-wide text-[#374151]"
+                  className="whitespace-nowrap border-b border-[#E5E7EB] bg-[#F3F4F6] px-4 py-3 text-right font-sans text-[10px] font-bold uppercase tracking-wider text-[#6B7280]"
                 >
                   {periodLabel(p)}
                 </th>
@@ -198,8 +198,8 @@ export function XbrlFinancialTable({ items, periods, loading, langMode = 'both' 
                     <td
                       className={clsx(
                         STICKY_COL,
-                        sectionHeader && 'bg-[#F3F4F6] text-[10px] font-bold uppercase tracking-wider text-[#374151]',
-                        !sectionHeader && band && 'bg-[#F9FAFB] font-bold text-[#1A1A1A]',
+                        sectionHeader && 'bg-[#F3F4F6] text-[10px] font-bold uppercase tracking-wider text-[#6B7280]',
+                        !sectionHeader && band && 'bg-[#F3F4F6] font-bold text-[#1A1A1A]',
                         !sectionHeader && !band && 'bg-white text-[#1A1A1A] group-hover:bg-[#F9FAFB]',
                       )}
                       title={getLabel(item.label, item.label_ar, 'both')}
@@ -219,7 +219,7 @@ export function XbrlFinancialTable({ items, periods, loading, langMode = 'both' 
                           key={`${item.label}-${p}`}
                           className={clsx(
                             'min-w-[200px] border-t border-[#E5E7EB] px-4 py-2.5 font-sans tabular-nums',
-                            band ? 'bg-[#F9FAFB] font-bold text-[#1A1A1A]' : 'group-hover:bg-[#F9FAFB]',
+                            band ? 'bg-[#F3F4F6] font-bold text-[#1A1A1A]' : 'group-hover:bg-[#F9FAFB]',
                             isNum ? 'num whitespace-nowrap text-right' : 'max-w-lg whitespace-normal break-words text-left text-xs leading-relaxed',
                             isNeg && !band && 'text-[#DC2626]',
                             !band && !isNeg && isNum && 'text-[#1A1A1A]',
