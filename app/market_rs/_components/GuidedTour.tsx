@@ -14,14 +14,14 @@ export interface TourStep {
 
 const TOUR: TourStep[] = [
     {
-        sel: ".strip-card-container",
+        sel: ".pulse",
         tab: "rankings",
         t: "Start here: the state of the market",
         b: "Four tiers, recalculated every day. Right now <b>11 stocks are STRONG</b> (RS 90+), 24 improving, and <b>188 are weak</b>. That last number is the point — in this market, leadership is narrow.",
         try: "Click any tier to filter the table to it."
     },
     {
-        sel: ".insights-container",
+        sel: ".insights",
         tab: "rankings",
         t: "The market's story, written for you",
         b: "These chips are generated from today's data: the fastest riser, stocks that just entered STRONG, the focus list, and leadership breadth — the share of stocks above RS 70 and whether that's widening or narrowing week over week.",
@@ -42,14 +42,14 @@ const TOUR: TourStep[] = [
         try: "Pick Sub Industry, then sort by that column to cluster the market by niche."
     },
     {
-        sel: ".detail-panel-container",
+        sel: ".detail",
         tab: "rankings",
         t: "Click a stock: the full read",
         b: "Where it sits versus the entire market, the wizard checks (alignment score, the 10-session light, how long it has held above 70), its five period ranks, and a plain-English expert read. Optional: the full daily rating history back to 2007.",
         try: "Use ↑ ↓ to move between stocks, W to watchlist, C to compare up to three."
     },
     {
-        sel: ".tab-switcher-container",
+        sel: ".folder-tabs",
         tab: "matrix",
         t: "Matrix: the market split by tier",
         b: "The same universe arranged by strength tier, showing who was promoted and who was demoted this week — the cleanest way to see rotation between tiers at a glance.",
@@ -111,6 +111,9 @@ export function GuidedTour({ onSwitchTab }: { onSwitchTab: (tab: TabId) => void 
         if (!s) return;
         const el = s.sel ? document.querySelector(s.sel) : null;
         if (el) {
+            // Scroll element into view smoothly if not visible
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+            
             const r = el.getBoundingClientRect();
             if (r.height > 4) {
                 const pad = 6;
@@ -121,7 +124,7 @@ export function GuidedTour({ onSwitchTab }: { onSwitchTab: (tab: TabId) => void 
                     height: Math.min(r.height, window.innerHeight * 0.6) + pad * 2,
                 });
                 const cardH = 260;
-                const cardW = 380;
+                const cardW = Math.min(380, window.innerWidth * 0.92);
                 const below = r.bottom + 16;
                 const top = (below + cardH < window.innerHeight - 10) ? below : Math.max(12, r.top - cardH - 16);
                 const left = Math.min(Math.max(12, r.left), window.innerWidth - cardW - 12);
@@ -142,7 +145,11 @@ export function GuidedTour({ onSwitchTab }: { onSwitchTab: (tab: TabId) => void 
         const s = TOUR[nextIdx];
         if (s.tab) onSwitchTab(s.tab);
         setActive(true);
-        setTimeout(() => updatePosition(s), 80);
+        // Double RAF / timeout to allow tab render & smooth scroll before calculating bounding box
+        setTimeout(() => {
+            updatePosition(s);
+            setTimeout(() => updatePosition(s), 150);
+        }, 100);
     }, [onSwitchTab, updatePosition]);
 
     const handleNext = () => {
@@ -198,23 +205,23 @@ export function GuidedTour({ onSwitchTab }: { onSwitchTab: (tab: TabId) => void 
             {/* Tour overlay backdrop */}
             {active && (
                 <>
-                    <div
-                        className="fixed inset-0 z-[900]"
-                        onClick={handleExit}
-                        style={{ background: 'rgba(10, 14, 22, 0.62)', backdropFilter: 'blur(1.5px)' }}
-                    />
-
-                    {/* Highlight spot border */}
-                    {spotRect && (
+                    {/* Dark spotlight overlay */}
+                    {spotRect ? (
                         <div
-                            className="fixed z-[901] pointer-events-none rounded-xl transition-all duration-300"
+                            className="fixed z-[900] pointer-events-none rounded-xl transition-all duration-300"
                             style={{
                                 top: spotRect.top,
                                 left: spotRect.left,
                                 width: spotRect.width,
                                 height: spotRect.height,
-                                boxShadow: '0 0 0 4px #5fd08a, 0 0 0 9999px rgba(10, 14, 22, 0.62)',
+                                boxShadow: '0 0 0 4px #5fd08a, 0 0 0 9999px rgba(10, 14, 22, 0.75)',
                             }}
+                        />
+                    ) : (
+                        <div
+                            className="fixed inset-0 z-[900]"
+                            onClick={handleExit}
+                            style={{ background: 'rgba(10, 14, 22, 0.75)', backdropFilter: 'blur(2px)' }}
                         />
                     )}
 

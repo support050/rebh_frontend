@@ -126,7 +126,7 @@ export function EventsTab({ stocks }: { stocks: StockData[] }) {
                 <span className="text-xs" style={{ color: PAPER.inkMuted, fontFamily: FONT_MONO }}>{totalEvents} events</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 p-4">
+            <div id="evBody" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 p-4">
                 {eventData.map(group => (
                     <div key={group.title} className="rounded-[3px] overflow-hidden" style={{ border: `1px solid ${group.border}` }}>
                         <div className="px-3 py-2.5" style={{ background: group.bg, borderBottom: `1px dashed ${group.border}` }}>

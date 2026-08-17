@@ -366,6 +366,7 @@ export function RankingsTab({
         >
             <div className="flex items-center gap-2 p-3 dashed-divider flex-wrap">
                 <input
+                    id="rkSearch"
                     type="text"
                     placeholder="Search symbol or name…"
                     value={search}
@@ -373,6 +374,7 @@ export function RankingsTab({
                     className="paper-input px-3 py-2 text-sm w-48"
                 />
                 <select
+                    id="lvlSel"
                     value={levelField}
                     onChange={e => setLevelField(e.target.value as any)}
                     className="paper-select px-3 py-2 text-xs cursor-pointer"
@@ -510,7 +512,7 @@ export function RankingsTab({
                 </div>
 
                 {/* Detail */}
-                <div className="p-4 overflow-y-auto max-h-[620px] scrollbar-ledger" style={{ background: PAPER.paper }}>
+                <div className="detail p-4 overflow-y-auto max-h-[620px] scrollbar-ledger" style={{ background: PAPER.paper }}>
                     {selectedStock ? (
                         <div>
                             <div className="flex items-start justify-between mb-2">

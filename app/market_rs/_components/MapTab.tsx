@@ -220,7 +220,7 @@ export function MapTab({ stocks }: { stocks: StockData[] }) {
                     </UniSelect>
                 )}
 
-                <div className="flex items-center gap-2 flex-wrap">
+                <div id="zoneCnt" className="flex items-center gap-2 flex-wrap">
                     {zoneChip('all', 'ALL', live.length, T.ink, PAPER.paper)}
                     {zoneChip('elite', 'STRONG', zoneCounts.elite, T.strong, T.strongBg)}
                     {zoneChip('strong', 'IMPROVE', zoneCounts.strong, T.improve, T.improveBg)}
@@ -250,7 +250,7 @@ export function MapTab({ stocks }: { stocks: StockData[] }) {
 
             {/* Scatter Plot Chart */}
             <div className="p-2 relative" style={{ background: PAPER.paperLight }}>
-                <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 'min(58vh, 520px)' }}>
+                <svg id="mapSvg" viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 'min(58vh, 520px)' }}>
                     <defs>
                         <filter id="mapShadow" x="-50%" y="-50%" width="200%" height="200%">
                             <feDropShadow dx="0" dy="1.2" stdDeviation="1.6" floodColor={PAPER.ink} floodOpacity="0.32" />

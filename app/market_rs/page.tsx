@@ -16,6 +16,7 @@ import { MatrixTab } from './_components/MatrixTab';
 import { RotationTab } from './_components/RotationTab';
 import { MapTab } from './_components/MapTab';
 import { EventsTab } from './_components/EventsTab';
+import { GuidedTour } from './_components/GuidedTour';
 
 type UniverseType = 'all' | 'watchlist' | 'shariah';
 
@@ -312,7 +313,7 @@ function RSHubContent() {
                         </div>
                     )}
 
-                    <div className="grid grid-cols-4 gap-px" style={{ background: PAPER.cardBorder }}>
+                    <div className="pulse grid grid-cols-4 gap-px" style={{ background: PAPER.cardBorder }}>
                         {(['STRONG', 'IMPROVE', 'NEUTRAL', 'WEAK'] as const).map(cat => {
                             const count = dist[cat];
                             const pct = ((count / (universeStocks.length || 1)) * 100).toFixed(1);
@@ -345,7 +346,7 @@ function RSHubContent() {
                     </div>
 
                     {insights.length > 0 && (
-                        <div className="flex gap-1.5 flex-wrap px-3 py-2.5" style={{ borderTop: `1px solid ${PAPER.cardBorder}` }}>
+                        <div className="insights flex gap-1.5 flex-wrap px-3 py-2.5" style={{ borderTop: `1px solid ${PAPER.cardBorder}` }}>
                             {insights.map(chip => (
                                 <button
                                     key={chip.key}
@@ -397,6 +398,8 @@ function RSHubContent() {
                 <div className="text-center text-xs mt-8 italic" style={{ color: PAPER.inkMuted, fontFamily: FONT_MONO, letterSpacing: '0.02em' }}>
                     REBH · RS Rating Hub · {universeStocks.length} stocks · Sun–Thu trading week · Calibrated vs TASI
                 </div>
+
+                <GuidedTour onSwitchTab={(tab) => setActiveTab(tab)} />
             </div>
         </div>
     );

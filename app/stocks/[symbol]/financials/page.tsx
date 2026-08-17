@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
+import clsx from 'clsx';
 import { API_BASE_URL } from '@/lib/api/config';
 import { authFetch } from '@/lib/api/authFetch';
+import { LedgerPanel, StampButton } from '../../_components/xbrl/Xbrlledgerchrome';
 
 interface FinancialPeriod {
     period_end_date: string;
@@ -23,6 +25,58 @@ interface HistoricalFinancials {
 type ReportType = 'balance_sheets' | 'income_statements' | 'cash_flows';
 type PeriodType = 'Annually' | 'Quarterly';
 
+const REPORT_TABS: { key: ReportType; label: string; icon: string }[] = [
+    { key: 'income_statements', label: 'Income Statement', icon: '📈' },
+    { key: 'balance_sheets', label: 'Balance Sheet', icon: '🏛' },
+    { key: 'cash_flows', label: 'Cash Flows', icon: '💧' },
+];
+
+const TOTAL_FRAGS = [
+    'total assets',
+    'total liabilities',
+    'total equity',
+    'total shareholders',
+    'total liabilities and',
+    'gross profit',
+    'operating profit',
+    'profit for the period',
+    'net profit',
+    'net income',
+    'total operating income',
+    'total operating expenses',
+    'net cash from operating',
+    'net cash from investing',
+    'net cash from financing',
+    'net change in cash',
+];
+
+const HIDDEN_METRICS = ['all currency in'];
+const FOOTER_METRICS = ['all figures in', 'last update date'];
+
+const STICKY_COL =
+    'sticky left-0 z-20 min-w-[280px] whitespace-normal break-words border-t border-[#E5E7EB] px-5 py-2.5 text-left font-sans leading-snug';
+
+function normalizeMetric(name: string) {
+    return name.trim().toLowerCase();
+}
+
+function isHiddenMetric(name: string) {
+    return HIDDEN_METRICS.includes(normalizeMetric(name));
+}
+
+function footerRank(name: string) {
+    return FOOTER_METRICS.indexOf(normalizeMetric(name));
+}
+
+function isTotal(label: string) {
+    return TOTAL_FRAGS.some((f) => label.toLowerCase().includes(f));
+}
+
+function isNegativeValue(value: string) {
+    const cleaned = value.replace(/,/g, '').trim();
+    return cleaned.startsWith('(') || cleaned.startsWith('-');
+}
+
 export default function StockFinancialsPage() {
     const params = useParams();
     const symbol = ((params?.symbol as string) || '').toUpperCase();
@@ -30,6 +84,7 @@ export default function StockFinancialsPage() {
     const [financialData, setFinancialData] = useState<HistoricalFinancials | null>(null);
     const [activeReportType, setActiveReportType] = useState<ReportType>('income_statements');
     const [periodType, setPeriodType] = useState<PeriodType>('Annually');
+    const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -44,7 +99,7 @@ export default function StockFinancialsPage() {
         setError(null);
         try {
             const res = await authFetch(`${API_BASE_URL}/api/scraper/financials/${sym}`, {
-                credentials: 'include'
+                credentials: 'include',
             });
             if (!res.ok) throw new Error('Failed to fetch financial data');
             const data = await res.json();
@@ -57,146 +112,214 @@ export default function StockFinancialsPage() {
         }
     };
 
-    const getCurrentReportData = (): FinancialPeriod[] => {
+    const reportData = useMemo(() => {
         if (!financialData) return [];
-        const data = financialData[activeReportType] || [];
-        return data.filter(p => p.period_type === periodType);
-    };
+        return (financialData[activeReportType] || []).filter((p) => p.period_type === periodType);
+    }, [financialData, activeReportType, periodType]);
 
-    const reportData = getCurrentReportData();
+    const periods = useMemo(
+        () => reportData.map((p) => p.period_end_date).sort().reverse(),
+        [reportData],
+    );
 
-    const getAllMetricNames = (): string[] => {
+    const metricNames = useMemo(() => {
         const metrics = new Set<string>();
-        reportData.forEach(period => {
-            Object.keys(period.metrics).forEach(key => metrics.add(key));
+        reportData.forEach((period) => {
+            Object.keys(period.metrics).forEach((key) => metrics.add(key));
         });
-        return Array.from(metrics).sort();
-    };
 
-    const metricNames = getAllMetricNames();
-    const periods = reportData.map(p => p.period_end_date).sort().reverse();
+        const body: string[] = [];
+        const footer: string[] = [];
+        Array.from(metrics).forEach((name) => {
+            if (isHiddenMetric(name)) return;
+            if (footerRank(name) >= 0) footer.push(name);
+            else body.push(name);
+        });
+        footer.sort((a, b) => footerRank(a) - footerRank(b));
 
-    const reportTabs = [
-        { key: 'income_statements', label: 'Income Statement' },
-        { key: 'balance_sheets', label: 'Balance Sheet' },
-        { key: 'cash_flows', label: 'Cash Flows' },
-    ];
+        const q = search.trim().toLowerCase();
+        const filteredBody = q ? body.filter((name) => name.toLowerCase().includes(q)) : body;
+        return [...filteredBody, ...footer];
+    }, [reportData, search]);
 
     return (
-        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <div className="space-y-6">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                    <div className="flex border-b border-gray-200">
-                        {reportTabs.map(tab => (
-                            <button
-                                key={tab.key}
-                                onClick={() => setActiveReportType(tab.key as ReportType)}
-                                className={`px-6 py-4 text-sm font-medium transition-colors border-b-2 ${activeReportType === tab.key
-                                    ? 'border-blue-600 text-blue-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                                    }`}
-                            >
-                                {tab.label}
-                            </button>
-                        ))}
-
-                        <div className="ml-auto flex items-center px-4 gap-2">
-                            <span className="text-sm text-gray-500">Period:</span>
-                            <div className="flex bg-gray-100 rounded-lg p-1">
+        <div className="w-full bg-[#F7F8FA] font-sans text-[#1A1A1A] antialiased">
+            <div className="relative flex w-full">
+                <aside className="sticky top-0 h-[calc(100vh-8rem)] w-[236px] min-w-[236px] overflow-y-auto overflow-x-hidden border-r border-[#E5E7EB] bg-white px-3 py-6">
+                    <p className="px-2 pb-3 font-sans text-[10px] font-bold uppercase tracking-[0.14em] text-[#6B7280]">
+                        Financial Statements
+                    </p>
+                    <div className="space-y-1">
+                        {REPORT_TABS.map((tab) => {
+                            const active = activeReportType === tab.key;
+                            return (
                                 <button
-                                    onClick={() => setPeriodType('Annually')}
-                                    className={`px-3 py-1 text-sm rounded-md transition-colors ${periodType === 'Annually'
-                                        ? 'bg-white shadow text-gray-900'
-                                        : 'text-gray-500 hover:text-gray-700'
-                                        }`}
+                                    key={tab.key}
+                                    onClick={() => setActiveReportType(tab.key)}
+                                    className={clsx(
+                                        'group relative flex w-full items-center gap-2.5 rounded-[4px] border px-3 py-2.5 text-left text-[12.5px] font-semibold transition-colors duration-150',
+                                        active
+                                            ? 'border-[#E5E7EB] bg-white text-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]'
+                                            : 'border-transparent bg-transparent text-[#6B7280] hover:bg-[#F9FAFB] hover:text-[#1A1A1A]',
+                                    )}
                                 >
-                                    Annual
+                                    {active && (
+                                        <span className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-[#8C3B32]" />
+                                    )}
+                                    <span className="text-[14px] opacity-80">{tab.icon}</span>
+                                    <span className="truncate">{tab.label}</span>
                                 </button>
-                                <button
-                                    onClick={() => setPeriodType('Quarterly')}
-                                    className={`px-3 py-1 text-sm rounded-md transition-colors ${periodType === 'Quarterly'
-                                        ? 'bg-white shadow text-gray-900'
-                                        : 'text-gray-500 hover:text-gray-700'
-                                        }`}
-                                >
-                                    Quarterly
-                                </button>
-                            </div>
-                        </div>
+                            );
+                        })}
                     </div>
+                </aside>
 
-                    <div className="p-4">
-                        {loading ? (
-                            <div className="flex items-center justify-center h-64">
-                                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                <main className="min-w-0 flex-1 space-y-5 p-6">
+                    <LedgerPanel className="flex flex-wrap items-center justify-between gap-4 p-3">
+                        <div className="flex items-center gap-1.5">
+                            <span className="px-1 font-sans text-[10px] font-bold uppercase tracking-wider text-[#6B7280]">
+                                Period
+                            </span>
+                            <StampButton active={periodType === 'Annually'} onClick={() => setPeriodType('Annually')}>
+                                Annual
+                            </StampButton>
+                            <StampButton active={periodType === 'Quarterly'} onClick={() => setPeriodType('Quarterly')}>
+                                Quarterly
+                            </StampButton>
+                        </div>
+
+                        {financialData && (
+                            <div className="flex flex-wrap items-center gap-2 font-sans text-[11px] text-[#6B7280]">
+                                <span className="font-bold text-[#1A1A1A]">{financialData.symbol}</span>
+                                {financialData.company_name && <span>{financialData.company_name}</span>}
+                                <span className="text-[#D1D5DB]">|</span>
+                                <span>BS {financialData.balance_sheets.length}</span>
+                                <span>IS {financialData.income_statements.length}</span>
+                                <span>CF {financialData.cash_flows.length}</span>
                             </div>
-                        ) : error ? (
-                            <div className="text-center py-12 text-red-500">
-                                <p>{error}</p>
-                                <button
-                                    onClick={() => symbol && fetchFinancials(symbol)}
-                                    className="mt-4 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100"
-                                >
-                                    Retry
-                                </button>
+                        )}
+                    </LedgerPanel>
+
+                    {error ? (
+                        <div className="rounded-[4px] border border-[#FECACA] bg-[#FEF2F2] p-4 font-sans text-sm text-[#DC2626] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+                            ✖ {error}
+                            <button
+                                onClick={() => symbol && fetchFinancials(symbol)}
+                                className="ml-3 rounded-[4px] border border-[#FECACA] bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-wider hover:bg-[#FEF2F2]"
+                            >
+                                Retry
+                            </button>
+                        </div>
+                    ) : (
+                        <LedgerPanel>
+                            <div className="flex flex-wrap items-center gap-3 border-b border-[#E5E7EB] px-5 py-4">
+                                <span className="font-sans text-[11px] font-bold uppercase tracking-[0.1em] text-[#6B7280]">
+                                    Line Items
+                                </span>
+                                <input
+                                    type="text"
+                                    placeholder="Search line items..."
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    className="h-9 w-56 rounded-[4px] border border-[#E5E7EB] bg-white px-4 font-sans text-[12px] text-[#1A1A1A] placeholder:text-[#9CA3AF] outline-none transition-colors focus:border-[#8C3B32]/50"
+                                />
                             </div>
-                        ) : periods.length === 0 ? (
-                            <div className="text-center py-12 text-gray-500">
-                                <p>No {periodType.toLowerCase()} data available for this report type.</p>
-                            </div>
-                        ) : (
+
                             <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-gray-50 border-b border-gray-200">
+                                <table className="w-full border-separate border-spacing-0 text-[13px]">
+                                    <thead>
                                         <tr>
-                                            <th className="py-3 px-4 text-left font-semibold text-gray-900 sticky left-0 bg-gray-50 min-w-[250px]">
-                                                Metric
+                                            <th className="sticky left-0 z-30 min-w-[280px] border-b border-[#E5E7EB] bg-[#F3F4F6] px-5 py-3 text-left font-sans text-[10px] font-bold uppercase tracking-wider text-[#6B7280]">
+                                                Line Item
                                             </th>
-                                            {periods.map(period => (
-                                                <th key={period} className="py-3 px-4 text-right font-semibold text-gray-900 min-w-[120px] whitespace-nowrap">
+                                            {periods.map((period) => (
+                                                <th
+                                                    key={period}
+                                                    className="whitespace-nowrap border-b border-[#E5E7EB] bg-[#F3F4F6] px-4 py-3 text-right font-sans text-[10px] font-bold uppercase tracking-wider text-[#6B7280]"
+                                                >
                                                     {period}
                                                 </th>
                                             ))}
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-100">
-                                        {metricNames.map((metricName, idx) => (
-                                            <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                                                <td className="py-3 px-4 font-medium text-gray-900 sticky left-0 bg-white">
-                                                    {metricName}
+                                    <tbody>
+                                        {loading ? (
+                                            <tr>
+                                                <td
+                                                    colSpan={Math.max(periods.length, 1) + 1}
+                                                    className="px-5 py-16 text-center font-sans italic text-[#6B7280]"
+                                                >
+                                                    <Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin text-[#8C3B32]" />
+                                                    Loading ledger…
                                                 </td>
-                                                {periods.map(period => {
-                                                    const periodData = reportData.find(p => p.period_end_date === period);
-                                                    const value = periodData?.metrics[metricName] || '-';
-                                                    return (
-                                                        <td key={period} className="py-3 px-4 text-right text-gray-600 tabular-nums">
-                                                            {value}
-                                                        </td>
-                                                    );
-                                                })}
                                             </tr>
-                                        ))}
+                                        ) : periods.length === 0 ? (
+                                            <tr>
+                                                <td
+                                                    colSpan={2}
+                                                    className="px-5 py-16 text-center font-sans italic text-[#6B7280]"
+                                                >
+                                                    No {periodType.toLowerCase()} data available for this report type.
+                                                </td>
+                                            </tr>
+                                        ) : metricNames.length === 0 ? (
+                                            <tr>
+                                                <td
+                                                    colSpan={periods.length + 1}
+                                                    className="px-5 py-16 text-center font-sans italic text-[#6B7280]"
+                                                >
+                                                    No results for &quot;{search}&quot;
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            metricNames.map((metricName) => {
+                                                const band = isTotal(metricName);
+                                                return (
+                                                    <tr key={metricName} className="group">
+                                                        <td
+                                                            className={clsx(
+                                                                STICKY_COL,
+                                                                band
+                                                                    ? 'bg-[#F3F4F6] font-bold text-[#1A1A1A]'
+                                                                    : 'bg-white text-[#1A1A1A] group-hover:bg-[#F9FAFB]',
+                                                            )}
+                                                        >
+                                                            {metricName}
+                                                        </td>
+                                                        {periods.map((period) => {
+                                                            const periodData = reportData.find(
+                                                                (p) => p.period_end_date === period,
+                                                            );
+                                                            const value = periodData?.metrics[metricName] || '';
+                                                            const empty = !value || value === '-';
+                                                            const negative = !empty && isNegativeValue(value);
+                                                            return (
+                                                                <td
+                                                                    key={period}
+                                                                    className={clsx(
+                                                                        'min-w-[160px] border-t border-[#E5E7EB] px-4 py-2.5 text-right font-sans tabular-nums whitespace-nowrap',
+                                                                        band
+                                                                            ? 'bg-[#F3F4F6] font-bold text-[#1A1A1A]'
+                                                                            : 'group-hover:bg-[#F9FAFB]',
+                                                                        empty && 'text-[#9CA3AF]',
+                                                                        negative && !band && 'text-[#DC2626]',
+                                                                        !band && !empty && !negative && 'text-[#1A1A1A]',
+                                                                    )}
+                                                                >
+                                                                    {empty ? '—' : value}
+                                                                </td>
+                                                            );
+                                                        })}
+                                                    </tr>
+                                                );
+                                            })
+                                        )}
                                     </tbody>
                                 </table>
                             </div>
-                        )}
-                    </div>
-                </div>
-
-                {financialData && (
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                        <div className="flex items-center gap-4 text-sm text-gray-600">
-                            <span className="font-semibold text-gray-900">{financialData.symbol}</span>
-                            {financialData.company_name && (
-                                <span>{financialData.company_name}</span>
-                            )}
-                            <span className="text-gray-400">|</span>
-                            <span>Balance Sheets: {financialData.balance_sheets.length}</span>
-                            <span>Income Statements: {financialData.income_statements.length}</span>
-                            <span>Cash Flows: {financialData.cash_flows.length}</span>
-                        </div>
-                    </div>
-                )}
+                        </LedgerPanel>
+                    )}
+                </main>
             </div>
         </div>
     );

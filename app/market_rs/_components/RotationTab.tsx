@@ -221,13 +221,15 @@ export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; w
         <div className="binder-rail rounded-[4px] overflow-hidden" style={{ background: PAPER.paperLight, border: `1px solid ${T.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
             {/* Toolbar */}
             <div className="flex items-center gap-2.5 p-3.5 md:px-[18px] flex-wrap" style={{ borderBottom: `1px solid ${T.border}` }}>
-                <UniSelect value={show} mutedColor={T.muted} onChange={v => { stopPlayback(); setRevealRatio(1); setPinnedName(null); setShow(v as RotShow); }}>
-                    <option value="sec8">Show: Top 8 Groups</option>
-                    <option value="secAll">All Groups</option>
-                    <option value="stk90">Elite Stocks · RS 90+</option>
-                    <option value="stk20">Top 20 Stocks</option>
-                    <option value="watch">⭐ My Watchlist</option>
-                </UniSelect>
+                <div id="rotShow">
+                    <UniSelect value={show} mutedColor={T.muted} onChange={v => { stopPlayback(); setRevealRatio(1); setPinnedName(null); setShow(v as RotShow); }}>
+                        <option value="sec8">Show: Top 8 Groups</option>
+                        <option value="secAll">All Groups</option>
+                        <option value="stk90">Elite Stocks · RS 90+</option>
+                        <option value="stk20">Top 20 Stocks</option>
+                        <option value="watch">⭐ My Watchlist</option>
+                    </UniSelect>
+                </div>
 
                 {showLevelPicker && (
                     <UniSelect value={level} mutedColor={T.muted} onChange={v => { setPinnedName(null); setLevel(v as Level); }}>
@@ -278,7 +280,7 @@ export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; w
             {/* Chart Area */}
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px]">
                 <div className="p-2" style={{ borderRight: '1px solid ' + T.border }}>
-                    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 'min(62vh, 540px)' }}>
+                    <svg id="rotSvg" viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 'min(62vh, 540px)' }}>
                         <defs>
                             <filter id="rotShadow" x="-50%" y="-50%" width="200%" height="200%">
                                 <feDropShadow dx="0" dy="1.2" stdDeviation="1.6" floodColor={PAPER.ink} floodOpacity="0.32" />
