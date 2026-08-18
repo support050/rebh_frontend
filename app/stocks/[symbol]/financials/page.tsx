@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { useParams } from 'next/navigation';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import clsx from 'clsx';
 import { API_BASE_URL } from '@/lib/api/config';
@@ -20,6 +20,12 @@ interface HistoricalFinancials {
     balance_sheets: FinancialPeriod[];
     income_statements: FinancialPeriod[];
     cash_flows: FinancialPeriod[];
+}
+
+interface SimpleStock {
+    symbol: string;
+    company_name: string;
+    sector?: string;
 }
 
 type ReportType = 'balance_sheets' | 'income_statements' | 'cash_flows';
@@ -79,6 +85,7 @@ function isNegativeValue(value: string) {
 
 export default function StockFinancialsPage() {
     const params = useParams();
+    const router = useRouter();
     const symbol = ((params?.symbol as string) || '').toUpperCase();
 
     const [financialData, setFinancialData] = useState<HistoricalFinancials | null>(null);
@@ -88,11 +95,68 @@ export default function StockFinancialsPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Stock search (top bar) state — mirrors XbrlTopBar's search behavior
+    const [stockQuery, setStockQuery] = useState('');
+    const [stocks, setStocks] = useState<SimpleStock[]>([]);
+    const [filteredStocks, setFilteredStocks] = useState<SimpleStock[]>([]);
+    const [isStockSearchOpen, setIsStockSearchOpen] = useState(false);
+    const stockDropdownRef = useRef<HTMLDivElement>(null);
+
     useEffect(() => {
         if (symbol) {
             fetchFinancials(symbol);
         }
     }, [symbol]);
+
+    // Fetch stocks list on mount
+    useEffect(() => {
+        async function loadStocks() {
+            try {
+                const res = await authFetch(`${API_BASE_URL}/api/prices/latest?limit=1000`, {
+                    credentials: 'include',
+                });
+                if (res.ok) {
+                    const json = await res.json();
+                    if (json.data) {
+                        setStocks(json.data);
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to load stocks in search bar:', err);
+            }
+        }
+        loadStocks();
+    }, []);
+
+    // Filter stocks based on query
+    useEffect(() => {
+        if (!stockQuery) {
+            setFilteredStocks([]);
+            return;
+        }
+        const q = stockQuery.toLowerCase();
+        const matches = stocks.filter(
+            (s) => s.symbol.toLowerCase().includes(q) || s.company_name.toLowerCase().includes(q),
+        );
+        setFilteredStocks(matches.slice(0, 8));
+    }, [stockQuery, stocks]);
+
+    // Close dropdown on click outside
+    useEffect(() => {
+        function handleClickOutside(e: MouseEvent) {
+            if (stockDropdownRef.current && !stockDropdownRef.current.contains(e.target as Node)) {
+                setIsStockSearchOpen(false);
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const handleSelectStock = (sym: string) => {
+        setStockQuery('');
+        setIsStockSearchOpen(false);
+        router.push(`/stocks/${sym}/financials`);
+    };
 
     const fetchFinancials = async (sym: string) => {
         setLoading(true);
@@ -144,8 +208,74 @@ export default function StockFinancialsPage() {
 
     return (
         <div className="w-full bg-[#F7F8FA] font-sans text-[#1A1A1A] antialiased">
+            {/* Top bar: symbol context + stock search, same behavior as the XBRL page's search */}
+            <header className="sticky top-0 z-40 flex h-14 items-center gap-4 border-b border-[#E5E7EB] bg-white px-6">
+                <span className="whitespace-nowrap font-sans text-[14px] font-bold text-[#1A1A1A]">
+                    {symbol || 'Financials'}
+                </span>
+
+                <div ref={stockDropdownRef} className="relative ml-auto w-48 sm:w-64">
+                    <div className="relative">
+                        <input
+                            type="text"
+                            placeholder="Search stocks"
+                            value={stockQuery}
+                            onChange={(e) => {
+                                setStockQuery(e.target.value);
+                                setIsStockSearchOpen(true);
+                            }}
+                            onFocus={() => setIsStockSearchOpen(true)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && filteredStocks.length > 0) {
+                                    e.preventDefault();
+                                    handleSelectStock(filteredStocks[0].symbol);
+                                }
+                            }}
+                            className="w-full rounded-[4px] border border-[#E5E7EB] bg-[#F7F8FA] px-4 py-1.5 pl-9 font-sans text-[12px] text-[#1A1A1A] placeholder-[#9CA3AF] outline-none transition-all focus:border-[#8C3B32]/50 focus:bg-white focus:ring-1 focus:ring-[#8C3B32]/10"
+                        />
+                        <svg
+                            className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#9CA3AF]"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2.5"
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                            />
+                        </svg>
+                    </div>
+
+                    {isStockSearchOpen && filteredStocks.length > 0 && (
+                        <div className="absolute right-0 top-full mt-1.5 w-72 rounded-[4px] border border-[#E5E7EB] bg-white p-1.5 shadow-[0_10px_28px_rgba(0,0,0,0.10)]">
+                            <div className="max-h-60 overflow-y-auto">
+                                {filteredStocks.map((stock) => (
+                                    <button
+                                        key={stock.symbol}
+                                        onClick={() => handleSelectStock(stock.symbol)}
+                                        className="flex w-full items-center justify-between rounded-[4px] px-3 py-2 text-left transition-colors hover:bg-[#F9FAFB]"
+                                    >
+                                        <div className="flex flex-col">
+                                            <span className="font-sans text-[12px] font-semibold text-[#1A1A1A] line-clamp-1">
+                                                {stock.company_name}
+                                            </span>
+                                            <span className="text-[10px] text-[#9CA3AF]">{stock.sector}</span>
+                                        </div>
+                                        <span className="rounded-[4px] border border-[#E5E7EB] bg-[#F3F4F6] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#6B7280]">
+                                            {stock.symbol}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </header>
+
             <div className="relative flex w-full">
-                <aside className="sticky top-0 h-[calc(100vh-8rem)] w-[236px] min-w-[236px] overflow-y-auto overflow-x-hidden border-r border-[#E5E7EB] bg-white px-3 py-6">
+                <aside className="sticky top-14 h-[calc(100vh-8rem)] w-[236px] min-w-[236px] overflow-y-auto overflow-x-hidden border-r border-[#E5E7EB] bg-white px-3 py-6">
                     <p className="px-2 pb-3 font-sans text-[10px] font-bold uppercase tracking-[0.14em] text-[#6B7280]">
                         Financial Statements
                     </p>
@@ -250,7 +380,7 @@ export default function StockFinancialsPage() {
                                                     className="px-5 py-16 text-center font-sans italic text-[#6B7280]"
                                                 >
                                                     <Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin text-[#8C3B32]" />
-                                                    Loading ledger…
+                                                    Loading...
                                                 </td>
                                             </tr>
                                         ) : periods.length === 0 ? (
