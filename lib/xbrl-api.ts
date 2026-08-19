@@ -48,6 +48,15 @@ export const getChartData = (
 
 export const getSummary = (symbol: string) => apiFetch(`/api/financials/${symbol}/summary`)
 
+export const getSignals = (symbol: string): Promise<{ symbol: string; company_name?: string; signals: Array<{ type: string; neg: boolean; rule: string; text: string }> }> =>
+  apiFetch(`/api/companies/${symbol}/signals`)
+
+export const getTrustBadge = (symbol: string): Promise<{ symbol: string; verified: boolean; badge_label: string; badge_status: string; pass_rate_pct: number; latest_period?: string }> =>
+  apiFetch(`/api/companies/${symbol}/trust-badge`)
+
+export const getValuationModels = (symbol: string): Promise<{ symbol: string; company_name?: string; models: any }> =>
+  apiFetch(`/api/companies/${symbol}/models`)
+
 export async function uploadXbrlFiles(files: File[]) {
   const form = new FormData()
   files.forEach((f) => form.append('files', f))

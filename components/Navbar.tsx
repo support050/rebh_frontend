@@ -269,8 +269,9 @@ export default function Navbar() {
         {
           en: 'Fundamental', href: '#',
           items: [
-            // { en: 'Fundamental Screener', href: '/screeners/fundamental' },
-            { en: 'XBRL', href: '/stocks/1010/xbrl' },
+            { en: 'XBRL Financials', href: '/stocks/1010/xbrl' },
+            // { en: 'Financial Terminal', href: '/terminal' },
+            // { en: 'Legends Screener', href: '/legends' },
           ],
         },
         { en: 'Technical', href: '/technical-screener' },

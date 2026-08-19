@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { useCompany, useKpis } from '@/hooks/useXbrlFinancials'
 import type { EquityMatrixItem, PeriodMeta, SectionKey } from '@/types/xbrl-financials'
@@ -21,6 +21,18 @@ export function XbrlCompanyDashboard({ symbol }: { symbol: string }) {
   const [langMode, setLangMode] = useState<LangMode>('both')
 
   const { data: company, loading: companyLoading, error } = useCompany(symbol)
+
+  const [signalsData, setSignalsData] = useState<Array<{ type: string; neg: boolean; rule: string; text: string }>>([])
+  const [trustBadge, setTrustBadge] = useState<{ verified: boolean; badge_label: string; badge_status: string; pass_rate_pct: number } | null>(null)
+
+  useEffect(() => {
+    if (symbol) {
+      import('@/lib/xbrl-api').then(({ getSignals, getTrustBadge }) => {
+        getSignals(symbol).then((res) => setSignalsData(res.signals || [])).catch(() => setSignalsData([]))
+        getTrustBadge(symbol).then((res) => setTrustBadge(res)).catch(() => setTrustBadge(null))
+      })
+    }
+  }, [symbol])
 
   const isEquityMatrix = baseSection === 'equity_changes'
   const isInfoSection = baseSection === 'filing_info' || baseSection === 'auditors_report'
@@ -44,6 +56,50 @@ export function XbrlCompanyDashboard({ symbol }: { symbol: string }) {
       <div className="relative flex">
         <XbrlSidebar availableSections={availableSections} currentSection={baseSection} onSelect={setBaseSection} />
         <main className="flex-1 min-w-0 space-y-5 p-6">
+          
+          {/* Trust Badge & Signals Strip */}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-[6px] border border-[#E5E7EB] bg-white p-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+            <div className="flex items-center gap-2">
+              <span className="font-sans text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">
+                فحص الموثوقية:
+              </span>
+              {trustBadge ? (
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                    trustBadge.verified
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      : 'bg-amber-50 text-amber-700 border border-amber-200'
+                  }`}
+                >
+                  {trustBadge.badge_label} ({trustBadge.pass_rate_pct}%)
+                </span>
+              ) : (
+                <span className="text-xs text-[#9CA3AF]">جاري الفحص...</span>
+              )}
+            </div>
+
+            {signalsData.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-sans text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">
+                  إشارات النمو:
+                </span>
+                {signalsData.map((sig, idx) => (
+                  <span
+                    key={idx}
+                    className={`inline-flex items-center gap-1 rounded-[4px] px-2.5 py-1 text-xs font-medium ${
+                      sig.neg
+                        ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                        : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                    }`}
+                    title={sig.rule}
+                  >
+                    {sig.text}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
           <LedgerPanel className="flex flex-wrap justify-between items-center gap-4 p-3">
             {/* View Mode Switcher — hidden for equity and info sections */}
             {!isEquityMatrix && !isInfoSection ? (

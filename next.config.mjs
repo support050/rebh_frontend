@@ -66,7 +66,11 @@ const nextConfig = {
     ];
   },
   images: {
-    domains: ['your-domain.com', 'images-na.ssl-images-amazon.com', 'images.amazon.com'],
+    remotePatterns: [
+      { protocol: 'https', hostname: 'your-domain.com' },
+      { protocol: 'https', hostname: 'images-na.ssl-images-amazon.com' },
+      { protocol: 'https', hostname: 'images.amazon.com' },
+    ],
   },
 }
 
