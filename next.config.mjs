@@ -21,10 +21,6 @@ const nextConfig = {
     proxyTimeout: 120_000,
   },
 
-  // Keep TCP connections alive — reduces ECONNRESET on re-used sockets.
-  httpAgentOptions: {
-    keepAlive: true,
-  },
 
   async redirects() {
     return [
