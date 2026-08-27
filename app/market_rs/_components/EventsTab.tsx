@@ -135,36 +135,42 @@ export function EventsTab({ stocks }: { stocks: StockData[] }) {
                                 <span className="emboss text-sm" style={{ color: group.color }}>{group.items.length}</span>
                             </div>
                         </div>
-                        <div className="max-h-[260px] overflow-y-auto scrollbar-ledger min-h-[60px] flex flex-col justify-center" style={{ background: PAPER.paperLight }}>
-                            {group.items.map(st => (
-                                <div key={st.s} className="flex items-center gap-2 px-3 py-2 dashed-divider hover:opacity-90 transition-opacity text-xs">
-                                    <span className="font-bold w-12" style={{ fontFamily: FONT_MONO, color: PAPER.ink }}>{st.s}</span>
-                                    <span className="truncate flex-1" style={{ color: PAPER.inkMuted }}>{st.c}</span>
-                                    <Tip
-                                        label={`Current RS: ${st.rs}`}
-                                        onShow={showTip}
-                                        onHide={hideTip}
-                                    >
-                                        <span className="emboss" style={{ color: getCatText(st.cat, PAPER) }}>{st.rs}</span>
-                                    </Tip>
-                                    <Tip
-                                        label={
-                                            st.rs1w != null
-                                                ? `Weekly change: ${st.mom >= 0 ? '+' : ''}${st.mom} (${st.rs1w} → ${st.rs})`
-                                                : `Weekly change: ${st.mom >= 0 ? '+' : ''}${st.mom}`
-                                        }
-                                        onShow={showTip}
-                                        onHide={hideTip}
-                                    >
-                                        <span
-                                            className="text-[10px] font-semibold"
-                                            style={{ fontFamily: FONT_MONO, color: st.mom >= 0 ? PAPER.stampGreen : PAPER.stampRed }}
-                                        >
-                                            {st.mom >= 0 ? '+' : ''}{st.mom}
-                                        </span>
-                                    </Tip>
+                        <div className="max-h-[260px] overflow-y-auto scrollbar-ledger min-h-[60px]" style={{ background: PAPER.paperLight }}>
+                            {group.items.length === 0 ? (
+                                <div className="h-[60px] flex items-center justify-center text-xs italic" style={{ color: PAPER.inkMuted }}>
+                                    No stocks in this event
                                 </div>
-                            ))}
+                            ) : (
+                                group.items.map(st => (
+                                    <div key={st.s} className="flex items-center gap-2 px-3 py-2 dashed-divider hover:opacity-90 transition-opacity text-xs">
+                                        <span className="font-bold w-12" style={{ fontFamily: FONT_MONO, color: PAPER.ink }}>{st.s}</span>
+                                        <span className="truncate flex-1" style={{ color: PAPER.inkMuted }}>{st.c}</span>
+                                        <Tip
+                                            label={`Current RS: ${st.rs}`}
+                                            onShow={showTip}
+                                            onHide={hideTip}
+                                        >
+                                            <span className="emboss" style={{ color: getCatText(st.cat, PAPER) }}>{st.rs}</span>
+                                        </Tip>
+                                        <Tip
+                                            label={
+                                                st.rs1w != null
+                                                    ? `Weekly change: ${st.mom >= 0 ? '+' : ''}${st.mom} (${st.rs1w} → ${st.rs})`
+                                                    : `Weekly change: ${st.mom >= 0 ? '+' : ''}${st.mom}`
+                                            }
+                                            onShow={showTip}
+                                            onHide={hideTip}
+                                        >
+                                            <span
+                                                className="text-[10px] font-semibold"
+                                                style={{ fontFamily: FONT_MONO, color: st.mom >= 0 ? PAPER.stampGreen : PAPER.stampRed }}
+                                            >
+                                                {st.mom >= 0 ? '+' : ''}{st.mom}
+                                            </span>
+                                        </Tip>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </div>
                 ))}
