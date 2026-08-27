@@ -87,13 +87,13 @@ const SCREENS: Record<ScreenKey, ScreenDef> = {
 function renderBadges(r: ScreenRow) {
   const badges: React.ReactNode[] = [];
   if ((r.flags || []).includes("≈debt")) {
-    badges.push(<span key="approx" className="ml-1 inline-block rounded bg-[#262624] px-1 text-[9px] text-[#898781]" title="LT debt approximated">≈</span>);
+    badges.push(<span key="approx" className="ml-1 inline-block rounded-full bg-[#F3F4F6] px-1.5 text-[9px] text-[#6B7280]" title="LT debt approximated">≈</span>);
   }
   if ((r.flags || []).some(f => f.startsWith("⚑"))) {
-    badges.push(<span key="flag" className="ml-1 inline-block rounded bg-[#e66767]/15 px-1 text-[9px] text-[#e66767]">⚑</span>);
+    badges.push(<span key="flag" className="ml-1 inline-block rounded-full bg-[#FEF2F2] px-1.5 text-[9px] text-[#DC2626]">⚑</span>);
   }
   if (!r.fresh) {
-    badges.push(<span key="stale" className="ml-1 inline-block rounded bg-[#e66767]/15 px-1 text-[9px] text-[#e66767]">stale {String(r.end || "").slice(0, 7)}</span>);
+    badges.push(<span key="stale" className="ml-1 inline-block rounded-full bg-[#FEF2F2] px-1.5 text-[9px] text-[#DC2626]">stale {String(r.end || "").slice(0, 7)}</span>);
   }
   return badges;
 }
@@ -121,22 +121,21 @@ export function LegendScreensTab({ rows }: { rows: ScreenRow[] }) {
   }
 
   return (
-    <div className="space-y-3">
-      <div className="text-[10px] uppercase tracking-[1.2px] text-[#898781]">
-        FUNDAMENTAL SCREENS — each applies its author&apos;s actual published methodology
+    <div className="space-y-4">
+      <div className="text-[10px] font-semibold uppercase tracking-[1.2px] text-[#9CA3AF]">
+        Fundamental Screens — each applies its author&apos;s actual published methodology
       </div>
 
       {/* Screen Buttons */}
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-2">
         {(Object.entries(SCREENS) as [ScreenKey, ScreenDef][]).map(([key, s]) => (
           <button
             key={key}
             onClick={() => { setCurScr(key); setSortKey(null); }}
-            className={`rounded-2xl border px-3 py-1 text-[11.5px] transition-colors ${
-              curScr === key
-                ? "border-[#3987e5] bg-[#184f95] font-bold text-[#3987e5]"
-                : "border-white/10 bg-[#1a1a19] text-[#c3c2b7] hover:bg-[#222220]"
-            }`}
+            className={`rounded-full border px-3.5 py-1.5 text-[11.5px] transition-colors ${curScr === key
+              ? "border-[#8C3B32] bg-[#8C3B32]/10 font-bold text-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+              : "border-[#E5E7EB] bg-white text-[#6B7280] hover:bg-[#F3F4F6]"
+              }`}
           >
             {s.t.split(" — ")[0]}
           </button>
@@ -144,22 +143,23 @@ export function LegendScreensTab({ rows }: { rows: ScreenRow[] }) {
       </div>
 
       {/* Screen Panel */}
-      <div className="rounded-xl border border-white/10 bg-[#1a1a19] overflow-hidden">
-        <h3 className="border-b border-white/10 px-3.5 py-2.5 font-bold text-[12.5px]">
-          {screen.t} <span className="font-normal text-[10px] text-[#898781]">· real data</span>
+      <div className="rounded-[4px] border border-[#E5E7EB] bg-white overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+        <h3 className="border-b border-[#E5E7EB] px-4 py-3 font-bold text-[12.5px] text-[#1A1A1A]">
+          {screen.t} <span className="font-normal text-[10px] text-[#9CA3AF]">· real data 2026-08-18</span>
         </h3>
-        <div className="px-3.5 py-1.5 text-[11px] text-[#c3c2b7]">{screen.d}</div>
-        <div className="px-3.5 pb-2 text-[10.5px] text-[#898781]">{filtered.length} companies pass</div>
+
+        <div className="px-4 py-2 text-[11px] text-[#6B7280]">{screen.d}</div>
+        <div className="px-4 pb-2 text-[10.5px] text-[#9CA3AF]">{filtered.length} companies pass</div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-right text-[11.8px]">
+          <table className="w-full text-right text-[11.8px] tabular-nums">
             <thead>
-              <tr className="border-b border-[#383835] text-[9.8px] text-[#898781]">
+              <tr className="bg-[#F3F4F6] text-[9.8px] text-[#6B7280]">
                 {screen.cols.map(([label, key]) => (
                   <th
                     key={key}
                     onClick={() => handleSort(key)}
-                    className={`cursor-pointer select-none whitespace-nowrap px-2.5 py-1.5 ${key === "name" || key === "sector" ? "text-left" : ""} ${sortKey === key ? "text-[#3987e5]" : ""}`}
+                    className={`cursor-pointer select-none whitespace-nowrap px-3 py-2 font-semibold ${key === "name" ? "sticky left-0 z-10 bg-[#F3F4F6] text-left" : key === "sector" ? "text-left" : ""} ${sortKey === key ? "text-[#8C3B32]" : ""}`}
                   >
                     {label}
                   </th>
@@ -168,17 +168,17 @@ export function LegendScreensTab({ rows }: { rows: ScreenRow[] }) {
             </thead>
             <tbody>
               {filtered.map((r) => (
-                <tr key={r.sym} className="border-b border-[#2c2c2a] hover:bg-[#222220]">
+                <tr key={r.sym} className="border-b border-[#E5E7EB] hover:bg-[#F3F4F6]">
                   {screen.cols.map(([, key]) => {
                     // Custom cell renderer
                     if (screen.cell) {
                       const custom = screen.cell(r, key);
                       if (custom !== null && key === "magic_pos") {
                         return (
-                          <td key={key} className="px-2.5 py-1 font-bold">
+                          <td key={key} className="px-3 py-2 font-bold text-[#1A1A1A]">
                             {custom}
                             {(r.magic_pos || 999) <= 10 && (
-                              <span className="ml-1 inline-block rounded bg-[#d9b64a]/15 border border-[#d9b64a] px-1 text-[9px] font-bold text-[#d9b64a]">✦</span>
+                              <span className="ml-1 inline-block rounded-full bg-[#8C3B32]/10 border border-[#8C3B32]/30 px-1.5 text-[9px] font-bold text-[#8C3B32]">✦</span>
                             )}
                           </td>
                         );
@@ -186,30 +186,30 @@ export function LegendScreensTab({ rows }: { rows: ScreenRow[] }) {
                     }
                     if (key === "name") {
                       return (
-                        <td key={key} className="whitespace-nowrap px-2.5 py-1 text-left font-semibold">
-                          {r.name} <small className="text-[#898781] font-normal">{r.sym}</small>
+                        <td key={key} className="sticky left-0 z-10 whitespace-nowrap bg-white px-3 py-2 text-left font-semibold text-[#1A1A1A]">
+                          {r.name} <small className="font-normal text-[#9CA3AF]">{r.sym}</small>
                           {renderBadges(r)}
                         </td>
                       );
                     }
                     if (key === "sector") {
-                      return <td key={key} className="whitespace-nowrap px-2.5 py-1 text-left text-[10px] text-[#898781]">{r.sector}</td>;
+                      return <td key={key} className="whitespace-nowrap px-3 py-2 text-left text-[10px] text-[#6B7280]">{r.sector}</td>;
                     }
                     if (key === "mc") {
-                      return <td key={key} className="px-2.5 py-1">{fmt(r.mc, 0)}</td>;
+                      return <td key={key} className="px-3 py-2 text-[#1A1A1A]">{fmt(r.mc, 0)}</td>;
                     }
                     const v = (r as any)[key];
                     const colorCls =
                       (key === "g_net" || key === "fcf_yield") && typeof v === "number"
-                        ? v > 0 ? "text-[#0ca30c]" : v < 0 ? "text-[#e66767]" : ""
-                        : "";
-                    return <td key={key} className={`px-2.5 py-1 ${colorCls}`}>{fmt(v)}</td>;
+                        ? v > 0 ? "text-[#16A34A]" : v < 0 ? "text-[#DC2626]" : "text-[#1A1A1A]"
+                        : "text-[#1A1A1A]";
+                    return <td key={key} className={`px-3 py-2 ${colorCls}`}>{fmt(v)}</td>;
                   })}
                 </tr>
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={screen.cols.length} className="px-2.5 py-6 text-center text-[#898781]">
+                  <td colSpan={screen.cols.length} className="px-3 py-8 text-center text-[#9CA3AF]">
                     {curScr === "netnet" ? "Zero true net-nets on TASI today. The zero is the finding." : "No companies pass this screen."}
                   </td>
                 </tr>
@@ -218,7 +218,7 @@ export function LegendScreensTab({ rows }: { rows: ScreenRow[] }) {
           </table>
         </div>
 
-        <div className="border-t border-[#2c2c2a] px-3.5 py-2 text-[10px] text-[#898781]">
+        <div className="border-t border-[#E5E7EB] bg-[#F3F4F6] px-4 py-2.5 text-[10px] text-[#6B7280]">
           ° computed from filings · ≈ declared estimate (sukuk/murabaha debt approximated from non-current liabilities until source mapping fixed) · ⚑ withheld field · stale statements never priced against today&apos;s market cap
         </div>
       </div>

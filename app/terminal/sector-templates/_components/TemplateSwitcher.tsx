@@ -1,11 +1,11 @@
 "use client";
 
-import type { CompanyKey } from "../types";
+import type { CompanyKey, CompanyTemplate } from "../types";
 
-const TABS: [CompanyKey, string, string][] = [
-  ["bank", "بنك الرياض 1010", "البنوك · حقيقي + °2024"],
-  ["petro", "أسمنت السعودية 3030", "الدورية · بيانات حقيقية"],
-  ["gen", "مهارة 1831", "خدمات · بيانات حقيقية"],
+const STATIC_TABS: [CompanyKey, string, string][] = [
+  ["bank", "بنك الرياض 1010", "البنوك"],
+  ["petro", "أسمنت السعودية 3030", "الدورية"],
+  ["gen", "مهارة 1831", "خدمات"],
   ["ins", "التعاونية 8010", "التأمين · IFRS 17"],
   ["fin", "نايفات 4081", "شركات التمويل"],
   ["reit", "الرياض ريت 4340", "صناديق الريت"],
@@ -16,36 +16,43 @@ interface Props {
   onSelect: (key: CompanyKey) => void;
   themeBtnLabel: string;
   onToggleTheme: () => void;
+  companiesData?: Record<string, CompanyTemplate>;
 }
 
-export default function TemplateSwitcher({ activeKey, onSelect, themeBtnLabel, onToggleTheme }: Props) {
+export default function TemplateSwitcher({ activeKey, onSelect, themeBtnLabel, onToggleTheme, companiesData }: Props) {
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-white/10 bg-[#1a1a19] px-7 py-3">
-      <span className="text-[12px] text-[#898781]">قالب لكل تصنيف:</span>
-      {TABS.map(([key, name, desc]) => (
-        <button
-          key={key}
-          onClick={() => onSelect(key)}
-          className={`flex flex-col items-start rounded-xl border px-3 py-1.5 text-right transition-colors ${
-            activeKey === key
-              ? "border-[#3987e5] bg-[#184f95]/30 font-bold text-[#fff]"
-              : "border-white/10 bg-[#1a1a19] text-[#c3c2b7] hover:bg-[#222220]"
-          }`}
-        >
-          <span className="text-[12.5px]">{name}</span>
-          <small className="text-[10px] text-[#898781]">{desc}</small>
-        </button>
-      ))}
+    <div className="flex flex-wrap items-center gap-2 border-b border-[#E5E7EB] bg-white px-7 py-3">
+      <span className="text-[12px] text-[#6B7280]">قالب لكل تصنيف:</span>
+      {STATIC_TABS.map(([key, staticName, staticDesc]) => {
+        const comp = companiesData?.[key];
+        const displayName = comp
+          ? (comp.en && comp.en !== comp.symbol ? `${comp.en} ${comp.symbol}` : comp.symbol)
+          : staticName;
+        const desc = comp ? comp.tmpl : staticDesc;
+        return (
+          <button
+            key={key}
+            onClick={() => onSelect(key)}
+            className={`flex flex-col items-start rounded-[4px] border px-3 py-1.5 text-right transition-colors ${activeKey === key
+                ? "border-[#8C3B32] bg-[#8C3B32]/5 font-bold text-[#1A1A1A] shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+                : "border-[#E5E7EB] bg-white text-[#6B7280] hover:bg-[#F3F4F6]"
+              }`}
+          >
+            <span className="text-[12.5px]">{displayName}</span>
+            <small className="text-[10px] text-[#9CA3AF]">{desc}</small>
+          </button>
+        );
+      })}
       <a
         href="/terminal/forensic-audit"
-        className="flex flex-col items-start rounded-xl border border-[#e8c464]/30 bg-[#38301a]/30 px-3 py-1.5 text-right text-[#e8c464] hover:bg-[#38301a]/60 transition-colors"
+        className="flex flex-col items-start rounded-[4px] border border-[#8C3B32]/25 bg-[#8C3B32]/[0.04] px-3 py-1.5 text-right text-[#8C3B32] hover:bg-[#8C3B32]/10 transition-colors"
       >
         <span className="text-[12.5px] font-bold">ورقة التدقيق المالي ↗</span>
-        <small className="text-[10px] text-[#e8c464]/70">فحص أي سهم (تدقيق XBRL كامل)</small>
+        <small className="text-[10px] text-[#8C3B32]/70">فحص أي سهم (تدقيق XBRL كامل)</small>
       </a>
       <button
         onClick={onToggleTheme}
-        className="mr-auto rounded-lg border border-white/10 px-3 py-1 text-[12px] text-[#c3c2b7] hover:bg-[#222220]"
+        className="mr-auto rounded-[4px] border border-[#E5E7EB] px-3 py-1 text-[12px] text-[#6B7280] hover:bg-[#F3F4F6] transition-colors"
       >
         {themeBtnLabel}
       </button>

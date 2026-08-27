@@ -39,18 +39,18 @@ function BarChartSVG({
       ? (H - pT - pB) / (maxV - minV)
       : (H - pT - pB) / mx;
 
-    let o = `<line x1="${pS}" x2="${W - pE}" y1="${zero}" y2="${zero}" stroke="#383835" stroke-width="1.5"/>`;
+    let o = `<line x1="${pS}" x2="${W - pE}" y1="${zero}" y2="${zero}" stroke="#E5E7EB" stroke-width="1.5"/>`;
     values.forEach((v, i) => {
       const h = Math.abs(v) * scale;
       const x = pS + slot * i + (slot - bw) / 2;
       const y = v >= 0 ? zero - h : zero;
-      const fill = v >= 0 ? "#3987e5" : "#e66767";
+      const fill = v >= 0 ? "#8C3B32" : "#DC2626";
       o += `<rect x="${x}" y="${y}" width="${bw}" height="${Math.max(h, 1)}" rx="3" fill="${fill}"/>`;
-      o += `<text x="${x + bw / 2}" y="${H - 6}" text-anchor="middle" font-size="8.5" fill="#898781">${labels[i] || ""}</text>`;
+      o += `<text x="${x + bw / 2}" y="${H - 6}" text-anchor="middle" font-size="8.5" fill="#6B7280">${labels[i] || ""}</text>`;
       if (i === values.length - 1 || Math.abs(v) === mx) {
         const lbl = v < 0 ? `(${Math.abs(Math.round(v)).toLocaleString()})` : Math.round(v).toLocaleString();
         const ly = v >= 0 ? y - 3 : y + h + 10;
-        const fc = v < 0 ? "#e66767" : "#fff";
+        const fc = v < 0 ? "#DC2626" : "#1A1A1A";
         o += `<text x="${x + bw / 2}" y="${ly}" text-anchor="middle" font-size="9" font-weight="700" fill="${fc}" direction="ltr">${lbl}</text>`;
       }
     });
@@ -72,8 +72,8 @@ function LineChartSVG({
   series1,
   series2,
   labels,
-  color1 = "#3987e5",
-  color2 = "#eb6834",
+  color1 = "#8C3B32",
+  color2 = "#475569",
   format = (v: number) => v.toFixed(0),
   height = 138,
 }: {
@@ -100,7 +100,7 @@ function LineChartSVG({
     const X = (i: number) => pS + (i / Math.max(n - 1, 1)) * (W - pS - pE);
     const Y = (v: number) => pT + (1 - (v - mn) / ((mx - mn) || 1)) * (H - pT - pB);
 
-    let o = `<line x1="${pS}" x2="${W - pE}" y1="${H - pB}" y2="${H - pB}" stroke="#383835"/>`;
+    let o = `<line x1="${pS}" x2="${W - pE}" y1="${H - pB}" y2="${H - pB}" stroke="#E5E7EB"/>`;
     o += `<polyline points="${series1.map((v, i) => X(i) + "," + Y(v)).join(" ")}" fill="none" stroke="${color1}" stroke-width="2"/>`;
     o += `<polyline points="${series2.map((v, i) => X(i) + "," + Y(v)).join(" ")}" fill="none" stroke="${color2}" stroke-width="2"/>`;
     series1.forEach((v, i) => {
@@ -110,7 +110,7 @@ function LineChartSVG({
       o += `<circle cx="${X(i)}" cy="${Y(v)}" r="2.5" fill="${color2}"/>`;
     });
     labels.forEach((L, i) => {
-      o += `<text x="${X(i)}" y="${H - 6}" text-anchor="middle" font-size="8.5" fill="#898781">${L}</text>`;
+      o += `<text x="${X(i)}" y="${H - 6}" text-anchor="middle" font-size="8.5" fill="#6B7280">${L}</text>`;
     });
     if (n > 0) {
       o += `<text x="${X(n - 1) + 5}" y="${Y(series1[n - 1]) + 3}" font-size="9.5" fill="${color1}" font-weight="700">${format(series1[n - 1])}</text>`;
@@ -170,20 +170,20 @@ export default function ForensicChartsGrid({ data }: Props) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
       {/* Chart 1: Annual Net Profit Bar Chart */}
-      <div className="rounded-xl border border-white/10 bg-[#1a1a19] p-3.5">
-        <h4 className="text-xs font-bold mb-2">صافي الربح السنوي (فعلي) — بملايين الريالات</h4>
+      <div className="rounded-[4px] border border-[#E5E7EB] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-4">
+        <h4 className="text-xs font-bold mb-2 text-[#1A1A1A]">صافي الربح السنوي (فعلي) — بملايين الريالات</h4>
         <BarChartSVG values={chart1Net} labels={chart1Labels} allowNeg={chart1Net.some((v) => v < 0)} />
       </div>
 
       {/* Chart 2: Gross vs Net Margin Lines */}
-      <div className="rounded-xl border border-white/10 bg-[#1a1a19] p-3.5">
-        <h4 className="text-xs font-bold mb-1">الهوامش ٪ سنوياً (فعلي)</h4>
-        <div className="flex gap-3 text-[10.5px] text-[#c3c2b7] mb-1">
+      <div className="rounded-[4px] border border-[#E5E7EB] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-4">
+        <h4 className="text-xs font-bold mb-1 text-[#1A1A1A]">الهوامش ٪ سنوياً (فعلي)</h4>
+        <div className="flex gap-3 text-[10.5px] text-[#6B7280] mb-1">
           <span className="flex items-center gap-1">
-            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-[#3987e5]" /> إجمالي
+            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-[#8C3B32]" /> إجمالي
           </span>
           <span className="flex items-center gap-1">
-            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-[#eb6834]" /> صافي
+            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-[#475569]" /> صافي
           </span>
         </div>
         {gmPct.length > 0 && nmPct.length > 0 ? (
@@ -191,36 +191,36 @@ export default function ForensicChartsGrid({ data }: Props) {
             series1={gmPct}
             series2={nmPct}
             labels={chart1Labels}
-            color1="#3987e5"
-            color2="#eb6834"
+            color1="#8C3B32"
+            color2="#475569"
             format={(v) => v.toFixed(0) + "%"}
           />
         ) : (
-          <div className="h-[138px] flex items-center justify-center text-xs text-[#898781]">بيانات الهوامش غير متاحة</div>
+          <div className="h-[138px] flex items-center justify-center text-xs text-[#9CA3AF]">بيانات الهوامش غير متاحة</div>
         )}
       </div>
 
       {/* Chart 3: CFO Bar Chart with Real Data & Negative Support */}
-      <div className="rounded-xl border border-white/10 bg-[#1a1a19] p-3.5">
-        <h4 className="text-xs font-bold mb-2">التدفق التشغيلي CFO سنوياً (فعلي) — دورات ضخ واسترداد</h4>
+      <div className="rounded-[4px] border border-[#E5E7EB] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-4">
+        <h4 className="text-xs font-bold mb-2 text-[#1A1A1A]">التدفق التشغيلي CFO سنوياً (فعلي) — دورات ضخ واسترداد</h4>
         {cfoVals.length > 0 ? (
           <BarChartSVG values={cfoVals} labels={cfLabels} allowNeg={true} />
         ) : (
-          <div className="h-[150px] flex items-center justify-center text-xs text-[#898781]">
+          <div className="h-[150px] flex items-center justify-center text-xs text-[#9CA3AF]">
             بيانات التدفقات النقدية غير متاحة
           </div>
         )}
       </div>
 
       {/* Chart 4: Net Debt vs Equity in Billions SAR */}
-      <div className="rounded-xl border border-white/10 bg-[#1a1a19] p-3.5">
-        <h4 className="text-xs font-bold mb-1">صافي الدين مقابل حقوق الملكية — بمليارات الريالات</h4>
-        <div className="flex gap-3 text-[10.5px] text-[#c3c2b7] mb-1">
+      <div className="rounded-[4px] border border-[#E5E7EB] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-4">
+        <h4 className="text-xs font-bold mb-1 text-[#1A1A1A]">صافي الدين مقابل حقوق الملكية — بمليارات الريالات</h4>
+        <div className="flex gap-3 text-[10.5px] text-[#6B7280] mb-1">
           <span className="flex items-center gap-1">
-            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-[#3987e5]" /> حقوق الملكية
+            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-[#8C3B32]" /> حقوق الملكية
           </span>
           <span className="flex items-center gap-1">
-            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-[#d03b3b]" /> صافي الدين
+            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-[#DC2626]" /> صافي الدين
           </span>
         </div>
         {eqVals.length > 0 && ndVals.length > 0 ? (
@@ -228,12 +228,12 @@ export default function ForensicChartsGrid({ data }: Props) {
             series1={eqVals}
             series2={ndVals}
             labels={bsLabels}
-            color1="#3987e5"
-            color2="#d03b3b"
+            color1="#8C3B32"
+            color2="#DC2626"
             format={(v) => v.toFixed(1)}
           />
         ) : (
-          <div className="h-[138px] flex items-center justify-center text-xs text-[#898781]">
+          <div className="h-[138px] flex items-center justify-center text-xs text-[#9CA3AF]">
             بيانات الميزانية غير متاحة
           </div>
         )}

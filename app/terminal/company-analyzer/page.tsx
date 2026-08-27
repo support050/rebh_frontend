@@ -1,9 +1,15 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
 import { authFetch } from "@/lib/api/authFetch";
+
+import CompanyAnalyzerHeader from "./_components/CompanyAnalyzerHeader";
+import OverviewKpiCards from "./_components/OverviewKpiCards";
+import QuarterlyNetProfitChart from "./_components/QuarterlyNetProfitChart";
+import AutomatedSignalsGrid from "./_components/AutomatedSignalsGrid";
+import CompanyPriceBridge from "./_components/CompanyPriceBridge";
+import FundamentalRatiosTab, { type RatioGroupItem } from "./_components/FundamentalRatiosTab";
+import QuarterlyIncomeStatementsTab from "./_components/QuarterlyIncomeStatementsTab";
 
 interface PeerItem {
   sym: string;
@@ -34,16 +40,7 @@ interface CompanyFundData {
 }
 
 const PQ = ["Q1'24", "Q2'24", "Q3'24", "Q4'24", "Q1'25", "Q2'25", "Q3'25", "Q4'25", "Q1'26"];
-
-function fmt(v: number | null | undefined, d = 1) {
-  if (v === null || v === undefined || Number.isNaN(v)) return "—";
-  return Number(v).toLocaleString("en-US", { maximumFractionDigits: d });
-}
-
-function pctS(v: number | null | undefined) {
-  if (v === null || v === undefined || Number.isNaN(v)) return "—";
-  return (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(1) + "%";
-}
+const MUTED_BAND = "bg-[#F3F4F6]";
 
 function yoy(a: number[]) {
   return a.map((v, i) =>
@@ -63,54 +60,46 @@ function ratio(num: number[], den: number[]) {
   return num.map((v, i) => (v != null && den[i] ? (v / den[i]) * 100 : null));
 }
 
-function mkPrice(b: number, t: number, a: number, c: number) {
-  const r = [];
-  for (let i = 0; i < 110; i++) {
-    r.push(b + t * i + a * Math.sin(i / c) + ((i % 7) - 3) * b * 0.002);
-  }
-  return r;
-}
-
 export default function CompanyFundamentalPage() {
-  const router = useRouter();
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
   const initialSym = "4300";
   const [sym, setSym] = useState(initialSym);
   const [data, setData] = useState<CompanyFundData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   const [view, setView] = useState<"overview" | "fund">("overview");
   const [sub, setSub] = useState<"ratios" | "stmts">("ratios");
   const [rg, setRg] = useState(0);
   const [hl, setHl] = useState<string | null>(null);
-  const [activePeersPk, setActivePeersPk] = useState<string | null>(null);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
+    let isMounted = true;
     async function load() {
       setLoading(true);
+      setLoadError(false);
       try {
         const res = await authFetch(`/api/terminal/company-fundamental/${sym}/`);
         if (res.ok) {
           const json = await res.json();
-          setData(json);
+          if (isMounted) setData(json);
+        } else {
+          if (isMounted) setLoadError(true);
         }
       } catch (e) {
         console.error("Failed to load company fundamental", e);
+        if (isMounted) setLoadError(true);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     }
     load();
+    return () => {
+      isMounted = false;
+    };
   }, [sym]);
 
   // Ratio Groups
-  const ratioGroups = useMemo(() => {
+  const ratioGroups: RatioGroupItem[] = useMemo(() => {
     if (!data) return [];
     const d = data;
     const P = d.peers;
@@ -286,13 +275,13 @@ export default function CompanyFundamentalPage() {
     if (rising >= 2 && ys[ys.length - 1] > 0) {
       out.push({
         neg: false,
-        h: `صافي الربح: تسارع ${rising + 1} أرباع (${ys.slice(-4).map(p).join(" ← ")})`,
+        h: `<b>صافي الربح: تسارع ${rising + 1} أرباع</b> (${ys.slice(-4).map(p).join(" ← ")})`,
         tag: "قاعدة: التسارع المتصل (O'Neil)",
       });
     } else if (ys.length >= 2 && ys[ys.length - 1] < ys[ys.length - 2] && ys[ys.length - 2] >= 20) {
       out.push({
         neg: true,
-        h: `تباطؤ بعد ذروة: من ${p(ys[ys.length - 2])} إلى ${p(ys[ys.length - 1])} — بند مراقبة`,
+        h: `<b>تباطؤ بعد ذروة:</b> من ${p(ys[ys.length - 2])} إلى ${p(ys[ys.length - 1])} — بند مراقبة`,
         tag: "قاعدة: كسر نمط التسارع",
       });
     }
@@ -300,7 +289,7 @@ export default function CompanyFundamentalPage() {
     if (yr.length && yr[yr.length - 1] >= 25) {
       out.push({
         neg: false,
-        h: `الإيرادات تنمو ${p(yr[yr.length - 1])} سنوياً — فوق عتبة النمو السريع (Lynch)`,
+        h: `<b>الإيرادات تنمو ${p(yr[yr.length - 1])} سنوياً</b> — فوق عتبة النمو السريع (Lynch)`,
         tag: "قاعدة: نمو الإيرادات ≥ 25%",
       });
     }
@@ -309,14 +298,14 @@ export default function CompanyFundamentalPage() {
     if (pr.pct.roe != null && pr.pct.roe >= 75) {
       out.push({
         neg: false,
-        h: `ROE في المئين ${pr.pct.roe} من قطاعه — من الربع الأعلى وسط ${pr.n_sec} شركات محدثة`,
+        h: `<b>ROE في المئين ${pr.pct.roe} من قطاعه</b> — من الربع الأعلى وسط ${pr.n_sec} شركات محدثة`,
         tag: "قاعدة: المئين القطاعي ≥ 75 (من بيانات السوق الحقيقية)",
       });
     }
     if (pr.cur.peg != null && pr.cur.peg < 1) {
       out.push({
         neg: false,
-        h: `PEG = ${pr.cur.peg.toFixed(2)} تحت 1 — نمو أسرع من مكرره (معيار Lynch)`,
+        h: `<b>PEG = ${pr.cur.peg.toFixed(2)} تحت 1</b> — نمو أسرع من مكرره (معيار Lynch)`,
         tag: "قاعدة: PEG < 1",
       });
     }
@@ -338,12 +327,31 @@ export default function CompanyFundamentalPage() {
     }, 60);
   }
 
-  if (loading || !data) {
+  // ── LOADING STATE ──
+  if (loading) {
     return (
-      <div dir="rtl" className="flex min-h-screen items-center justify-center bg-[#0d0d0d] text-[#fff]">
+      <div dir="rtl" className="flex min-h-screen items-center justify-center bg-[#F7F8FA]">
         <div className="text-center">
-          <div className="text-lg font-bold">جارٍ تحميل بيانات التحليل الأساسي...</div>
-          <div className="text-[12px] text-[#898781]">استرجاع القوائم والسلاسل الزمنية للرمز {sym}</div>
+          <div className="text-lg font-bold text-[#1A1A1A]">جارٍ تحميل بيانات التحليل الأساسي...</div>
+          <div className="text-[12px] text-[#6B7280]">استرجاع القوائم والسلاسل الزمنية للرمز {sym}</div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── ERROR STATE ──
+  if (loadError || !data) {
+    return (
+      <div dir="rtl" className="flex min-h-screen items-center justify-center bg-[#F7F8FA] px-6">
+        <div className="max-w-sm rounded-[4px] border border-[#FECACA] bg-[#FEF2F2] p-5 text-center">
+          <div className="text-[14px] font-bold text-[#DC2626]">تعذّر تحميل بيانات الرمز {sym}</div>
+          <div className="mt-1 text-[12px] text-[#DC2626]">تحقق من الاتصال أو أعد المحاولة بعد قليل.</div>
+          <button
+            onClick={() => setSym((s) => s)}
+            className="mt-3 rounded-[4px] border border-[#8C3B32] bg-white px-3 py-1.5 text-[12.5px] font-bold text-[#8C3B32] hover:bg-[#8C3B32]/5"
+          >
+            إعادة المحاولة
+          </button>
         </div>
       </div>
     );
@@ -366,91 +374,19 @@ export default function CompanyFundamentalPage() {
     ["PEG °", d.peers.cur.peg, null, "", "peg"],
   ] as const;
 
-  // Render SVG Price Line
-  const pricePoints = d.is_bank ? mkPrice(17.5, 0.026, 0.55, 9) : mkPrice(3.9, 0.007, 0.14, 9);
-  const W = 1180;
-  const H = 92;
-  const pB = 14;
-  const pT = 6;
-  const pS = 6;
-  const pE = 48;
-  const mn = Math.min(...pricePoints);
-  const mx = Math.max(...pricePoints);
-  const rgVal = mx - mn || 1;
-  const X = (i: number) => pS + (i / (pricePoints.length - 1)) * (W - pS - pE);
-  const Y = (v: number) => pT + (1 - (v - mn) / rgVal) * (H - pT - pB);
-
-  const ma: number[] = [];
-  for (let i = 0; i < pricePoints.length; i++) {
-    const sIdx = Math.max(0, i - 49);
-    const seg = pricePoints.slice(sIdx, i + 1);
-    ma.push(seg.reduce((a, b) => a + b, 0) / seg.length);
-  }
-
   return (
-    <div dir="rtl" className="min-h-screen bg-[#0d0d0d] font-sans text-[13.5px] text-[#fff]">
-      {/* ── TOP SWITCHER ── */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-white/10 bg-[#1a1a19] px-6 py-2.5">
-        <span className="text-[11.5px] text-[#898781]">شركة (بيانات حقيقية):</span>
-        <button
-          onClick={() => {
-            setSym("1010");
-            router.push("/stocks/1010/fundamental");
-          }}
-          className={`rounded-lg border px-3 py-1.5 text-[12.5px] transition-colors ${
-            sym === "1010"
-              ? "border-[#3987e5] bg-[#184f95] font-bold text-[#fff]"
-              : "border-white/10 bg-[#1a1a19] text-[#c3c2b7] hover:bg-[#222220]"
-          }`}
-        >
-          بنك الرياض 1010
-        </button>
-        <button
-          onClick={() => {
-            setSym("1831");
-            router.push("/stocks/1831/fundamental");
-          }}
-          className={`rounded-lg border px-3 py-1.5 text-[12.5px] transition-colors ${
-            sym === "1831"
-              ? "border-[#3987e5] bg-[#184f95] font-bold text-[#fff]"
-              : "border-white/10 bg-[#1a1a19] text-[#c3c2b7] hover:bg-[#222220]"
-          }`}
-        >
-          مهارة 1831
-        </button>
-
-        <button
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          className="mr-auto rounded-lg border border-white/10 px-3 py-1 text-[12px] text-[#c3c2b7] hover:bg-[#222220]"
-        >
-          {mounted && theme === "dark" ? "☀️ فاتح" : "🌙 داكن"}
-        </button>
-      </div>
-
-      {/* ── COMPANY HEADER ── */}
-      <header className="border-b border-white/10 bg-[#1a1a19] px-6 py-3.5">
-        <div className="flex flex-wrap items-baseline gap-3">
-          <div className="text-[19px] font-bold">
-            {d.name} <span className="mr-1.5 text-[12.5px] font-normal text-[#898781]">{d.en}</span>
-          </div>
-          <span className="rounded-full bg-[#262624] px-3 py-0.5 text-[11.5px] text-[#c3c2b7]">{d.sym}</span>
-          <span className="rounded-full bg-[#262624] px-3 py-0.5 text-[11.5px] text-[#c3c2b7]">تداول</span>
-          <span className="rounded-full bg-[#262624] px-3 py-0.5 text-[11.5px] text-[#c3c2b7]">{d.sec}</span>
-          <span className="rounded-full bg-[#0ca30c]/15 px-3 py-0.5 text-[11.5px] font-semibold text-[#0ca30c]">
-            ✓ بيانات XBRL حقيقية — 9 أرباع حتى Q1 2026
-          </span>
-          <span className="mr-auto text-[21px] font-bold tabular-nums" dir="ltr">
-            {fmt(d.px, 2)} <small className="text-[11.5px] font-normal text-[#898781]">ر.س (إغلاق فعلي)</small>
-          </span>
-        </div>
-      </header>
+    <div dir="rtl" className="min-h-screen bg-[#F7F8FA] font-sans text-[13.5px] text-[#1A1A1A]">
+      {/* ── HEADER & SEARCH ── */}
+      <CompanyAnalyzerHeader sym={sym} onSelectSym={(s) => setSym(s)} data={d} />
 
       {/* ── LEVEL 1 NAV ── */}
-      <nav className="flex items-end gap-1 border-b-[1.5px] border-[#383835] bg-[#1a1a19] px-6">
+      <nav className="flex items-end gap-1 border-b border-[#E5E7EB] bg-white px-6">
         <button
           onClick={() => setView("overview")}
           className={`border-b-[2.5px] px-4 py-2.5 text-[13.5px] transition-colors ${
-            view === "overview" ? "border-[#3987e5] font-bold text-[#fff]" : "border-transparent text-[#c3c2b7]"
+            view === "overview"
+              ? "border-[#8C3B32] font-bold text-[#1A1A1A]"
+              : "border-transparent text-[#6B7280] hover:text-[#1A1A1A]"
           }`}
         >
           نظرة عامة
@@ -458,158 +394,43 @@ export default function CompanyFundamentalPage() {
         <button
           onClick={() => setView("fund")}
           className={`border-b-[2.5px] px-4 py-2.5 text-[13.5px] transition-colors ${
-            view === "fund" ? "border-[#3987e5] font-bold text-[#fff]" : "border-transparent text-[#c3c2b7]"
+            view === "fund"
+              ? "border-[#8C3B32] font-bold text-[#1A1A1A]"
+              : "border-transparent text-[#6B7280] hover:text-[#1A1A1A]"
           }`}
         >
           التحليل الأساسي
         </button>
-        <span className="px-3 py-2.5 text-[11.5px] text-[#898781]">· الفني (M3) · الأخبار (M6) · التقرير الشامل — قادمة</span>
+        <span className="px-3 py-2.5 text-[11.5px] text-[#9CA3AF]">
+          · الفني (M3) · الأخبار (M6) · التقرير الشامل — قادمة
+        </span>
       </nav>
 
-      <div className="mx-auto max-w-[1300px] px-6 py-3.5 pb-16">
+      <div className="w-full px-6 py-3.5 pb-16">
         {/* ================= VIEW: OVERVIEW ================= */}
         {view === "overview" && (
           <div className="space-y-3.5">
-            {/* 4 KPIs */}
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-xl border border-white/10 bg-[#1a1a19] p-3.5">
-                <h4 className="text-[11px] font-semibold text-[#c3c2b7]">صافي الربح (آخر ربع)</h4>
-                <div className="text-[20px] font-bold tabular-nums" dir="ltr">
-                  {fmt(lastNet, 1)} م
-                </div>
-                <div className={`text-[11px] font-bold ${lastGn && lastGn >= 0 ? "text-[#0ca30c]" : "text-[#e66767]"}`}>
-                  {pctS(lastGn)} على أساس سنوي
-                </div>
-              </div>
+            <OverviewKpiCards
+              isBank={d.is_bank}
+              lastNet={lastNet}
+              lastRev={lastRev}
+              lastGn={lastGn}
+              lastGr={lastGr}
+              netTtm={ttm(d.net)}
+              peCur={d.peers.cur.pe}
+              tiles={tiles}
+              onTileClick={handleTileClick}
+            />
 
-              <div className="rounded-xl border border-white/10 bg-[#1a1a19] p-3.5">
-                <h4 className="text-[11px] font-semibold text-[#c3c2b7]">
-                  {d.is_bank ? "دخل العمولات (آخر ربع)" : "الإيرادات (آخر ربع)"}
-                </h4>
-                <div className="text-[20px] font-bold tabular-nums" dir="ltr">
-                  {fmt(lastRev, 1)} م
-                </div>
-                <div className={`text-[11px] font-bold ${lastGr && lastGr >= 0 ? "text-[#0ca30c]" : "text-[#e66767]"}`}>
-                  {pctS(lastGr)} على أساس سنوي
-                </div>
-              </div>
+            <AutomatedSignalsGrid signals={signals} />
 
-              <div className="rounded-xl border border-white/10 bg-[#1a1a19] p-3.5">
-                <h4 className="text-[11px] font-semibold text-[#c3c2b7]">صافي الربح TTM °</h4>
-                <div className="text-[20px] font-bold tabular-nums" dir="ltr">
-                  {fmt(ttm(d.net), 0)} م
-                </div>
-                <div className="text-[11px] text-[#898781]">من 4 أرباع حقيقية</div>
-              </div>
+            <CompanyPriceBridge
+              sym={d.sym}
+              isBank={d.is_bank}
+              netSeries={d.net}
+            />
 
-              <div className="rounded-xl border border-white/10 bg-[#1a1a19] p-3.5">
-                <h4 className="text-[11px] font-semibold text-[#c3c2b7]">مكرر الربحية P/E °</h4>
-                <div className="text-[20px] font-bold tabular-nums" dir="ltr">
-                  {fmt(d.peers.cur.pe, 1)}
-                </div>
-                <div className="text-[11px] text-[#898781]">من 4 أرباع حقيقية</div>
-              </div>
-            </div>
-
-            {/* DERIVED RATIO TILES */}
-            <div>
-              <div className="mb-2 text-[12px] font-bold text-[#898781]">
-                النسب المشتقة °{" "}
-                <span className="font-normal">
-                  · كل بطاقة تفتح سلسلتها الزمنية في التحليل الأساسي — قاعدة &quot;بطاقة ← سلسلة&quot;
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
-                {tiles.map(([h, v, p, u, key]) => (
-                  <div
-                    key={key}
-                    onClick={() => handleTileClick(key)}
-                    className="cursor-pointer rounded-xl border border-white/10 bg-[#1a1a19] p-3 transition-colors hover:border-[#3987e5]"
-                  >
-                    <h5 className="text-[10.5px] font-semibold text-[#898781]">{h}</h5>
-                    <div className="text-[16px] font-bold tabular-nums" dir="ltr">
-                      {v == null ? "—" : fmt(v, 1)}
-                      {u === "%" ? "%" : ""}
-                    </div>
-                    <div className={`text-[10.5px] ${p != null && p >= 60 ? "text-[#0ca30c]" : "text-[#898781]"}`}>
-                      {p != null ? `المئين ${p} في القطاع` : "—"}
-                    </div>
-                    <span className="mt-1 block text-[10px] text-[#3987e5]">↗ السلسلة الزمنية</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* AUTOMATED SIGNALS */}
-            <div>
-              <div className="mb-2 text-[12px] font-bold text-[#898781]">
-                إشارات مكتشفة آلياً <span className="font-normal">· محرك قواعد يحسب من الأرقام الحقيقية</span>
-              </div>
-              <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
-                {signals.map((s, idx) => (
-                  <div
-                    key={idx}
-                    className={`rounded-xl border border-white/10 bg-[#1a1a19] p-3 text-[12.5px] ${
-                      s.neg ? "border-r-[3px] border-r-[#e66767]" : "border-r-[3px] border-r-[#3987e5]"
-                    }`}
-                  >
-                    <b className="font-bold">{s.h}</b>
-                    <span className="mt-1 block text-[10px] text-[#898781]">{s.tag}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* PRICE BRIDGE CHART */}
-            <div className="rounded-xl border border-white/10 bg-[#1a1a19] p-3.5">
-              <div className="flex flex-wrap items-center gap-2 text-[11.5px] text-[#898781]">
-                <b className="text-[13px] text-[#fff]">جسر السعر</b>
-                <span>
-                  أرباح <b className="text-[#fff] tabular-nums">{pctS(lastGn)}</b>{" "}
-                  {gN.length > 1 && (lastGn || 0) > (gN[gN.length - 2] || 0) ? "متسارعة ↑" : "— الوتيرة تتباطأ"} ·
-                  السعر {pricePoints[pricePoints.length - 1] > ma[ma.length - 1] ? "فوق MA50 ✓ يؤكد" : "تحت MA50 ✗"}
-                </span>
-                <span className="mr-auto">▮ = إعلان نتائج · بيانات سعر توضيحية — الحية في Sprint 3</span>
-              </div>
-              <svg width="100%" height="92" viewBox={`0 0 ${W} ${H}`} className="mt-2">
-                <polyline
-                  points={ma.map((v, i) => `${X(i)},${Y(v)}`).join(" ")}
-                  fill="none"
-                  stroke="#383835"
-                  strokeWidth="1.5"
-                  strokeDasharray="4 4"
-                />
-                <polyline
-                  points={pricePoints.map((v, i) => `${X(i)},${Y(v)}`).join(" ")}
-                  fill="none"
-                  stroke="#3987e5"
-                  strokeWidth="2"
-                />
-                {[18, 42, 66, 92].map((ei) => (
-                  <g key={ei}>
-                    <rect
-                      x={X(ei) - 6}
-                      y={Y(pricePoints[ei]) - 14}
-                      width="12"
-                      height="10"
-                      rx="2.5"
-                      fill="#38301a"
-                      stroke="rgba(255,255,255,0.1)"
-                    />
-                    <text
-                      x={X(ei)}
-                      y={Y(pricePoints[ei]) - 6}
-                      textAnchor="middle"
-                      fontSize="7.5"
-                      fill="#e8c464"
-                      fontWeight="bold"
-                    >
-                      ن
-                    </text>
-                  </g>
-                ))}
-              </svg>
-            </div>
+            <QuarterlyNetProfitChart netSeries={d.net} lastGn={lastGn} gN={gN} />
           </div>
         )}
 
@@ -617,19 +438,23 @@ export default function CompanyFundamentalPage() {
         {view === "fund" && (
           <div className="space-y-3.5">
             {/* LEVEL 2 TABS */}
-            <div className="flex w-fit gap-1 rounded-lg bg-[#262624] p-1">
+            <div className={`flex w-fit gap-1 rounded-[4px] ${MUTED_BAND} p-1`}>
               <button
                 onClick={() => setSub("ratios")}
-                className={`rounded-md px-4 py-1.5 text-[12.5px] transition-colors ${
-                  sub === "ratios" ? "bg-[#1a1a19] font-bold text-[#fff] shadow" : "text-[#c3c2b7]"
+                className={`rounded-[4px] px-4 py-1.5 text-[12.5px] transition-colors ${
+                  sub === "ratios"
+                    ? "bg-white font-bold text-[#1A1A1A] shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+                    : "text-[#6B7280] hover:text-[#1A1A1A]"
                 }`}
               >
                 النسب المالية
               </button>
               <button
                 onClick={() => setSub("stmts")}
-                className={`rounded-md px-4 py-1.5 text-[12.5px] transition-colors ${
-                  sub === "stmts" ? "bg-[#1a1a19] font-bold text-[#fff] shadow" : "text-[#c3c2b7]"
+                className={`rounded-[4px] px-4 py-1.5 text-[12.5px] transition-colors ${
+                  sub === "stmts"
+                    ? "bg-white font-bold text-[#1A1A1A] shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+                    : "text-[#6B7280] hover:text-[#1A1A1A]"
                 }`}
               >
                 القوائم المالية
@@ -638,275 +463,30 @@ export default function CompanyFundamentalPage() {
 
             {/* ── SUB: RATIOS ── */}
             {sub === "ratios" && (
-              <div className="space-y-3">
-                {/* L3 Groups */}
-                <div className="flex flex-wrap gap-2">
-                  {ratioGroups.map((g, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => {
-                        setRg(idx);
-                        setHl(null);
-                      }}
-                      className={`rounded-full border px-3.5 py-1 text-[11.5px] transition-colors ${
-                        rg === idx
-                          ? "border-[#3987e5] bg-[#184f95] font-bold text-[#3987e5]"
-                          : "border-white/10 bg-[#1a1a19] text-[#c3c2b7] hover:bg-[#222220]"
-                      }`}
-                    >
-                      {g.t}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="overflow-hidden rounded-xl border border-white/10 bg-[#1a1a19]">
-                  <h3 className="px-4 pt-3 text-[13px] font-bold text-[#fff]">
-                    نسب {ratioGroups[rg]?.t} — سلاسل زمنية من الأرقام الحقيقية
-                  </h3>
-                  <div className="px-4 pb-2 text-[10.5px] text-[#898781]">
-                    مرّر على اسم أي نسبة لمعادلتها · عمود &quot;مقابل القطاع&quot; = المئين الفعلي وسط أقران القطاع المحدثين من قاعدة
-                    ربح ({d.peers.n_sec} شركات) · زر &quot;الأقران&quot; يفتح الترتيب الحقيقي
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse text-[12.5px]">
-                      <thead>
-                        <tr className="border-b-[1.5px] border-[#383835]">
-                          <th className="sticky inset-inline-start-0 z-10 bg-[#1a1a19] px-3 py-2 text-right text-[10.5px] font-semibold text-[#898781]">
-                            النسبة
-                          </th>
-                          {PQ.map((p) => (
-                            <th key={p} className="px-2.5 py-2 text-left text-[10.5px] font-semibold text-[#898781]">
-                              {p}
-                            </th>
-                          ))}
-                          <th className="px-2.5 py-2 text-left text-[10.5px] font-semibold text-[#898781]">
-                            الحالي (TTM)
-                          </th>
-                          <th className="px-2.5 py-2 text-left text-[10.5px] font-semibold text-[#898781]">
-                            مقابل القطاع
-                          </th>
-                          <th className="px-2.5 py-2 text-left"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {ratioGroups[rg]?.rows.map((r) => {
-                          const isHl = hl === r.k;
-                          const pVal = r.p;
-                          const verdict =
-                            pVal == null ? (
-                              <span className="rounded bg-[#262624] px-1.5 text-[10px] text-[#898781]">—</span>
-                            ) : pVal >= 67 ? (
-                              <span className="rounded bg-[#0ca30c]/15 px-1.5 text-[10px] font-bold text-[#0ca30c]">
-                                إيجابي
-                              </span>
-                            ) : pVal >= 34 ? (
-                              <span className="rounded bg-[#262624] px-1.5 text-[10px] text-[#898781]">محايد</span>
-                            ) : (
-                              <span className="rounded bg-[#e66767]/15 px-1.5 text-[10px] font-bold text-[#e66767]">
-                                سلبي
-                              </span>
-                            );
-
-                          const curTxt =
-                            r.cur == null
-                              ? "—"
-                              : "x" in r && r.x
-                              ? fmt(r.cur, 2)
-                              : "pct" in r && r.pct
-                              ? pctS(r.cur)
-                              : fmt(r.cur, 1) + "%";
-
-                          return (
-                            <tr
-                              key={r.k}
-                              data-k={r.k}
-                              className={`border-b border-[#2c2c2a] ${
-                                isHl ? "bg-[#184f95]/30" : "hover:bg-[#222220]"
-                              }`}
-                            >
-                              <td
-                                className="sticky inset-inline-start-0 z-10 whitespace-nowrap bg-[#1a1a19] px-3 py-2 text-right font-medium text-[#fff] shadow-[-1px_0_0_#2c2c2a_inset]"
-                                title={`المعادلة: ${r.f}`}
-                              >
-                                {r.n}
-                              </td>
-
-                              {!r.s ? (
-                                <td colSpan={PQ.length} className="px-2.5 py-2 text-[11px] text-[#898781]">
-                                  السلسلة الربعية قادمة — القيمة الحالية TTM حقيقية
-                                </td>
-                              ) : (
-                                r.s.map((val, idx) => (
-                                  <td
-                                    key={idx}
-                                    className={`whitespace-nowrap px-2.5 py-2 text-left tabular-nums ${
-                                      val == null
-                                        ? "text-[#898781]"
-                                        : "pct" in r && r.pct && val < 0
-                                        ? "text-[#e66767]"
-                                        : ""
-                                    }`}
-                                    dir="ltr"
-                                  >
-                                    {val == null ? "·" : "pct" in r && r.pct ? pctS(val) : fmt(val, 1) + "%"}
-                                  </td>
-                                ))
-                              )}
-
-                              <td className="whitespace-nowrap px-2.5 py-2 text-left font-bold tabular-nums" dir="ltr">
-                                {curTxt}
-                              </td>
-
-                              <td className="whitespace-nowrap px-2.5 py-2 text-left">
-                                {pVal == null ? (
-                                  verdict
-                                ) : (
-                                  <div className="flex items-center gap-1.5">
-                                    <div className="h-1.5 w-[54px] overflow-hidden rounded-full bg-[#262624]">
-                                      <div className="h-full rounded-full bg-[#3987e5]" style={{ width: `${pVal}%` }} />
-                                    </div>
-                                    <span className="text-[10.5px] tabular-nums" dir="ltr">
-                                      {pVal}
-                                    </span>
-                                    {verdict}
-                                  </div>
-                                )}
-                              </td>
-
-                              <td className="whitespace-nowrap px-2.5 py-2 text-left">
-                                {r.pk && (
-                                  <button
-                                    onClick={() =>
-                                      setActivePeersPk(activePeersPk === r.pk ? null : (r.pk as string))
-                                    }
-                                    className="rounded border border-white/10 px-2 py-0.5 text-[10.5px] text-[#3987e5] hover:bg-[#222220]"
-                                  >
-                                    الأقران ▾
-                                  </button>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-
-                        {/* PEERS EXPANDED ROW */}
-                        {activePeersPk && (
-                          <tr className="bg-[#141413]">
-                            <td colSpan={PQ.length + 4} className="p-3.5">
-                              <b className="mb-2 block text-[11px] text-[#fff]">
-                                ترتيب القطاع الفعلي ({d.peers.peers[activePeersPk]?.length || 0} شركة محدثة — من قاعدة ربح):
-                              </b>
-                              <div className="space-y-1">
-                                {(d.peers.peers[activePeersPk] || []).map(([symCode, name, val]) => {
-                                  const isMe = symCode === d.sym;
-                                  const peersList = d.peers.peers[activePeersPk] || [];
-                                  const maxVal = Math.max(...peersList.map((p) => Math.abs(p[2])), 1e-9);
-                                  const barW = (Math.abs(val) / maxVal) * 55;
-
-                                  return (
-                                    <div key={symCode} className="flex items-center gap-2 text-[11px]">
-                                      <span className={`w-[130px] text-right ${isMe ? "font-bold text-[#3987e5]" : "text-[#c3c2b7]"}`}>
-                                        {name} {isMe ? "◀" : ""}
-                                      </span>
-                                      <div
-                                        className={`h-2.5 rounded-full ${isMe ? "bg-[#3987e5]" : "bg-[#383835] opacity-50"}`}
-                                        style={{ width: `${barW}%`, maxWidth: "420px" }}
-                                      />
-                                      <span className="text-[10.5px] tabular-nums" dir="ltr">
-                                        {fmt(val, 1)}
-                                      </span>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div className="flex flex-wrap gap-3 border-t border-[#2c2c2a] px-4 py-2.5 text-[11px] text-[#898781]">
-                    <span>° محسوب من TTM/أرباع حقيقية · المئين من الشركات المحدثة في القطاع فقط</span>
-                    <span>{ratioGroups[rg]?.note || ""}</span>
-                  </div>
-                </div>
-              </div>
+              <FundamentalRatiosTab
+                ratioGroups={ratioGroups}
+                rg={rg}
+                setRg={setRg}
+                hl={hl}
+                setHl={setHl}
+                periodsQ={PQ}
+                peersCount={d.peers.n_sec}
+                peersMap={d.peers.peers}
+                currentSym={d.sym}
+              />
             )}
 
             {/* ── SUB: STATEMENTS ── */}
             {sub === "stmts" && (
-              <div className="overflow-hidden rounded-xl border border-white/10 bg-[#1a1a19]">
-                <h3 className="px-4 pt-3 text-[13px] font-bold text-[#fff]">قائمة الدخل — ربعي (9 أرباع حقيقية)</h3>
-                <div className="px-4 pb-2 text-[10.5px] text-[#898781]">
-                  القيم بملايين الريالات · الصف المميز = بند التسارع · النسخة الكاملة للقوائم الأربعة في نموذج القوائم التفصيلي
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-[12.5px]">
-                    <thead>
-                      <tr className="border-b-[1.5px] border-[#383835]">
-                        <th className="sticky inset-inline-start-0 z-10 bg-[#1a1a19] px-3 py-2 text-right text-[10.5px] font-semibold text-[#898781]">
-                          البند
-                        </th>
-                        {PQ.map((p) => (
-                          <th key={p} className="px-2.5 py-2 text-left text-[10.5px] font-semibold text-[#898781]">
-                            {p}
-                          </th>
-                        ))}
-                        <th className="px-2.5 py-2 text-left text-[10.5px] font-semibold text-[#898781]">YoY أخير</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(d.is_bank
-                        ? [
-                            ["دخل العمولات الخاصة", d.rev, ""],
-                            ["الربح من النشاطات التشغيلية", d.op, "font-bold border-t border-[#383835]"],
-                            ["صافي ربح الفترة", d.net, "font-bold border-t-2 border-white border-b-2 border-double border-[#383835]"],
-                            ["ربحية السهم (ريال)", d.eps, ""],
-                          ]
-                        : [
-                            ["الإيرادات", d.rev, ""],
-                            ["إجمالي الربح", d.gp || [], "font-bold border-t border-[#383835]"],
-                            ["ربح العمليات", d.op, "font-bold border-t border-[#383835]"],
-                            ["صافي ربح الفترة", d.net, "font-bold border-t-2 border-white border-b-2 border-double border-[#383835]"],
-                            ["ربحية السهم (ريال)", d.eps, ""],
-                          ]
-                      ).map(([lbl, series, cls], idx) => {
-                        const sArr = series as number[];
-                        const gArr = yoy(sArr);
-                        const lastG = gArr[gArr.length - 1];
-
-                        return (
-                          <tr key={idx} className={`border-b border-[#2c2c2a] hover:bg-[#222220] ${cls}`}>
-                            <td className="sticky inset-inline-start-0 z-10 whitespace-nowrap bg-[#1a1a19] px-3 py-2 text-right shadow-[-1px_0_0_#2c2c2a_inset]">
-                              {lbl as string}
-                            </td>
-                            {sArr.map((v, sIdx) => (
-                              <td
-                                key={sIdx}
-                                className={`whitespace-nowrap px-2.5 py-2 text-left tabular-nums ${v < 0 ? "text-[#e66767]" : ""}`}
-                                dir="ltr"
-                              >
-                                {v == null ? "—" : Math.abs(v) < 50 ? Number(v).toFixed(2) : fmt(v, 0)}
-                              </td>
-                            ))}
-                            <td
-                              className={`whitespace-nowrap px-2.5 py-2 text-left font-bold tabular-nums ${
-                                lastG != null && lastG >= 0 ? "text-[#0ca30c]" : "text-[#e66767]"
-                              }`}
-                              dir="ltr"
-                            >
-                              {lastG == null ? "—" : pctS(lastG)}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              <QuarterlyIncomeStatementsTab
+                isBank={d.is_bank}
+                rev={d.rev}
+                op={d.op}
+                net={d.net}
+                eps={d.eps}
+                gp={d.gp}
+                periodsQ={PQ}
+              />
             )}
           </div>
         )}

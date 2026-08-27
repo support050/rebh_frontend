@@ -14,6 +14,14 @@ export interface RowData {
   noDerive?: boolean;
 }
 
+export interface SensParams {
+  deposits: number;   // total deposits / interest-bearing liabilities in thousands
+  assets: number;     // total interest-earning assets in thousands
+  betaDeposits: number;
+  betaAssets: number;
+  nimCurrent: number; // current NIM in percent
+}
+
 export interface CompanyTemplate {
   name: string;
   en: string;
@@ -38,6 +46,7 @@ export interface CompanyTemplate {
   rows: RowData[];
   notes: { h: string; b: string }[];
   foot: string[];
+  sensParams?: SensParams;
   stmts?: {
     bs?: { periods: string[]; periodsEn: string[]; cumulative?: boolean; rows: RowData[] };
     cf?: { periods: string[]; periodsEn: string[]; cumulative?: boolean; rows: RowData[] };

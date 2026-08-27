@@ -6,6 +6,8 @@ import { yoySeries, lastYoY, fmtM } from "../utils";
 export interface Signal {
   neg: boolean;
   h: string;
+  confText?: string;
+  confOk?: boolean;
   tag: string;
 }
 
@@ -22,14 +24,16 @@ export interface Signal {
 export function engineSignals(C: CompanyTemplate, isPriceAboveMa: boolean): Signal[] {
   const out: Signal[] = [];
   const pct = (x: number) => (x >= 0 ? "+" : "−") + Math.abs(x).toFixed(0) + "%";
-  const conf = (pos: boolean) =>
+  const getConf = (pos: boolean) =>
     pos
-      ? isPriceAboveMa
-        ? " ✓ السعر يؤكد (فوق MA50)"
-        : " ✗ السعر لا يؤكد بعد"
-      : isPriceAboveMa
-      ? " السعر لم يعكسها بعد (فوق MA50)"
-      : " السعر يعكسها (تحت MA50)";
+      ? {
+          confText: isPriceAboveMa ? "✓ السعر يؤكد (فوق MA50)" : "✗ السعر لا يؤكد بعد",
+          confOk: isPriceAboveMa,
+        }
+      : {
+          confText: isPriceAboveMa ? "السعر لم يعكسها بعد (فوق MA50)" : "السعر يعكسها (تحت MA50)",
+          confOk: !isPriceAboveMa,
+        };
 
   // ── Rule 1: Acceleration / deceleration on key items ──
   C.rows
@@ -43,27 +47,36 @@ export function engineSignals(C: CompanyTemplate, isPriceAboveMa: boolean): Sign
       for (let i = ys.length - 1; i > 0 && ys[i] > ys[i - 1]; i--) rising++;
 
       if (ys.length >= 3 && rising >= 2 && lastv > 0) {
+        const c = getConf(true);
         out.push({
           neg: false,
           h: `${r.ar}: تسارع ${rising + 1} أرباع متتالية (${ys
             .slice(-Math.min(4, ys.length))
             .map(pct)
-            .join(" ← ")}).${conf(true)}`,
+            .join(" ← ")})`,
+          confText: c.confText,
+          confOk: c.confOk,
           tag: "قاعدة: التسارع المتصل (منهج O'Neil/StockBee)",
         });
       } else if (ys.length >= 3 && rising >= 2 && lastv <= 0) {
+        const c = getConf(true);
         out.push({
           neg: false,
           h: `${r.ar}: وتيرة الانكماش تتحسن (${ys
             .slice(-3)
             .map(pct)
-            .join(" ← ")}) — ليس نمواً بعد.${conf(true)}`,
+            .join(" ← ")}) — ليس نمواً بعد`,
+          confText: c.confText,
+          confOk: c.confOk,
           tag: "قاعدة: انكماش يتباطأ — تعافٍ دوري مبكر محتمل (Lynch)",
         });
       } else if (ys.length >= 3 && lastv < prev && prev >= 20) {
+        const c = getConf(false);
         out.push({
           neg: true,
-          h: `${r.ar}: تباطؤ بعد ذروة نمو — من ${pct(prev)} إلى ${pct(lastv)} في الربع الأخير. بند مراقبة.${conf(false)}`,
+          h: `${r.ar}: تباطؤ بعد ذروة نمو — من ${pct(prev)} إلى ${pct(lastv)} في الربع الأخير. بند مراقبة`,
+          confText: c.confText,
+          confOk: c.confOk,
           tag: "قاعدة: كسر نمط التسارع — التباطؤ بعد الذروة لحظة الحذر عند O'Neil",
         });
       }
@@ -76,9 +89,12 @@ export function engineSignals(C: CompanyTemplate, isPriceAboveMa: boolean): Sign
     const gi = lastYoY(inc.v);
     const go = lastYoY(opx.v);
     if (gi != null && go != null && gi - go > 2) {
+      const c = getConf(true);
       out.push({
         neg: false,
-        h: `رافعة تشغيلية إيجابية: الدخل ${pct(gi)} مقابل مصاريف ${pct(go)} — فارق ${(gi - go).toFixed(1)} نقطة.${conf(true)}`,
+        h: `رافعة تشغيلية إيجابية: الدخل ${pct(gi)} مقابل مصاريف ${pct(go)} — فارق ${(gi - go).toFixed(1)} نقطة`,
+        confText: c.confText,
+        confOk: c.confOk,
         tag: "قاعدة: نمو الدخل − نمو المصاريف > 2 نقطة",
       });
     }
@@ -90,15 +106,21 @@ export function engineSignals(C: CompanyTemplate, isPriceAboveMa: boolean): Sign
     const gp = lastYoY(prov.v);
     const gi2 = lastYoY(inc.v);
     if (gp != null && gi2 != null && gp > gi2 + 5) {
+      const c = getConf(false);
       out.push({
         neg: true,
-        h: `${prov.ar} ينمو أسرع من الدخل: ${pct(gp)} مقابل ${pct(gi2)} — ضغط على جودة الأرباح.${conf(false)}`,
+        h: `${prov.ar} ينمو أسرع من الدخل: ${pct(gp)} مقابل ${pct(gi2)} — ضغط على جودة الأرباح`,
+        confText: c.confText,
+        confOk: c.confOk,
         tag: "قاعدة: نمو المخصص/المطالبات > نمو الدخل + 5 نقاط",
       });
     } else if (gp != null && gp < 0) {
+      const c = getConf(true);
       out.push({
         neg: false,
-        h: `المخصصات تنخفض (${pct(gp)}) مع استمرار نمو المحفظة — تحسن جودة ائتمان.${conf(true)}`,
+        h: `المخصصات تنخفض (${pct(gp)}) مع استمرار نمو المحفظة — تحسن جودة ائتمان`,
+        confText: c.confText,
+        confOk: c.confOk,
         tag: "قاعدة: انخفاض المخصص مع نمو الدخل",
       });
     }
@@ -142,9 +164,12 @@ export function engineSignals(C: CompanyTemplate, isPriceAboveMa: boolean): Sign
     let streak = 0;
     for (let i = m.length - 1; i > 0 && m[i] > m[i - 1]; i--) streak++;
     if (streak >= 3) {
+      const c = getConf(true);
       out.push({
         neg: false,
-        h: `هامش الربح الإجمالي° يتحسن ${streak + 1} أرباع متتالية (${(m[m.length - streak - 1] * 100).toFixed(1)}% ← ${(m[m.length - 1] * 100).toFixed(1)}%).${conf(true)}`,
+        h: `هامش الربح الإجمالي° يتحسن ${streak + 1} أرباع متتالية (${(m[m.length - streak - 1] * 100).toFixed(1)}% ← ${(m[m.length - 1] * 100).toFixed(1)}%)`,
+        confText: c.confText,
+        confOk: c.confOk,
         tag: "قاعدة: سلسلة تحسن الهامش (إشارة Minervini المبكرة)",
       });
     }

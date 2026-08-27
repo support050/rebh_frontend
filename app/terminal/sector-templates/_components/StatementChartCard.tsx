@@ -29,7 +29,7 @@ export default function StatementChartCard({ chartRow, curStmt, isReal }: Props)
 
   if (!chartRow || !chartRow.v) {
     return (
-      <div className="rounded-xl border border-white/10 bg-[#1a1a19] p-4 text-center text-[#898781]">
+      <div className="rounded-[4px] border border-[#E5E7EB] bg-white p-4 text-center text-[#6B7280] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         لا توجد بيانات متاحة لهذا البند
       </div>
     );
@@ -61,8 +61,8 @@ export default function StatementChartCard({ chartRow, curStmt, isReal }: Props)
     hasNeg && hasPos
       ? cPadT + (CH - cPadT - cPadB) / 2
       : hasNeg && !hasPos
-      ? cPadT
-      : CH - cPadB;
+        ? cPadT
+        : CH - cPadB;
 
   const scale = (v: number) =>
     (Math.abs(v) / maxV) * (CH - cPadT - cPadB) / (hasNeg && hasPos ? 2 : 1);
@@ -86,17 +86,17 @@ export default function StatementChartCard({ chartRow, curStmt, isReal }: Props)
   const yLo = CH - cPadB - scale(lo);
 
   return (
-    <div className="relative rounded-xl border border-white/10 bg-[#1a1a19] p-4">
+    <div className="relative rounded-[4px] border border-[#E5E7EB] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
       <div className="flex flex-wrap items-center justify-between pb-2">
-        <h3 className="text-[14px] font-bold text-[#fff]">
+        <h3 className="text-[14px] font-bold text-[#1A1A1A]">
           {chartRow.ar}
           {isCum
             ? " — ربعي (محسوب° من التراكمي المعلن)"
             : curStmt.cumulative
-            ? " — كما ورد"
-            : " — ربعي"}
+              ? " — كما ورد"
+              : " — ربعي"}
         </h3>
-        <span className="text-[11.5px] text-[#898781]">
+        <span className="text-[11.5px] text-[#9CA3AF]">
           اضغط أي بند لعرضه · الشريط الرمادي على آخر عمود = مدى آخر 4 أرباع° (بديل التقديرات)
         </span>
       </div>
@@ -105,10 +105,10 @@ export default function StatementChartCard({ chartRow, curStmt, isReal }: Props)
         {/* Interactive Tooltip */}
         {tooltip.visible && (
           <div
-            className="pointer-events-none absolute z-20 whitespace-nowrap rounded-lg bg-[#fff] px-3 py-1.5 text-[12px] text-[#0b0b0b] shadow-lg transition-opacity"
+            className="pointer-events-none absolute z-20 whitespace-nowrap rounded-[4px] border border-[#E5E7EB] bg-white px-3 py-1.5 text-[12px] text-[#1A1A1A] shadow-[0_1px_3px_rgba(0,0,0,0.1)] transition-opacity"
             style={{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }}
           >
-            <div>
+            <div className="text-[#6B7280]">
               {tooltip.textAr}
               {tooltip.inBand}
             </div>
@@ -128,8 +128,8 @@ export default function StatementChartCard({ chartRow, curStmt, isReal }: Props)
                 : CH - cPadB - scale(gv);
             return (
               <g key={i}>
-                <line x1={cPadS} x2={CW - cPadE} y1={gy} y2={gy} stroke="#2c2c2a" />
-                <text x={CW - cPadE + 8} y={gy + 4} fill="#898781" fontSize="10.5">
+                <line x1={cPadS} x2={CW - cPadE} y1={gy} y2={gy} stroke="#F3F4F6" />
+                <text x={CW - cPadE + 8} y={gy + 4} fill="#9CA3AF" fontSize="10.5">
                   {axF(gv)}
                 </text>
               </g>
@@ -142,7 +142,7 @@ export default function StatementChartCard({ chartRow, curStmt, isReal }: Props)
             x2={CW - cPadE}
             y1={zeroY}
             y2={zeroY}
-            stroke="#383835"
+            stroke="#D1D5DB"
             strokeWidth="1.5"
           />
 
@@ -153,8 +153,7 @@ export default function StatementChartCard({ chartRow, curStmt, isReal }: Props)
               y={yHi}
               width={barW + 12}
               height={Math.max(yLo - yHi, 2)}
-              fill="#262624"
-              opacity="0.7"
+              fill="#F3F4F6"
               rx="3"
             />
           )}
@@ -165,7 +164,7 @@ export default function StatementChartCard({ chartRow, curStmt, isReal }: Props)
             const x = cPadS + slotW * i + (slotW - barW) / 2;
             const h = Math.max(scale(v), 2);
             const est = isReal && i < 3 && chartRow.est3 && !isCum;
-            const fill = v >= 0 ? "#3987e5" : "#e66767";
+            const fill = v >= 0 ? "#8C3B32" : "#DC2626";
             const op = est ? 0.45 : 1;
 
             const d =
@@ -188,8 +187,8 @@ export default function StatementChartCard({ chartRow, curStmt, isReal }: Props)
                         ? v > Math.max(...prior)
                           ? " · فوق مدى آخر 4 أرباع°"
                           : v < Math.min(...prior)
-                          ? " · تحت المدى°"
-                          : " · داخل المدى°"
+                            ? " · تحت المدى°"
+                            : " · داخل المدى°"
                         : "";
                     setTooltip({
                       visible: true,
@@ -206,7 +205,7 @@ export default function StatementChartCard({ chartRow, curStmt, isReal }: Props)
                   x={x + barW / 2}
                   y={CH - 7}
                   textAnchor="middle"
-                  fill="#898781"
+                  fill="#9CA3AF"
                   fontSize="10"
                 >
                   {perEn[i]}

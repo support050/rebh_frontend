@@ -5,7 +5,6 @@ import { useTheme } from "next-themes";
 import { authFetch } from "@/lib/api/authFetch";
 
 import type { CompanyKey, CompanyTemplate, SectorPulse, StmtView } from "./types";
-import { mkPrice, PRICE_CONFIGS } from "./utils";
 import { engineSignals } from "./_components/SignalEngine";
 
 import TemplateSwitcher from "./_components/TemplateSwitcher";
@@ -32,9 +31,18 @@ export default function SectorTemplatesOptimalPage() {
   const [companiesData, setCompaniesData] = useState<Record<string, CompanyTemplate>>({});
   const [pulseData, setPulseData] = useState<SectorPulse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [priceData, setPriceData] = useState<number[]>([]);
+  const [priceLoading, setPriceLoading] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    if (typeof window !== "undefined" && window.location.hash) {
+      const hash = window.location.hash.replace("#", "") as CompanyKey;
+      if (["bank", "petro", "gen", "ins", "fin", "reit"].includes(hash)) {
+        setCKey(hash);
+      }
+    }
+
     async function load() {
       try {
         const res = await authFetch("/api/terminal/sector-templates/");
@@ -51,6 +59,44 @@ export default function SectorTemplatesOptimalPage() {
     }
     load();
   }, []);
+
+  const handleSelectCompany = (key: CompanyKey) => {
+    setCKey(key);
+    setSelectedRowIdx(null);
+    setSt("is");
+    if (typeof window !== "undefined") {
+      window.location.hash = key;
+    }
+  };
+
+  // Fetch real price history whenever the selected company changes
+  useEffect(() => {
+    const C = companiesData[cKey];
+    if (!C?.symbol) return;
+    let cancelled = false;
+    setPriceLoading(true);
+    setPriceData([]);
+    async function fetchPrices() {
+      try {
+        const res = await authFetch(`/api/prices/history/${C.symbol}?limit=110`);
+        if (!cancelled && res.ok) {
+          const json = await res.json();
+          const rawList = Array.isArray(json) ? json : (json?.data || []);
+          const closes: number[] = (rawList as { close?: number }[])
+            .filter((d) => d.close != null)
+            .map((d) => d.close as number)
+            .slice(-110);
+          if (!cancelled) setPriceData(closes);
+        }
+      } catch (err) {
+        console.error("Failed to load price history", err);
+      } finally {
+        if (!cancelled) setPriceLoading(false);
+      }
+    }
+    fetchPrices();
+    return () => { cancelled = true; };
+  }, [cKey, companiesData]);
 
   const C = companiesData[cKey];
 
@@ -76,13 +122,9 @@ export default function SectorTemplatesOptimalPage() {
   }, [C, st]);
 
 
-  const priceData = useMemo(() => {
-    const cfg = PRICE_CONFIGS[cKey] || { base: 20, trend: 0.02, amp: 0.5, cyc: 9 };
-    return mkPrice(cfg.base, cfg.trend, cfg.amp, cfg.cyc);
-  }, [cKey]);
-
   const isPriceAboveMa = useMemo(() => {
     const p = priceData;
+    if (p.length < 51) return null;
     const n = p.length;
     const ma50 = p.slice(n - 50).reduce((a, b) => a + b, 0) / 50;
     return p[n - 1] > ma50;
@@ -91,7 +133,7 @@ export default function SectorTemplatesOptimalPage() {
   // Automated quantitative rules engine signals
   const signals = useMemo(() => {
     if (!C) return [];
-    return engineSignals(C, isPriceAboveMa);
+    return engineSignals(C, isPriceAboveMa ?? false);
   }, [C, isPriceAboveMa]);
 
   // Selected or default active row for bar chart
@@ -100,43 +142,42 @@ export default function SectorTemplatesOptimalPage() {
     return selectedRowIdx != null
       ? curStmt.rows[selectedRowIdx]
       : curStmt.rows.find((r) => r.net) ||
-          curStmt.rows.find((r) => r.t === "total") ||
-          curStmt.rows[0];
+      curStmt.rows.find((r) => r.t === "total") ||
+      curStmt.rows[0];
   }, [curStmt, selectedRowIdx]);
 
   if (loading || !C) {
     return (
-      <div dir="rtl" className="flex min-h-screen items-center justify-center bg-[#0d0d0d] text-[#fff]">
+      <div dir="rtl" className="flex min-h-screen items-center justify-center bg-[#F7F8FA] text-[#1A1A1A]">
         <div className="text-center">
-          <div className="text-lg font-bold">جارٍ تحميل منظومة قوالب القطاعات المالية OPTIMAL v3...</div>
-          <div className="mt-1 text-[12px] text-[#898781]">قوالب البنوك، الدورية، التأمين، شركات التمويل، وصناديق الريت</div>
+          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-[#E5E7EB] border-t-[#8C3B32]" />
+          <div className="text-[15px] font-bold">جارٍ تحميل منظومة قوالب القطاعات المالية OPTIMAL v3...</div>
+          <div className="mt-1 text-[12px] text-[#6B7280]">قوالب البنوك، الدورية، التأمين، شركات التمويل، وصناديق الريت</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div dir="rtl" className="min-h-screen bg-[#0d0d0d] font-sans text-[14px] text-[#fff]">
+    <div dir="rtl" className="min-h-screen bg-[#F7F8FA] font-sans text-[14px] text-[#1A1A1A]">
       {/* ── 1. Top Sector Template Switcher ── */}
       <TemplateSwitcher
         activeKey={cKey}
-        onSelect={(key) => {
-          setCKey(key);
-          setSelectedRowIdx(null);
-          setSt("is");
-        }}
+        onSelect={handleSelectCompany}
         themeBtnLabel={mounted && theme === "dark" ? "☀️ فاتح" : "🌙 داكن"}
         onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
+        companiesData={companiesData}
       />
+
 
       {/* ── 2. Company Meta & Price Header ── */}
       <CompanyHeader C={C} />
 
-      <div className="mx-auto max-w-[1280px] space-y-3.5 px-7 py-3 pb-16">
-        <div className="text-[12px] text-[#898781]">{C.unit}</div>
+      <div className="mx-auto max-w-[1280px] space-y-4 px-7 py-4 pb-16">
+        <div className="text-[12px] text-[#9CA3AF]">{C.unit}</div>
 
         {/* ── 3. Price Bridge & Results Marks ── */}
-        <PriceBridge priceData={priceData} C={C} />
+        <PriceBridge priceData={priceData} priceLoading={priceLoading} C={C} />
 
         {/* ── 4. Key Performance Indicators with Sparklines ── */}
         <KPICards C={C} />
@@ -146,63 +187,81 @@ export default function SectorTemplatesOptimalPage() {
 
         {/* ── 6. Interactive Interest Rate Sensitivity (Banks) ── */}
         <InterestSensitivity
-          hasSens={C.hasSens}
+          C={C}
           sensBp={sensBp}
           onSelectBp={(bp) => setSensBp(bp)}
         />
 
+
         {/* ── 7. Rules Engine Signals ── */}
         <SignalsSection signals={signals} />
 
-        {/* ── 8. Multi-Statement Selector Tabs ── */}
-        {C.stmts && (
-          <div className="flex w-fit gap-1 rounded-lg bg-[#262624] p-1">
-            <button
-              onClick={() => {
-                setSt("is");
-                setSelectedRowIdx(null);
-              }}
-              className={`rounded-md px-3.5 py-1.5 text-[12.5px] transition-colors ${
-                st === "is" ? "bg-[#1a1a19] font-bold text-[#fff] shadow" : "text-[#c3c2b7] hover:text-[#fff]"
-              }`}
-            >
-              قائمة الدخل
-            </button>
-            <button
-              onClick={() => {
-                setSt("bs");
-                setSelectedRowIdx(null);
-              }}
-              className={`rounded-md px-3.5 py-1.5 text-[12.5px] transition-colors ${
-                st === "bs" ? "bg-[#1a1a19] font-bold text-[#fff] shadow" : "text-[#c3c2b7] hover:text-[#fff]"
-              }`}
-            >
-              المركز المالي
-            </button>
-            <button
-              onClick={() => {
-                setSt("cf");
-                setSelectedRowIdx(null);
-              }}
-              className={`rounded-md px-3.5 py-1.5 text-[12.5px] transition-colors ${
-                st === "cf" ? "bg-[#1a1a19] font-bold text-[#fff] shadow" : "text-[#c3c2b7] hover:text-[#fff]"
-              }`}
-            >
-              التدفقات النقدية
-            </button>
+        {/*
+          Structural note: the statement tabs, the chart, and the table are three
+          views of the same underlying statement data — grouping them inside one
+          panel (instead of the tabs floating loose above two separate cards)
+          makes that relationship visible instead of implied by proximity.
+        */}
+        <div>
+          {/* ── 8. Multi-Statement Selector Tabs ── */}
+          {C.stmts && (
+            <div className="mb-3.5 flex w-fit gap-1 rounded-[4px] bg-[#F3F4F6] dark:bg-[#1a1a19] p-1">
+              <button
+                onClick={() => {
+                  setSt("is");
+                  setSelectedRowIdx(null);
+                }}
+                className={`rounded-[4px] px-3.5 py-1.5 text-[12.5px] transition-colors ${st === "is"
+                  ? "border border-[#8C3B32] bg-white dark:bg-[#0d0d0d] font-bold text-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+                  : "border border-transparent text-[#6B7280] hover:text-[#1A1A1A] dark:hover:text-[#f2f1ed]"
+                  }`}
+              >
+                قائمة الدخل
+              </button>
+              {C.stmts.bs && (
+                <button
+                  onClick={() => {
+                    setSt("bs");
+                    setSelectedRowIdx(null);
+                  }}
+                  className={`rounded-[4px] px-3.5 py-1.5 text-[12.5px] transition-colors ${st === "bs"
+                    ? "border border-[#8C3B32] bg-white dark:bg-[#0d0d0d] font-bold text-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+                    : "border border-transparent text-[#6B7280] hover:text-[#1A1A1A] dark:hover:text-[#f2f1ed]"
+                    }`}
+                >
+                  المركز المالي
+                </button>
+              )}
+              {C.stmts.cf && (
+                <button
+                  onClick={() => {
+                    setSt("cf");
+                    setSelectedRowIdx(null);
+                  }}
+                  className={`rounded-[4px] px-3.5 py-1.5 text-[12.5px] transition-colors ${st === "cf"
+                    ? "border border-[#8C3B32] bg-white dark:bg-[#0d0d0d] font-bold text-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+                    : "border border-transparent text-[#6B7280] hover:text-[#1A1A1A] dark:hover:text-[#f2f1ed]"
+                    }`}
+                >
+                  التدفقات النقدية
+                </button>
+              )}
+            </div>
+          )}
+
+          <div className="space-y-4">
+            {/* ── 9. Interactive Bar Chart with 4-Quarter Range Band ── */}
+            <StatementChartCard chartRow={chartRow} curStmt={curStmt} isReal={C.real} />
+
+            {/* ── 10. Comprehensive Statement Table with In-line Sparklines & Audit Strip ── */}
+            <StatementTable
+              C={C}
+              curStmt={curStmt}
+              selectedRowIdx={selectedRowIdx}
+              onSelectRow={(idx) => setSelectedRowIdx(idx)}
+            />
           </div>
-        )}
-
-        {/* ── 9. Interactive Bar Chart with 4-Quarter Range Band ── */}
-        <StatementChartCard chartRow={chartRow} curStmt={curStmt} isReal={C.real} />
-
-        {/* ── 10. Comprehensive Statement Table with In-line Sparklines & Audit Strip ── */}
-        <StatementTable
-          C={C}
-          curStmt={curStmt}
-          selectedRowIdx={selectedRowIdx}
-          onSelectRow={(idx) => setSelectedRowIdx(idx)}
-        />
+        </div>
 
         {/* ── 11. Notes & Disclosures Layer ── */}
         <NotesGrid C={C} />

@@ -48,36 +48,56 @@ export default function ForensicRecentQuartersTable({ data }: Props) {
   }
   rows.push({ label: "صافي الربح", values: qNet, isTotal: true });
 
+  // Footer growth figures computed up front for readability
+  const revYoY = yoy(qRev[qRev.length - 1], qRev.length >= 5 ? qRev[qRev.length - 5] : null);
+  const netYoY = yoy(qNet[qNet.length - 1], qNet.length >= 5 ? qNet[qNet.length - 5] : null);
+
   return (
-    <div className="rounded-xl border border-white/10 bg-[#1a1a19] overflow-hidden">
-      <div className="p-4 border-b border-white/10">
-        <h2 className="text-sm font-bold flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-[#3987e5]" />
+    <div className="rounded-[4px] border border-[#E5E7EB] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] overflow-hidden">
+      <div className="p-4 border-b border-[#E5E7EB] flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-sm font-bold flex items-center gap-2 text-[#1A1A1A]">
+          <Calendar className="w-4 h-4 text-[#8C3B32]" />
           الأرباع الأخيرة (الفعلية)
-          <span className="text-xs font-normal text-[#898781]">
+          <span className="text-xs font-normal text-[#6B7280]">
             · بملايين الريالات · الربع الرابع محسوب°: السنة − 9 أشهر
           </span>
         </h2>
+        {qNet.length >= 5 && (
+          <div className="text-[11px] text-[#6B7280]">
+            نمو آخر ربع سنوياً: إيرادات{" "}
+            {revYoY != null ? (
+              <b className={revYoY >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"}>
+                {revYoY >= 0 ? "+" : ""}{revYoY.toFixed(1)}%
+              </b>
+            ) : "—"}{" "}
+            · ربح{" "}
+            {netYoY != null ? (
+              <b className={netYoY >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"}>
+                {netYoY >= 0 ? "+" : ""}{netYoY.toFixed(1)}%
+              </b>
+            ) : "—"}
+          </div>
+        )}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-xs border-collapse">
           <thead>
-            <tr className="border-b border-[#383835] bg-[#141413] text-[#898781]">
-              <th className="py-2.5 px-3 text-right min-w-[100px]">البند</th>
+            <tr className="border-b border-[#E5E7EB] bg-[#F3F4F6] text-[#6B7280]">
+              <th className="py-2.5 px-3 text-right min-w-[100px] sticky right-0 bg-[#F3F4F6] z-10">البند</th>
               {qPeriods.map((p, idx) => (
                 <th key={idx} className="py-2.5 px-3 text-left whitespace-nowrap">
-                  {idx === qPeriods.length - 1 ? <b>{p}</b> : p}
+                  {idx === qPeriods.length - 1 ? <b className="text-[#1A1A1A]">{p}</b> : p}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#2c2c2a] tabular-nums">
+          <tbody className="divide-y divide-[#E5E7EB] tabular-nums">
             {rows.map((row, rIdx) => (
-              <tr
-                key={rIdx}
-                className={row.isTotal ? "border-t-2 border-white bg-[#232322]" : ""}
-              >
-                <td className={`py-2.5 px-3 ${row.isTotal ? "font-bold text-white" : "font-medium text-white"}`}>
+              <tr key={rIdx} className={row.isTotal ? "bg-[#F3F4F6]" : "hover:bg-[#F7F8FA]"}>
+                <td
+                  className={`py-2.5 px-3 sticky right-0 z-10 ${row.isTotal ? "bg-[#F3F4F6]" : "bg-white"} ${row.isTotal ? "font-bold text-[#1A1A1A]" : "font-medium text-[#1A1A1A]"
+                    }`}
+                >
                   {row.label}
                 </td>
                 {row.values.map((v, i) => {
@@ -88,13 +108,16 @@ export default function ForensicRecentQuartersTable({ data }: Props) {
                   return (
                     <td
                       key={i}
-                      className={`py-2.5 px-3 text-left ${
-                        row.isTotal ? (v >= 0 ? "font-bold text-[#38ef7d]" : "font-bold text-[#e66767]") : ""
-                      }`}
+                      className={`py-2.5 px-3 text-left ${row.isTotal
+                        ? v >= 0
+                          ? "font-bold text-[#1A1A1A]"
+                          : "font-bold text-[#DC2626]"
+                        : "text-[#1A1A1A]"
+                        }`}
                     >
                       {isLast ? <b>{fmtNum(v)}</b> : fmtNum(v)}
                       {yoyVal != null && (
-                        <span className={`text-[10px] mr-1 ${yoyVal >= 0 ? "text-[#0ca30c]" : "text-[#e66767]"}`}>
+                        <span className={`text-[10px] mr-1 ${yoyVal >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"}`}>
                           {yoyVal >= 0 ? "+" : ""}{yoyVal.toFixed(1)}%
                         </span>
                       )}
@@ -106,29 +129,6 @@ export default function ForensicRecentQuartersTable({ data }: Props) {
           </tbody>
         </table>
       </div>
-      {/* Growth summary footer */}
-      {qNet.length >= 5 && (
-        <div className="px-4 py-2.5 border-t border-white/5 text-[11px] text-[#898781]">
-          نمو آخر ربع سنوياً: إيرادات{" "}
-          {(() => {
-            const revYoY = yoy(qRev[qRev.length - 1], qRev.length >= 5 ? qRev[qRev.length - 5] : null);
-            return revYoY != null ? (
-              <b className={revYoY >= 0 ? "text-[#0ca30c]" : "text-[#e66767]"}>
-                {revYoY >= 0 ? "+" : ""}{revYoY.toFixed(1)}%
-              </b>
-            ) : "—";
-          })()}{" "}
-          · ربح{" "}
-          {(() => {
-            const netYoY = yoy(qNet[qNet.length - 1], qNet.length >= 5 ? qNet[qNet.length - 5] : null);
-            return netYoY != null ? (
-              <b className={netYoY >= 0 ? "text-[#0ca30c]" : "text-[#e66767]"}>
-                {netYoY >= 0 ? "+" : ""}{netYoY.toFixed(1)}%
-              </b>
-            ) : "—";
-          })()}
-        </div>
-      )}
     </div>
   );
 }

@@ -77,8 +77,6 @@ body {
   --navbar-active-bg: #21262d;
   --navbar-text: #e6edf3;
   --navbar-hover: rgba(255, 255, 255, 0.05);
-  --navbar-border: rgba(255, 255, 255, 0.1);
-  --navbar-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
   --dropdown-bg: #161b22;
   --dropdown-text: #e6edf3;
   --dropdown-hover: #21262d;

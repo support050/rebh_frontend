@@ -39,68 +39,68 @@ export default function ForensicSheetPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d] text-white p-4 md:p-8 font-sans" dir="rtl">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] p-4 md:p-6 lg:p-8 font-sans" dir="rtl">
+      <div className="w-full space-y-6">
         {/* Navigation & Live Stock Search Toolbar */}
-        <div className="flex flex-wrap items-center justify-between gap-4 bg-[#1a1a19] p-4 rounded-xl border border-white/10">
-          <div className="flex items-center gap-3">
+        {/* Structural note: back-link, popular symbols, and search were spread across one crowded
+            row in the original. Grouped into two clear rows here (navigation / quick picks) so the
+            search action doesn't compete visually with the symbol shortcuts. */}
+        <div className="bg-white p-4 rounded-[4px] border border-[#E5E7EB] shadow-[0_1px_3px_rgba(0,0,0,0.06)] space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <Link
               href="/terminal/sector-templates"
-              className="flex items-center gap-1.5 text-xs text-[#898781] hover:text-white bg-[#222220] px-3 py-1.5 rounded-lg border border-white/5 transition-colors"
+              className="flex items-center gap-1.5 text-xs text-[#6B7280] hover:text-[#1A1A1A] bg-[#F7F8FA] px-3 py-1.5 rounded-[4px] border border-[#E5E7EB] transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" /> القوالب القطاعية
             </Link>
-            <span className="text-xs text-[#898781]">|</span>
-            <div className="flex items-center gap-1.5 text-xs">
-              <span className="text-[#898781]">الشركات الشائعة:</span>
-              {POPULAR_SYMBOLS.map((item) => (
-                <button
-                  key={item.sym}
-                  onClick={() => {
-                    setInputSym(item.sym);
-                    setSymbol(item.sym);
-                  }}
-                  className={`px-2.5 py-1 rounded text-xs transition-colors ${
-                    symbol === item.sym
-                      ? "bg-[#3987e5] text-white font-bold"
-                      : "bg-[#262624] text-[#c3c2b7] hover:text-white"
-                  }`}
-                >
-                  {item.name} ({item.sym})
-                </button>
-              ))}
-            </div>
-          </div>
 
-          <form onSubmit={handleSearch} className="flex items-center gap-2">
-            <div className="relative">
+            <form onSubmit={handleSearch} className="flex items-center gap-2">
               <input
                 type="text"
                 placeholder="أدخل رمز الشركة (مثلاً: 4300)"
                 value={inputSym}
                 onChange={(e) => setInputSym(e.target.value)}
-                className="bg-[#141413] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-[#898781] focus:outline-none focus:border-[#3987e5] w-52"
+                className="bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px] px-3 py-1.5 text-xs text-[#1A1A1A] placeholder-[#9CA3AF] focus:outline-none focus:border-[#8C3B32] focus:ring-2 focus:ring-[#8C3B32]/15 w-52 transition-colors"
               />
-            </div>
-            <button
-              type="submit"
-              className="bg-[#3987e5] hover:bg-[#2a78d6] text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
-            >
-              <Search className="w-3.5 h-3.5" /> فحص
-            </button>
-          </form>
+              <button
+                type="submit"
+                className="bg-[#8C3B32] hover:bg-[#78312A] text-white px-3.5 py-1.5 rounded-[4px] text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              >
+                <Search className="w-3.5 h-3.5" /> فحص
+              </button>
+            </form>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5 text-xs pt-3 border-t border-[#E5E7EB]">
+            <span className="text-[#6B7280] ml-1">الشركات الشائعة:</span>
+            {POPULAR_SYMBOLS.map((item) => (
+              <button
+                key={item.sym}
+                onClick={() => {
+                  setInputSym(item.sym);
+                  setSymbol(item.sym);
+                }}
+                className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${symbol === item.sym
+                  ? "bg-white text-[#8C3B32] border-[#8C3B32] font-bold shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+                  : "bg-[#F3F4F6] text-[#6B7280] border-transparent hover:text-[#1A1A1A] hover:border-[#E5E7EB]"
+                  }`}
+              >
+                {item.name} ({item.sym})
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Loading / Error States */}
         {loading && (
-          <div className="rounded-xl border border-white/10 bg-[#1a1a19] p-12 text-center text-[#898781] text-sm">
-            <div className="inline-block animate-spin w-6 h-6 border-2 border-[#3987e5] border-t-transparent rounded-full mb-3" />
+          <div className="rounded-[4px] border border-[#E5E7EB] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-12 text-center text-[#6B7280] text-sm">
+            <div className="inline-block animate-spin w-6 h-6 border-2 border-[#8C3B32] border-t-transparent rounded-full mb-3" />
             <p>جاري استرجاع القوائم المالية وإجراء الفحوصات الجنائية لـ ({symbol})...</p>
           </div>
         )}
 
         {error && (
-          <div className="rounded-xl border border-[#e66767]/30 bg-[#3a1818]/30 p-6 text-center text-[#e66767] text-sm">
+          <div className="rounded-[4px] border border-[#FECACA] bg-[#FEF2F2] p-6 text-center text-[#DC2626] text-sm">
             <p>تعذر استرجاع بيانات الشركة {symbol}. يرجى التأكد من توفر رمز الشركة في قاعدة البيانات.</p>
           </div>
         )}

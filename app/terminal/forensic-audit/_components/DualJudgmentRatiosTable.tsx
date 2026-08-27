@@ -21,7 +21,7 @@ export default function DualJudgmentRatiosTable({ data }: Props) {
     roe: null, nm: null, gm: null, pe: null, pb: null, g_net: null, g_rev: null, peg: null,
   };
   const pct = data.pct || (data.peers as any)?.pct || {
-    roe: 50, nm: 50, gm: null, pe: 50, pb: 50, g_net: 50, g_rev: 50,
+    roe: null, nm: null, gm: null, pe: null, pb: null, g_net: null, g_rev: null,
   };
 
   const bs = data.bs;
@@ -41,186 +41,301 @@ export default function DualJudgmentRatiosTable({ data }: Props) {
   const lastIdx = bsCA.length - 1; // latest period (e.g. Q1'26)
   const annIdx = bsCA.length >= 2 ? bsCA.length - 2 : lastIdx; // latest full annual year (2025)
 
-  // Current Ratio: Annual 2025 vs Q1'26
-  const crAnnual = annIdx >= 0 && bsCL[annIdx] > 0 ? (bsCA[annIdx] / bsCL[annIdx]) : 1.77;
-  const crLatest = lastIdx >= 0 && bsCL[lastIdx] > 0 ? (bsCA[lastIdx] / bsCL[lastIdx]) : 1.54;
+  // ── Dynamic calculations from real data ──────────────────────────────────
+
+  // Current Ratio: computed from BS data — no hardcoded fallback
+  const crAnnual = annIdx >= 0 && bsCL[annIdx] > 0 ? (bsCA[annIdx] / bsCL[annIdx]) : null;
+  const crLatest = lastIdx >= 0 && bsCL[lastIdx] > 0 ? (bsCA[lastIdx] / bsCL[lastIdx]) : null;
 
   // Quick Ratio: (Cash + Receivables) / Current Liabilities
   const quickAssetsAnn = (bsCash[annIdx] || 0) + (bsRec[annIdx] || 0);
-  const qrAnnual = annIdx >= 0 && bsCL[annIdx] > 0 ? (quickAssetsAnn / bsCL[annIdx]) : 1.76;
+  const qrAnnual = annIdx >= 0 && bsCL[annIdx] > 0 ? (quickAssetsAnn / bsCL[annIdx]) : null;
 
-  // Debt to Equity Ratio: Total Debt (Short + Long) / Total Equity
+  // Debt to Equity Ratio: Total Debt / Total Equity
   const totDebtAnn = (bsShortDebt[annIdx] || 0) + (bsLongDebt[annIdx] || 0);
-  const deAnnual = annIdx >= 0 && bsEquity[annIdx] > 0 ? (totDebtAnn / bsEquity[annIdx]) : 0.71;
+  const deAnnual = annIdx >= 0 && bsEquity[annIdx] > 0 ? (totDebtAnn / bsEquity[annIdx]) : null;
+  const prevDebt = annIdx >= 1 ? ((bsShortDebt[annIdx - 1] || 0) + (bsLongDebt[annIdx - 1] || 0)) : null;
+  const prevEquity = annIdx >= 1 ? bsEquity[annIdx - 1] : null;
+  const prevDE = prevDebt != null && prevEquity && prevEquity > 0 ? (prevDebt / prevEquity) : null;
 
-  // 2. FCF Ratios (2024 / 2025)
+  // Interest Coverage: Operating Profit / Finance Costs
+  const opArr = isObj?.op || [];
+  const finCostArr = isObj?.fin_cost || [];
+  const lastOpIdx = opArr.length - 1;
+  const latestOp = lastOpIdx >= 0 ? opArr[lastOpIdx] : null;
+  const latestFinCost = lastOpIdx >= 0 ? Math.abs(finCostArr[lastOpIdx] || 0) : null;
+  const coverageRatio = latestOp != null && latestFinCost && latestFinCost > 0
+    ? latestOp / latestFinCost
+    : null;
+
+  // ROA: Net Profit / Total Assets
+  const annualNetArr = isObj?.net || data.net || [];
+  const bsTotAssets = bs?.total_assets || [];
+  const latestNetAnn = annIdx >= 0 ? annualNetArr[annIdx] : null;
+  const latestTotalAssets = annIdx >= 0 ? bsTotAssets[annIdx] : null;
+  const roaVal = latestNetAnn != null && latestTotalAssets && latestTotalAssets > 0
+    ? (latestNetAnn / latestTotalAssets) * 100
+    : null;
+
+  // ROIC approx: NOPAT / Invested Capital (Equity + Debt - Cash)
+  const nopat = latestOp != null ? latestOp * (1 - 0.025) : null; // ~2.5% zakat on OP
+  const investedCapital = bsEquity[annIdx] != null && bsTotAssets[annIdx] != null
+    ? (bsEquity[annIdx] || 0) + totDebtAnn - (bsCash[annIdx] || 0)
+    : null;
+  const roicVal = nopat != null && investedCapital && investedCapital > 0
+    ? (nopat / investedCapital) * 100
+    : null;
+
+  // Capex / Revenue
+  const capexArr = cf?.capex || [];
+  const annualRevArr = isObj?.rev || data.rev || [];
+  const lastCapex = capexArr.length > 0 ? Math.abs(capexArr[capexArr.length - 1]) : null;
+  const lastRevForCapex = annualRevArr.length > 0 ? annualRevArr[annualRevArr.length - 1] : null;
+  const capexRevPct = lastCapex != null && lastRevForCapex && lastRevForCapex > 0
+    ? (lastCapex / lastRevForCapex) * 100
+    : null;
+
+  // FCF Ratios
   const cfFcf = cf?.fcf || [];
   const annualRev = isObj?.rev || data.rev || [];
   const annualNet = isObj?.net || data.net || [];
   const lastCfIdx = cfFcf.length - 1;
 
-  const fcf2024 = lastCfIdx >= 1 ? cfFcf[lastCfIdx - 1] : 805.1;
-  const fcf2025 = lastCfIdx >= 0 ? cfFcf[lastCfIdx] : -3322.8;
-  const rev2024 = annualRev.length >= 2 ? annualRev[annualRev.length - 2] : 3759.0;
-  const rev2025 = annualRev.length >= 1 ? annualRev[annualRev.length - 1] : 3899.8;
-  const net2024 = annualNet.length >= 2 ? annualNet[annualNet.length - 2] : 806.8;
+  const fcfPrev = lastCfIdx >= 1 ? cfFcf[lastCfIdx - 1] : null;
+  const fcfLast = lastCfIdx >= 0 ? cfFcf[lastCfIdx] : null;
+  const revPrev = annualRev.length >= 2 ? annualRev[annualRev.length - 2] : null;
+  const revLast = annualRev.length >= 1 ? annualRev[annualRev.length - 1] : null;
+  const netPrev = annualNet.length >= 2 ? annualNet[annualNet.length - 2] : null;
 
-  const fcfRev2024Pct = rev2024 > 0 ? ((fcf2024 / rev2024) * 100).toFixed(1) : "21.4";
-  const fcfRev2025Pct = rev2025 > 0 ? ((fcf2025 / rev2025) * 100).toFixed(1) : "-85.2";
-  const fcfNet2024Pct = net2024 > 0 ? ((fcf2024 / net2024) * 100).toFixed(1) : "99.8";
+  const fcfRevPrevPct = fcfPrev != null && revPrev && revPrev > 0
+    ? ((fcfPrev / revPrev) * 100).toFixed(1) : null;
+  const fcfRevLastPct = fcfLast != null && revLast && revLast > 0
+    ? ((fcfLast / revLast) * 100).toFixed(1) : null;
+  const fcfNetPrevPct = fcfPrev != null && netPrev && netPrev > 0
+    ? ((fcfPrev / netPrev) * 100).toFixed(1) : null;
+
+  // Revenue & Net CAGR (5yr, 3yr)
+  const revAll = isObj?.rev || data.rev || [];
+  const netAll = isObj?.net || data.net || [];
+  const revCAGR5 = revAll.length >= 6
+    ? ((Math.pow(revAll[revAll.length - 1] / revAll[revAll.length - 6], 1 / 5) - 1) * 100)
+    : null;
+  const netCAGR3 = netAll.length >= 4
+    ? ((Math.pow(
+        Math.abs(netAll[netAll.length - 1]) / Math.abs(netAll[netAll.length - 4]),
+        1 / 3) - 1) * 100)
+    : null;
+  // 5yr net growth from base — flag if base is near zero
+  const netBase5 = netAll.length >= 6 ? netAll[netAll.length - 6] : null;
+  const netLast5 = netAll.length >= 1 ? netAll[netAll.length - 1] : null;
+  const netBase5NearZero = netBase5 != null && Math.abs(netBase5) < 50;
 
   // Dynamic Valuation Ratios
-  const peVal = cur.pe != null ? cur.pe.toFixed(1) : "18.5";
-  const pbVal = cur.pb != null ? cur.pb.toFixed(2) : "0.98";
-  const pegVal = cur.peg != null ? cur.peg.toFixed(2) : "0.76";
+  const peVal = cur.pe != null ? cur.pe.toFixed(1) : null;
+  const pbVal = cur.pb != null ? cur.pb.toFixed(2) : null;
+  const pegVal = cur.peg != null ? cur.peg.toFixed(2) : null;
 
-  // 3. Exact 17 Dual-Judgment Ratios List matching HTML reference
+  // Periods for labels
+  const periods = isObj?.periods || data.periods_ar || data.periods_q || [];
+  const lastPeriod = periods.length > 0 ? periods[periods.length - 1] : "آخر دورة";
+  const prevPeriod = periods.length > 1 ? periods[periods.length - 2] : "السابقة";
+
+  // ── Dynamic read generators ─────────────────────────────────────────────
+
+  function readNm(v: number | null): string {
+    if (v == null) return "—";
+    return v >= 15 ? `فوق معيار 15% ✓ — المئين ${pct.nm ?? "—"} في القطاع` : `تحت معيار 15% ✗ — المئين ${pct.nm ?? "—"} في القطاع`;
+  }
+  function readRoe(v: number | null): string {
+    if (v == null) return "—";
+    return v >= 15 ? `فوق معيار 15% ✓ — المئين ${pct.roe ?? "—"}` : `تحت معيار 15% ✗ — المئين ${pct.roe ?? "—"} (Dupont أدناه)`;
+  }
+  function readCoverage(v: number | null): string {
+    if (v == null) return "—";
+    return v >= 3 ? `قوية ✓ (${v.toFixed(2)}× > معيار 3×)` : `ضعيفة ✗ — التمويل يلتهم ${(1 / v * 100).toFixed(0)}% من ربح العمليات`;
+  }
+  function readCurrent(cr: number | null, latest: number | null): string {
+    if (cr == null) return "—";
+    const latestStr = latest != null ? ` (آخر ربع: ${latest.toFixed(2)})` : "";
+    return cr >= 1.5 ? `محققة ✓${latestStr}` : `تحت المعيار ✗${latestStr}`;
+  }
+  function readDE(de: number | null, prev: number | null): string {
+    if (de == null) return "—";
+    const trend = prev != null ? (de > prev ? ` · قفز من ${prev.toFixed(2)} — تمويل خارجي ⚑` : ` · انخفض من ${prev.toFixed(2)}`) : "";
+    return `${de.toFixed(2)}${trend}`;
+  }
+
+  // 3. Dynamic RATIOS_LIST
   const RATIOS_LIST: RatioItem[] = [
     {
       n: "هامش الربح الإجمالي °",
-      v: cur.gm != null ? `${cur.gm.toFixed(1)}%` : "47.7%",
+      v: cur.gm != null ? `${cur.gm.toFixed(1)}%` : "—",
       crit: null,
       pass: null,
-      p: pct.gm != null ? Math.round(pct.gm) : 75,
-      read: "صعود متصل 6 سنوات: 34.7% ← 47.7% — المئين 75 في العقار",
+      p: pct.gm != null ? Math.round(pct.gm) : null,
+      read: cur.gm != null ? `${cur.gm.toFixed(1)}% — المئين ${pct.gm != null ? Math.round(pct.gm) : "—"} في القطاع` : "—",
     },
     {
       n: "هامش صافي الربح °",
-      v: cur.nm != null ? `${cur.nm.toFixed(1)}%` : "28.7%",
+      v: cur.nm != null ? `${cur.nm.toFixed(1)}%` : "—",
       crit: "≥ 15%",
-      pass: (cur.nm ?? 28.7) >= 15,
-      p: pct.nm ?? 58,
-      read: "فوق معيارك ✓ — وسط القطاع",
+      pass: cur.nm != null ? cur.nm >= 15 : null,
+      p: pct.nm ?? null,
+      read: readNm(cur.nm),
     },
     {
       n: "العائد على حقوق الملكية ROE °",
-      v: cur.roe != null ? `${cur.roe.toFixed(1)}%` : "5.3%",
+      v: cur.roe != null ? `${cur.roe.toFixed(1)}%` : "—",
       crit: "≥ 15%",
-      pass: (cur.roe ?? 5.3) >= 15,
-      p: pct.roe ?? 33,
-      read: "تحت معيارك ✗ — المشكلة الدوران لا الهامش (Dupont أدناه)",
+      pass: cur.roe != null ? cur.roe >= 15 : null,
+      p: pct.roe ?? null,
+      read: readRoe(cur.roe),
     },
     {
       n: "العائد على الأصول ROA °",
-      v: "2.9%",
+      v: roaVal != null ? `${roaVal.toFixed(1)}%` : "—",
       crit: "≥ 6%",
-      pass: false,
+      pass: roaVal != null ? roaVal >= 6 : null,
       p: null,
-      read: "تحت معيارك ✗",
+      read: roaVal != null ? (roaVal >= 6 ? `فوق معيار 6% ✓` : `تحت معيار 6% ✗`) : "—",
     },
     {
       n: "ROIC ° (تقريب: NOPAT ÷ رأس المال المستثمر)",
-      v: "≈4.7%",
+      v: roicVal != null ? `≈${roicVal.toFixed(1)}%` : "—",
       crit: "> WACC",
-      pass: false,
+      pass: roicVal != null ? roicVal > 9 : null,
       p: null,
-      read: "فجوة سالبة عن أي كلفة رأس مال معقولة (8–10%) ✗",
+      read: roicVal != null
+        ? (roicVal > 9 ? `فوق تكلفة الرأس المال المقدرة ✓` : `فجوة سالبة عن أي كلفة رأس مال معقولة (8–10%) ✗`)
+        : "—",
     },
     {
       n: "نسبة التداول Current °",
-      v: crAnnual.toFixed(2),
+      v: crAnnual != null ? crAnnual.toFixed(2) : "—",
       crit: "≥ 1.5",
-      pass: crAnnual >= 1.5,
+      pass: crAnnual != null ? crAnnual >= 1.5 : null,
       p: null,
-      read: `محققة ✓ (Q1'26: ‏${crLatest.toFixed(2)} — لا تزال فوق المعيار)`,
+      read: readCurrent(crAnnual, crLatest),
     },
     {
       n: "النسبة السريعة Quick °",
-      v: qrAnnual.toFixed(2),
+      v: qrAnnual != null ? qrAnnual.toFixed(2) : "—",
       crit: "≥ 1.0",
-      pass: qrAnnual >= 1.0,
+      pass: qrAnnual != null ? qrAnnual >= 1.0 : null,
       p: null,
-      read: `محققة بارتياح ✓ — النقد وحده ${(bsCash[annIdx] ? (bsCash[annIdx] / 1000).toFixed(1) : "7.5")} مليار`,
+      read: qrAnnual != null
+        ? (qrAnnual >= 1.0
+          ? `محققة بارتياح ✓ — النقد وحده ${bsCash[annIdx] ? (bsCash[annIdx] / 1000).toFixed(1) : "—"} مليار`
+          : `تحت المعيار ✗`)
+        : "—",
     },
     {
       n: "الدين ÷ حقوق الملكية °",
-      v: deAnnual.toFixed(2),
+      v: deAnnual != null ? deAnnual.toFixed(2) : "—",
       crit: null,
       pass: null,
       p: null,
-      read: "قفز من 0.54 — التوسع الممول بالصكوك ⚑",
+      read: readDE(deAnnual, prevDE),
     },
     {
       n: "تغطية تكلفة التمويل ° (ربح العمليات ÷ التمويل)",
-      v: "1.53×",
+      v: coverageRatio != null ? `${coverageRatio.toFixed(2)}×` : "—",
       crit: "≥ 3×",
-      pass: false,
+      pass: coverageRatio != null ? coverageRatio >= 3 : null,
       p: null,
-      read: "ضعيفة ✗ — تكلفة التمويل مليار سنوياً تلتهم ثلثي ربح العمليات",
+      read: readCoverage(coverageRatio),
     },
     {
-      n: "FCF ÷ الإيرادات ° (2024 / 2025)",
-      v: `${Number(fcfRev2024Pct) >= 0 ? "+" : ""}${fcfRev2024Pct}% / ${Number(fcfRev2025Pct) >= 0 ? "+" : ""}${fcfRev2025Pct}%`,
+      n: `FCF ÷ الإيرادات ° (${prevPeriod} / ${lastPeriod})`,
+      v: fcfRevPrevPct != null && fcfRevLastPct != null
+        ? `${Number(fcfRevPrevPct) >= 0 ? "+" : ""}${fcfRevPrevPct}% / ${Number(fcfRevLastPct) >= 0 ? "+" : ""}${fcfRevLastPct}%`
+        : "—",
       crit: "≥ 5%",
-      pass: false,
+      pass: fcfRevLastPct != null ? Number(fcfRevLastPct) >= 5 : null,
       p: null,
-      read: "متقلبة بطبيعة المطوّر — مجموع 6 سنوات سالب (2.1) مليار ✗",
+      read: fcfRevLastPct != null
+        ? (Number(fcfRevLastPct) >= 5 ? "محقق ✓" : "تحت المعيار ✗")
+        : "—",
     },
     {
-      n: "FCF ÷ صافي الربح ° (2024)",
-      v: `${fcfNet2024Pct}%`,
+      n: `FCF ÷ صافي الربح ° (${prevPeriod})`,
+      v: fcfNetPrevPct != null ? `${fcfNetPrevPct}%` : "—",
       crit: "قريبة من 100%",
-      pass: true,
+      pass: fcfNetPrevPct != null ? Number(fcfNetPrevPct) >= 70 : null,
       p: null,
-      read: "في سنة بلا شراء أراضٍ كبير، الربح يتحول نقداً بالكامل ✓",
+      read: fcfNetPrevPct != null
+        ? (Number(fcfNetPrevPct) >= 70 ? "الربح يتحول نقداً بنسبة جيدة ✓" : "تحويل النقد منخفض ✗")
+        : "—",
     },
     {
       n: "Capex ممتلكات ÷ الإيرادات °",
-      v: "0.1%",
+      v: capexRevPct != null ? `${capexRevPct.toFixed(1)}%` : "—",
       crit: "3–5%",
       pass: null,
       p: null,
-      read: "معيارك مصمم للصناعية — استثمار المطوّر يمر عبر مخزون العقارات لا الـ capex",
+      read: capexRevPct != null
+        ? (capexRevPct < 1 ? "رأسمال منخفض — استثمار عبر مخزون أو طبيعة خدمية" : `${capexRevPct.toFixed(1)}% من الإيرادات`)
+        : "—",
     },
     {
-      n: "نمو الإيرادات: متوسط 5 سنوات °",
-      v: "+14.9%",
+      n: "نمو الإيرادات: متوسط 5 سنوات ° (CAGR)",
+      v: revCAGR5 != null ? `${revCAGR5 >= 0 ? "+" : ""}${revCAGR5.toFixed(1)}%` : "—",
       crit: null,
       pass: null,
-      p: pct.g_rev ?? 75,
-      read: "CAGR ‏2020←2025 · آخر سنة +3.7% وQ1'26 +24.8%",
+      p: pct.g_rev ?? null,
+      read: revCAGR5 != null
+        ? `CAGR 5 سنوات ${revCAGR5.toFixed(1)}% — المئين ${pct.g_rev ?? "—"} في القطاع`
+        : "—",
     },
     {
-      n: "نمو صافي الربح: 3 سنوات ° / 5 سنوات °",
-      v: "+36.9% / ⚠",
+      n: "نمو صافي الربح: 3 سنوات ° (CAGR)",
+      v: netCAGR3 != null ? `${netCAGR3 >= 0 ? "+" : ""}${netCAGR3.toFixed(1)}%` : "—",
       crit: null,
       pass: null,
-      p: pct.g_net ?? 58,
-      read: "خماسية من قاعدة شبه صفرية (19م في 2020) — نعرض الثلاثية الأصدق",
+      p: pct.g_net ?? null,
+      read: netCAGR3 != null
+        ? `CAGR 3 سنوات ${netCAGR3.toFixed(1)}% — المئين ${pct.g_net ?? "—"}${netBase5NearZero ? " · قاعدة منخفضة في بداية الفترة" : ""}`
+        : "—",
     },
     {
       n: "مكرر الربحية P/E °",
-      v: peVal,
+      v: peVal != null ? peVal : "—",
       crit: null,
       pass: null,
-      p: pct.pe ?? 33,
-      read: "أعلى من أغلب القطاع",
+      p: pct.pe ?? null,
+      read: cur.pe != null
+        ? (cur.pe <= 15 ? `${cur.pe.toFixed(1)}× — رخيص نسبياً · المئين ${pct.pe ?? "—"}` : `${cur.pe.toFixed(1)}× — المئين ${pct.pe ?? "—"} في القطاع`)
+        : "—",
     },
     {
       n: "مكرر الدفترية P/B °",
-      v: pbVal,
+      v: pbVal != null ? pbVal : "—",
       crit: null,
       pass: null,
-      p: pct.pb ?? 77,
-      read: "خصم 2% من الدفترية — المئين 77",
+      p: pct.pb ?? null,
+      read: cur.pb != null
+        ? (cur.pb <= 1 ? `خصم من القيمة الدفترية · المئين ${pct.pb ?? "—"}` : `${cur.pb.toFixed(2)}× — المئين ${pct.pb ?? "—"}`)
+        : "—",
     },
     {
       n: "PEG (معيار Lynch) °",
-      v: pegVal,
+      v: pegVal != null ? pegVal : "—",
       crit: "< 1.0",
-      pass: true,
+      pass: cur.peg != null ? cur.peg < 1.0 : null,
       p: null,
-      read: "نمو أرخص من مكرره ✓",
+      read: cur.peg != null
+        ? (cur.peg < 1.0 ? `نمو أرخص من مكرره ✓ (PEG ${cur.peg.toFixed(2)})` : `النمو أغلى من مكرره ✗ (PEG ${cur.peg.toFixed(2)})`)
+        : "—",
     },
   ];
 
   return (
-    <div className="rounded-xl border border-white/10 bg-[#1a1a19] overflow-hidden">
-      <div className="p-4 border-b border-white/10">
-        <h2 className="text-sm font-bold flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-[#3987e5]" />
+    <div className="rounded-[4px] border border-[#E5E7EB] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] overflow-hidden">
+      <div className="p-4 border-b border-[#E5E7EB]">
+        <h2 className="text-sm font-bold flex items-center gap-2 text-[#1A1A1A]">
+          <ShieldCheck className="w-4 h-4 text-[#8C3B32]" />
           نسب الحكم المزدوج — المعيار المطلق + مئين القطاع
-          <span className="text-xs font-normal text-[#898781]">
+          <span className="text-xs font-normal text-[#6B7280]">
             · وسط شركات قطاع {data.sec} المحدث
           </span>
         </h2>
@@ -228,8 +343,8 @@ export default function DualJudgmentRatiosTable({ data }: Props) {
       <div className="overflow-x-auto">
         <table className="w-full text-xs border-collapse">
           <thead>
-            <tr className="border-b border-[#383835] bg-[#141413] text-[#898781]">
-              <th className="py-2.5 px-3 text-right min-w-[170px]">النسبة</th>
+            <tr className="border-b border-[#E5E7EB] bg-[#F3F4F6] text-[#6B7280]">
+              <th className="py-2.5 px-3 text-right min-w-[170px] sticky right-0 bg-[#F3F4F6] z-10">النسبة</th>
               <th className="py-2.5 px-3 text-left">الفعلي</th>
               <th className="py-2.5 px-3 text-left">معيار المطلوب</th>
               <th className="py-2.5 px-3 text-left">حكم المعيار</th>
@@ -237,45 +352,44 @@ export default function DualJudgmentRatiosTable({ data }: Props) {
               <th className="py-2.5 px-3 text-right">القراءة</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#2c2c2a]">
+          <tbody className="divide-y divide-[#E5E7EB]">
             {RATIOS_LIST.map((r, idx) => (
-              <tr key={idx} className="hover:bg-[#222220] transition-colors">
-                <td className="py-2.5 px-3 font-medium text-white">{r.n}</td>
-                <td className="py-2.5 px-3 text-left font-bold tabular-nums" dir="ltr">{r.v}</td>
-                <td className="py-2.5 px-3 text-left text-[#898781] tabular-nums">{r.crit || "—"}</td>
+              <tr key={idx} className="hover:bg-[#F7F8FA] transition-colors">
+                <td className="py-2.5 px-3 font-medium text-[#1A1A1A] sticky right-0 z-10 bg-white">{r.n}</td>
+                <td className="py-2.5 px-3 text-left font-bold tabular-nums text-[#1A1A1A]" dir="ltr">{r.v}</td>
+                <td className="py-2.5 px-3 text-left text-[#6B7280] tabular-nums">{r.crit || "—"}</td>
                 <td className="py-2.5 px-3 text-left font-semibold">
                   {r.pass === true ? (
-                    <span className="text-[#38ef7d]">✓ محقق</span>
+                    <span className="text-[#16A34A]">✓ محقق</span>
                   ) : r.pass === false ? (
-                    <span className="text-[#e66767]">✗ غير محقق</span>
+                    <span className="text-[#DC2626]">✗ غير محقق</span>
                   ) : (
-                    <span className="text-[#898781]">—</span>
+                    <span className="text-[#9CA3AF]">—</span>
                   )}
                 </td>
                 <td className="py-2.5 px-3 text-left">
                   {r.p !== null ? (
                     <div className="flex items-center gap-2">
-                      <div className="w-12 h-1.5 rounded-full bg-[#262624] overflow-hidden">
-                        <div className="h-full bg-[#3987e5]" style={{ width: `${r.p}%` }} />
+                      <div className="w-12 h-1.5 rounded-full bg-[#F3F4F6] overflow-hidden">
+                        <div className="h-full bg-[#8C3B32]" style={{ width: `${r.p}%` }} />
                       </div>
-                      <span className="text-[11px] text-[#898781] tabular-nums">{r.p}</span>
+                      <span className="text-[11px] text-[#6B7280] tabular-nums">{r.p}</span>
                       <span
-                        className={`text-[10px] font-bold rounded px-1.5 ${
-                          r.p >= 67
-                            ? "bg-[#0ca30c]/15 text-[#0ca30c]"
-                            : r.p >= 34
-                            ? "bg-[#262624] text-[#898781]"
-                            : "bg-[#e66767]/15 text-[#e66767]"
-                        }`}
+                        className={`text-[10px] font-bold rounded-full px-1.5 ${r.p >= 67
+                          ? "bg-[#F0FDF4] text-[#16A34A]"
+                          : r.p >= 34
+                            ? "bg-[#F3F4F6] text-[#6B7280]"
+                            : "bg-[#FEF2F2] text-[#DC2626]"
+                          }`}
                       >
                         {r.p >= 67 ? "إيجابي" : r.p >= 34 ? "محايد" : "سلبي"}
                       </span>
                     </div>
                   ) : (
-                    <span className="text-[#898781]">—</span>
+                    <span className="text-[#9CA3AF]">—</span>
                   )}
                 </td>
-                <td className="py-2.5 px-3 text-right text-[#c3c2b7] text-[11.5px] leading-relaxed">
+                <td className="py-2.5 px-3 text-right text-[#6B7280] text-[11.5px] leading-relaxed">
                   {r.read}
                 </td>
               </tr>
@@ -283,8 +397,22 @@ export default function DualJudgmentRatiosTable({ data }: Props) {
           </tbody>
         </table>
       </div>
-      <div className="p-3.5 bg-[#141413] border-t border-white/5 text-xs text-[#898781] leading-relaxed">
-        📐 <b>تفكيك Dupont (2025)°:</b> هامش صافي {(cur.nm || 28.7).toFixed(1)}% × دوران أصول 0.10 × رافعة 1.81 = <b>ROE {(cur.roe || 5.3).toFixed(1)}%</b> — المشكلة ليست الربحية (الهامش ممتاز) بل الدوران: 41.6 مليار أصول تولّد 3.9 مليار إيراد فقط. هذه بنية المطوّر العقاري، وقيمة السهم تتوقف على تحويل الـ 25 مليار &quot;تحت التطوير&quot; إلى مبيعات.
+      <div className="p-3.5 bg-[#F3F4F6] border-t border-[#E5E7EB] text-xs text-[#6B7280] leading-relaxed">
+        {cur.nm != null && cur.roe != null && latestTotalAssets && latestNetAnn && revLast ? (
+          <>
+            📐 <b className="text-[#1A1A1A]">تفكيك Dupont °:</b>{" "}
+            هامش صافي {cur.nm.toFixed(1)}%{" "}
+            × دوران أصول {(revLast / latestTotalAssets).toFixed(2)}×{" "}
+            × رافعة {latestTotalAssets > 0 && bsEquity[annIdx] > 0 ? (latestTotalAssets / bsEquity[annIdx]).toFixed(2) : "—"}{" "}
+            = <b className="text-[#1A1A1A]">ROE {cur.roe.toFixed(1)}%</b>{" "}
+            — {cur.roe < 10
+              ? `المشكلة ليست الهامش (${cur.nm.toFixed(1)}% ممتاز) بل دوران الأصول المنخفض`
+              : `النموذج سليم — الهامش والدوران يعملان معاً`
+            }.
+          </>
+        ) : (
+          <span>📐 تفكيك Dupont° — بيانات الميزانية العمومية غير متوفرة لهذه الشركة</span>
+        )}
       </div>
     </div>
   );
