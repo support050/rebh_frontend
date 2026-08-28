@@ -36,6 +36,13 @@ interface CompanyFundData {
   eps: number[];
   periods_q: string[];
   periods_ar: string[];
+  quarters?: {
+    periods: string[];
+    rev: number[];
+    net: number[];
+    gp: number[];
+    op: number[];
+  };
   peers: PeerItem;
 }
 
@@ -102,9 +109,13 @@ export default function CompanyFundamentalPage() {
   const ratioGroups: RatioGroupItem[] = useMemo(() => {
     if (!data) return [];
     const d = data;
+    const qRev = d.quarters?.rev || d.rev;
+    const qNet = d.quarters?.net || d.net;
+    const qOp = d.quarters?.op || d.op;
+    const qGp = d.quarters?.gp || d.gp;
     const P = d.peers;
-    const gN = yoy(d.net);
-    const gR = yoy(d.rev);
+    const gN = yoy(qNet);
+    const gR = yoy(qRev);
     const common = {
       pe: { v: P.cur.pe, p: P.pct.pe, f: "القيمة السوقية ÷ صافي الربح 12 شهراً" },
       pb: { v: P.cur.pb, p: P.pct.pb, f: "القيمة السوقية ÷ حقوق الملكية" },
@@ -119,7 +130,7 @@ export default function CompanyFundamentalPage() {
             {
               k: "nm",
               n: "هامش صافي الربح ÷ دخل العمولات °",
-              s: ratio(d.net, d.rev),
+              s: ratio(qNet, qRev),
               cur: P.cur.nm,
               p: P.pct.nm,
               pk: "nm",
@@ -128,8 +139,8 @@ export default function CompanyFundamentalPage() {
             {
               k: "opm",
               n: "الربح التشغيلي ÷ دخل العمولات °",
-              s: ratio(d.op, d.rev),
-              cur: ((ttm(d.op) || 0) / (ttm(d.rev) || 1)) * 100,
+              s: ratio(qOp, qRev),
+              cur: ((ttm(qOp) || 0) / (ttm(qRev) || 1)) * 100,
               p: null,
               pk: null,
               f: "الربح من النشاطات التشغيلية ÷ دخل العمولات",
@@ -189,7 +200,7 @@ export default function CompanyFundamentalPage() {
           {
             k: "gm",
             n: "هامش الربح الإجمالي °",
-            s: d.gp ? ratio(d.gp, d.rev) : null,
+            s: qGp ? ratio(qGp, qRev) : null,
             cur: P.cur.gm,
             p: P.pct.gm,
             pk: null,
@@ -198,8 +209,8 @@ export default function CompanyFundamentalPage() {
           {
             k: "opm",
             n: "هامش الربح التشغيلي °",
-            s: ratio(d.op, d.rev),
-            cur: ((ttm(d.op) || 0) / (ttm(d.rev) || 1)) * 100,
+            s: ratio(qOp, qRev),
+            cur: ((ttm(qOp) || 0) / (ttm(qRev) || 1)) * 100,
             p: null,
             pk: null,
             f: "ربح العمليات ÷ الإيرادات",
@@ -207,7 +218,7 @@ export default function CompanyFundamentalPage() {
           {
             k: "nm",
             n: "هامش صافي الربح °",
-            s: ratio(d.net, d.rev),
+            s: ratio(qNet, qRev),
             cur: P.cur.nm,
             p: P.pct.nm,
             pk: "nm",
@@ -230,7 +241,7 @@ export default function CompanyFundamentalPage() {
           {
             k: "g_rev",
             n: "نمو الإيرادات سنوياً °",
-            s: yoy(d.rev),
+            s: gR,
             pct: true,
             cur: d.peers.cur.g_rev,
             p: d.peers.pct.g_rev,
@@ -240,7 +251,7 @@ export default function CompanyFundamentalPage() {
           {
             k: "g_net",
             n: "نمو صافي الربح سنوياً °",
-            s: yoy(d.net),
+            s: gN,
             pct: true,
             cur: d.peers.cur.g_net,
             p: d.peers.pct.g_net,
@@ -358,10 +369,14 @@ export default function CompanyFundamentalPage() {
   }
 
   const d = data;
-  const gN = yoy(d.net);
-  const gR = yoy(d.rev);
-  const lastNet = d.net[d.net.length - 1];
-  const lastRev = d.rev[d.rev.length - 1];
+  const qRev = d.quarters?.rev || d.rev;
+  const qNet = d.quarters?.net || d.net;
+  const qOp = d.quarters?.op || d.op;
+  const qGp = d.quarters?.gp || d.gp;
+  const gN = yoy(qNet);
+  const gR = yoy(qRev);
+  const lastNet = qNet[qNet.length - 1];
+  const lastRev = qRev[qRev.length - 1];
   const lastGn = gN[gN.length - 1];
   const lastGr = gR[gR.length - 1];
 
@@ -416,7 +431,7 @@ export default function CompanyFundamentalPage() {
               lastRev={lastRev}
               lastGn={lastGn}
               lastGr={lastGr}
-              netTtm={ttm(d.net)}
+              netTtm={ttm(qNet)}
               peCur={d.peers.cur.pe}
               tiles={tiles}
               onTileClick={handleTileClick}
@@ -427,10 +442,10 @@ export default function CompanyFundamentalPage() {
             <CompanyPriceBridge
               sym={d.sym}
               isBank={d.is_bank}
-              netSeries={d.net}
+              netSeries={qNet}
             />
 
-            <QuarterlyNetProfitChart netSeries={d.net} lastGn={lastGn} gN={gN} />
+            <QuarterlyNetProfitChart netSeries={qNet} lastGn={lastGn} gN={gN} />
           </div>
         )}
 
@@ -469,7 +484,7 @@ export default function CompanyFundamentalPage() {
                 setRg={setRg}
                 hl={hl}
                 setHl={setHl}
-                periodsQ={PQ}
+                periodsQ={d.quarters?.periods || PQ}
                 peersCount={d.peers.n_sec}
                 peersMap={d.peers.peers}
                 currentSym={d.sym}
@@ -480,12 +495,12 @@ export default function CompanyFundamentalPage() {
             {sub === "stmts" && (
               <QuarterlyIncomeStatementsTab
                 isBank={d.is_bank}
-                rev={d.rev}
-                op={d.op}
-                net={d.net}
+                rev={qRev}
+                op={qOp}
+                net={qNet}
                 eps={d.eps}
-                gp={d.gp}
-                periodsQ={PQ}
+                gp={qGp}
+                periodsQ={d.quarters?.periods || PQ}
               />
             )}
           </div>

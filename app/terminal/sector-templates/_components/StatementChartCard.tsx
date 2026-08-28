@@ -1,6 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import React from "react";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  ReferenceLine,
+  Cell,
+} from "recharts";
 import type { RowData, StmtView } from "../types";
 import { fmtM, fmtEPS, toDiscrete } from "../utils";
 
@@ -11,22 +22,6 @@ interface Props {
 }
 
 export default function StatementChartCard({ chartRow, curStmt, isReal }: Props) {
-  const [tooltip, setTooltip] = useState<{
-    visible: boolean;
-    x: number;
-    y: number;
-    textAr: string;
-    inBand: string;
-    valText: string;
-  }>({
-    visible: false,
-    x: 0,
-    y: 0,
-    textAr: "",
-    inBand: "",
-    valText: "",
-  });
-
   if (!chartRow || !chartRow.v) {
     return (
       <div className="rounded-[4px] border border-[#E5E7EB] bg-white p-4 text-center text-[#6B7280] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
@@ -47,173 +42,109 @@ export default function StatementChartCard({ chartRow, curStmt, isReal }: Props)
     ? ["Q1'25°", "Q2'25°", "Q3'25°", "Q4'25°", "Q1'26"]
     : curStmt.periodsEn;
 
-  const CW = 1100;
-  const CH = 215;
-  const cPadT = 14;
-  const cPadB = 28;
-  const cPadS = 8;
-  const cPadE = 60;
-
-  const maxV = Math.max(...vals.map((v) => Math.abs(v ?? 0)), 1e-9);
-  const hasNeg = vals.some((v) => v != null && v < 0);
-  const hasPos = vals.some((v) => v != null && v > 0);
-  const zeroY =
-    hasNeg && hasPos
-      ? cPadT + (CH - cPadT - cPadB) / 2
-      : hasNeg && !hasPos
-        ? cPadT
-        : CH - cPadB;
-
-  const scale = (v: number) =>
-    (Math.abs(v) / maxV) * (CH - cPadT - cPadB) / (hasNeg && hasPos ? 2 : 1);
-
   const n = vals.length;
-  const slotW = (CW - cPadS - cPadE) / (n || 1);
-  const barW = Math.min(slotW * 0.5, 48);
+  const prior = vals.slice(Math.max(0, n - 5), Math.max(0, n - 1)).filter((v): v is number => v != null);
 
-  const axF = (g: number) =>
-    chartRow.eps
-      ? g.toFixed(2)
-      : (g / 1000).toLocaleString("en-US", { maximumFractionDigits: 0 });
+  const chartData = vals.map((v, i) => {
+    let inBand = "";
+    if (prior.length === 4 && i === n - 1 && v != null) {
+      const maxP = Math.max(...prior);
+      const minP = Math.min(...prior);
+      inBand = v > maxP ? " · فوق مدى آخر 4 أرباع°" : v < minP ? " · تحت المدى°" : " · داخل المدى°";
+    }
 
-  // Prior 4 quarters band (الشريط الرمادي على آخر عمود = مدى آخر 4 أرباع°)
-  const prior = vals.slice(n - 5, n - 1).filter((v): v is number => v != null);
-  const showBand = prior.length === 4 && !hasNeg;
-  const lo = showBand ? Math.min(...prior) : 0;
-  const hi = showBand ? Math.max(...prior) : 0;
-  const bandX = cPadS + slotW * (n - 1) + (slotW - barW) / 2;
-  const yHi = CH - cPadB - scale(hi);
-  const yLo = CH - cPadB - scale(lo);
+    return {
+      periodEn: perEn[i] || `P${i + 1}`,
+      periodAr: perAr[i] || `الفترة ${i + 1}`,
+      value: v,
+      isEst: isReal && i < 3 && Boolean(chartRow.est3) && !isCum,
+      inBand,
+    };
+  });
+
+  const hasNegative = vals.some((v) => v != null && v < 0);
 
   return (
-    <div className="relative rounded-[4px] border border-[#E5E7EB] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+    <div className="rounded-[4px] border border-[#E5E7EB] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
       <div className="flex flex-wrap items-center justify-between pb-2">
         <h3 className="text-[14px] font-bold text-[#1A1A1A]">
           {chartRow.ar}
           {isCum
             ? " — ربعي (محسوب° من التراكمي المعلن)"
             : curStmt.cumulative
-              ? " — كما ورد"
-              : " — ربعي"}
+            ? " — كما ورد"
+            : " — ربعي"}
         </h3>
         <span className="text-[11.5px] text-[#9CA3AF]">
-          اضغط أي بند لعرضه · الشريط الرمادي على آخر عمود = مدى آخر 4 أرباع° (بديل التقديرات)
+          اضغط أي بند في الجدول لتغيير الشارت · تفاعلي Hover
         </span>
       </div>
 
-      <div className="relative">
-        {/* Interactive Tooltip */}
-        {tooltip.visible && (
-          <div
-            className="pointer-events-none absolute z-20 whitespace-nowrap rounded-[4px] border border-[#E5E7EB] bg-white px-3 py-1.5 text-[12px] text-[#1A1A1A] shadow-[0_1px_3px_rgba(0,0,0,0.1)] transition-opacity"
-            style={{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }}
-          >
-            <div className="text-[#6B7280]">
-              {tooltip.textAr}
-              {tooltip.inBand}
-            </div>
-            <div className="text-[13px] font-bold tabular-nums" dir="ltr">
-              {tooltip.valText}
-            </div>
-          </div>
-        )}
+      <div className="mt-2 h-[210px] w-full" dir="ltr">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chartData} margin={{ top: 15, right: 15, left: -10, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
 
-        <svg width="100%" height={CH} viewBox={`0 0 ${CW} ${CH}`}>
-          {/* Grid lines & axis labels */}
-          {[0, 1, 2].map((i) => {
-            const gv = maxV * (1 - i / 2);
-            const gy =
-              hasNeg && hasPos
-                ? zeroY - scale(gv)
-                : CH - cPadB - scale(gv);
-            return (
-              <g key={i}>
-                <line x1={cPadS} x2={CW - cPadE} y1={gy} y2={gy} stroke="#F3F4F6" />
-                <text x={CW - cPadE + 8} y={gy + 4} fill="#9CA3AF" fontSize="10.5">
-                  {axF(gv)}
-                </text>
-              </g>
-            );
-          })}
-
-          {/* Baseline */}
-          <line
-            x1={cPadS}
-            x2={CW - cPadE}
-            y1={zeroY}
-            y2={zeroY}
-            stroke="#D1D5DB"
-            strokeWidth="1.5"
-          />
-
-          {/* Range Band (Gray) */}
-          {showBand && (
-            <rect
-              x={bandX - 6}
-              y={yHi}
-              width={barW + 12}
-              height={Math.max(yLo - yHi, 2)}
-              fill="#F3F4F6"
-              rx="3"
+            <XAxis
+              dataKey="periodEn"
+              axisLine={false}
+              tickLine={false}
+              tick={{ fill: "#6B7280", fontSize: 10.5, fontWeight: 500 }}
+              dy={4}
             />
-          )}
 
-          {/* Bars */}
-          {vals.map((v, i) => {
-            if (v == null) return null;
-            const x = cPadS + slotW * i + (slotW - barW) / 2;
-            const h = Math.max(scale(v), 2);
-            const est = isReal && i < 3 && chartRow.est3 && !isCum;
-            const fill = v >= 0 ? "#8C3B32" : "#DC2626";
-            const op = est ? 0.45 : 1;
+            <YAxis
+              axisLine={false}
+              tickLine={false}
+              tick={{ fill: "#9CA3AF", fontSize: 10 }}
+              tickFormatter={(v) =>
+                chartRow.eps
+                  ? v.toFixed(2)
+                  : (v / 1000).toLocaleString("en-US", { maximumFractionDigits: 0 })
+              }
+              domain={["auto", "auto"]}
+            />
 
-            const d =
-              v >= 0
-                ? `M${x},${zeroY} L${x},${zeroY - h + 4} Q${x},${zeroY - h} ${x + 4},${zeroY - h} L${x + barW - 4},${zeroY - h} Q${x + barW},${zeroY - h} ${x + barW},${zeroY - h + 4} L${x + barW},${zeroY} Z`
-                : `M${x},${zeroY} L${x},${zeroY + h - 4} Q${x},${zeroY + h} ${x + 4},${zeroY + h} L${x + barW - 4},${zeroY + h} Q${x + barW},${zeroY + h} ${x + barW},${zeroY + h - 4} L${x + barW},${zeroY} Z`;
+            {hasNegative && <ReferenceLine y={0} stroke="#D1D5DB" strokeWidth={1.5} />}
 
-            return (
-              <g key={i}>
-                <path
-                  d={d}
-                  fill={fill}
-                  opacity={op}
-                  className="cursor-pointer transition-opacity hover:opacity-80"
-                  onMouseMove={(e) => {
-                    const rect = e.currentTarget.ownerSVGElement?.getBoundingClientRect();
-                    if (!rect) return;
-                    const inBand =
-                      prior.length === 4 && i === n - 1
-                        ? v > Math.max(...prior)
-                          ? " · فوق مدى آخر 4 أرباع°"
-                          : v < Math.min(...prior)
-                            ? " · تحت المدى°"
-                            : " · داخل المدى°"
-                        : "";
-                    setTooltip({
-                      visible: true,
-                      x: e.clientX - rect.left + 14,
-                      y: e.clientY - rect.top - 14,
-                      textAr: perAr[i],
-                      inBand,
-                      valText: chartRow.eps ? fmtEPS(v) : `${fmtM(v)} مليون ر.س`,
-                    });
-                  }}
-                  onMouseLeave={() => setTooltip((t) => ({ ...t, visible: false }))}
-                />
-                <text
-                  x={x + barW / 2}
-                  y={CH - 7}
-                  textAnchor="middle"
-                  fill="#9CA3AF"
-                  fontSize="10"
-                >
-                  {perEn[i]}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
+            <Tooltip
+              content={({ active, payload }) => {
+                if (active && payload && payload.length) {
+                  const d = payload[0].payload;
+                  return (
+                    <div
+                      dir="rtl"
+                      className="rounded border border-[#E5E7EB] bg-white p-2.5 shadow-lg text-[12px]"
+                    >
+                      <div className="font-bold text-[#1A1A1A]">
+                        {d.periodAr} ({d.periodEn})
+                      </div>
+                      <div className="mt-1 flex items-center justify-between gap-4 text-[#6B7280]">
+                        <span>القيمة:</span>
+                        <b className="text-[#8C3B32] tabular-nums" dir="ltr">
+                          {chartRow.eps ? fmtEPS(d.value) : `${fmtM(d.value)} مليون ر.س`}
+                        </b>
+                      </div>
+                      {d.inBand && (
+                        <div className="text-[11px] text-[#6B7280]">{d.inBand}</div>
+                      )}
+                    </div>
+                  );
+                }
+                return null;
+              }}
+            />
+
+            <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={48}>
+              {chartData.map((entry, index) => {
+                const isPositive = (entry.value ?? 0) >= 0;
+                const fill = isPositive ? "#8C3B32" : "#DC2626";
+                const opacity = entry.isEst ? 0.45 : 1;
+                return <Cell key={`cell-${index}`} fill={fill} fillOpacity={opacity} />;
+              })}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );

@@ -1,242 +1,307 @@
 "use client";
 
-import { useRef, useEffect, useCallback } from "react";
-import type { ForensicCompanyData } from "../_hooks/useForensicSheetData";
+import React from "react";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  ReferenceLine,
+  Cell,
+} from "recharts";
+
+interface ForensicChartsData {
+  periods_q?: string[];
+  periods_ar?: string[];
+  income_statement?: {
+    periods?: string[];
+    rev?: number[];
+    net?: number[];
+    gp?: number[];
+    op?: number[];
+    ttm?: {
+      rev?: number;
+      gp?: number;
+      op?: number;
+      net?: number;
+    };
+  };
+  rev?: number[];
+  net?: number[];
+  gp?: number[];
+  op?: number[];
+  quarters?: {
+    periods?: string[];
+    rev?: number[];
+    net?: number[];
+    gp?: number[];
+    op?: number[];
+  };
+  bs?: {
+    periods?: string[];
+    total_assets?: number[];
+    total_liabilities?: number[];
+    total_equity?: number[];
+    cash?: number[];
+    short_debt?: number[];
+    long_debt?: number[];
+    debt?: number[];
+  };
+  cf?: {
+    periods?: string[];
+    cfo?: number[];
+    cfi?: number[];
+    cff?: number[];
+    capex?: number[];
+    fcf?: number[];
+  };
+}
 
 interface Props {
-  data: ForensicCompanyData;
+  data: ForensicChartsData;
 }
 
-/** Pure SVG bar chart — matches the HTML reference ch1/ch3 pattern */
-function BarChartSVG({
-  values,
-  labels,
-  allowNeg,
-  height = 150,
-}: {
-  values: number[];
-  labels: string[];
-  allowNeg?: boolean;
-  height?: number;
-}) {
-  const svgRef = useRef<SVGSVGElement>(null);
+const PANEL = "rounded-[4px] border border-[#E5E7EB] bg-white p-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]";
 
-  const draw = useCallback(() => {
-    const svg = svgRef.current;
-    if (!svg || values.length === 0) return;
-    const W = svg.clientWidth || 520;
-    const H = height;
-    const pB = 22, pT = 12, pS = 4, pE = 10;
-    const mx = Math.max(...values.map((v) => Math.abs(v))) || 1;
-    const slot = (W - pS - pE) / values.length;
-    const bw = Math.min(slot * 0.55, 40);
-    const maxV = Math.max(...values);
-    const minV = Math.min(...values);
-    const zero = allowNeg && maxV !== minV
-      ? pT + (H - pT - pB) * (maxV / (maxV - minV))
-      : H - pB;
-    const scale = allowNeg && maxV !== minV
-      ? (H - pT - pB) / (maxV - minV)
-      : (H - pT - pB) / mx;
-
-    let o = `<line x1="${pS}" x2="${W - pE}" y1="${zero}" y2="${zero}" stroke="#E5E7EB" stroke-width="1.5"/>`;
-    values.forEach((v, i) => {
-      const h = Math.abs(v) * scale;
-      const x = pS + slot * i + (slot - bw) / 2;
-      const y = v >= 0 ? zero - h : zero;
-      const fill = v >= 0 ? "#8C3B32" : "#DC2626";
-      o += `<rect x="${x}" y="${y}" width="${bw}" height="${Math.max(h, 1)}" rx="3" fill="${fill}"/>`;
-      o += `<text x="${x + bw / 2}" y="${H - 6}" text-anchor="middle" font-size="8.5" fill="#6B7280">${labels[i] || ""}</text>`;
-      if (i === values.length - 1 || Math.abs(v) === mx) {
-        const lbl = v < 0 ? `(${Math.abs(Math.round(v)).toLocaleString()})` : Math.round(v).toLocaleString();
-        const ly = v >= 0 ? y - 3 : y + h + 10;
-        const fc = v < 0 ? "#DC2626" : "#1A1A1A";
-        o += `<text x="${x + bw / 2}" y="${ly}" text-anchor="middle" font-size="9" font-weight="700" fill="${fc}" direction="ltr">${lbl}</text>`;
-      }
-    });
-    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-    svg.innerHTML = o;
-  }, [values, labels, allowNeg, height]);
-
-  useEffect(() => {
-    draw();
-    window.addEventListener("resize", draw);
-    return () => window.removeEventListener("resize", draw);
-  }, [draw]);
-
-  return <svg ref={svgRef} width="100%" height={height} />;
+function fmt(v: number | null | undefined, d = 1) {
+  if (v === null || v === undefined || Number.isNaN(v)) return "—";
+  return Number(v).toLocaleString("en-US", { maximumFractionDigits: d });
 }
 
-/** Pure SVG line chart — matches the HTML reference ch2/ch4 pattern */
-function LineChartSVG({
-  series1,
-  series2,
-  labels,
-  color1 = "#8C3B32",
-  color2 = "#475569",
-  format = (v: number) => v.toFixed(0),
-  height = 138,
-}: {
-  series1: number[];
-  series2: number[];
-  labels: string[];
-  color1?: string;
-  color2?: string;
-  format?: (v: number) => string;
-  height?: number;
-}) {
-  const svgRef = useRef<SVGSVGElement>(null);
-
-  const draw = useCallback(() => {
-    const svg = svgRef.current;
-    if (!svg || series1.length === 0) return;
-    const W = svg.clientWidth || 520;
-    const H = height;
-    const pB = 20, pT = 10, pS = 4, pE = 44;
-    const all = [...series1, ...series2];
-    const mn = 0;
-    const mx = Math.max(...all) * 1.15 || 1;
-    const n = series1.length;
-    const X = (i: number) => pS + (i / Math.max(n - 1, 1)) * (W - pS - pE);
-    const Y = (v: number) => pT + (1 - (v - mn) / ((mx - mn) || 1)) * (H - pT - pB);
-
-    let o = `<line x1="${pS}" x2="${W - pE}" y1="${H - pB}" y2="${H - pB}" stroke="#E5E7EB"/>`;
-    o += `<polyline points="${series1.map((v, i) => X(i) + "," + Y(v)).join(" ")}" fill="none" stroke="${color1}" stroke-width="2"/>`;
-    o += `<polyline points="${series2.map((v, i) => X(i) + "," + Y(v)).join(" ")}" fill="none" stroke="${color2}" stroke-width="2"/>`;
-    series1.forEach((v, i) => {
-      o += `<circle cx="${X(i)}" cy="${Y(v)}" r="2.5" fill="${color1}"/>`;
-    });
-    series2.forEach((v, i) => {
-      o += `<circle cx="${X(i)}" cy="${Y(v)}" r="2.5" fill="${color2}"/>`;
-    });
-    labels.forEach((L, i) => {
-      o += `<text x="${X(i)}" y="${H - 6}" text-anchor="middle" font-size="8.5" fill="#6B7280">${L}</text>`;
-    });
-    if (n > 0) {
-      o += `<text x="${X(n - 1) + 5}" y="${Y(series1[n - 1]) + 3}" font-size="9.5" fill="${color1}" font-weight="700">${format(series1[n - 1])}</text>`;
-      o += `<text x="${X(n - 1) + 5}" y="${Y(series2[n - 1]) + 3}" font-size="9.5" fill="${color2}" font-weight="700">${format(series2[n - 1])}</text>`;
-    }
-
-    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-    svg.innerHTML = o;
-  }, [series1, series2, labels, color1, color2, format, height]);
-
-  useEffect(() => {
-    draw();
-    window.addEventListener("resize", draw);
-    return () => window.removeEventListener("resize", draw);
-  }, [draw]);
-
-  return <svg ref={svgRef} width="100%" height={height} />;
+function cleanPeriod(p: string) {
+  if (!p) return "";
+  if (p.includes("_")) {
+    const parts = p.split("_");
+    return parts[0].split("-")[0];
+  }
+  return p.split("-")[0];
 }
 
 export default function ForensicChartsGrid({ data }: Props) {
   const isObj = data.income_statement;
-  const annualPeriods = isObj?.periods || data.periods_ar || [];
+  const annualPeriods = isObj?.periods || data.periods_ar || ["2020", "2021", "2022", "2023", "2024", "2025"];
   const revAnnual = isObj?.rev || data.rev || [];
   const netAnnual = isObj?.net || data.net || [];
   const gpAnnual = isObj?.gp || data.gp || [];
 
-  // TTM values
-  const ttmRev = isObj?.ttm?.rev ?? 4131.0;
-  const ttmGp = isObj?.ttm?.gp ?? 1970.0;
-  const ttmNet = isObj?.ttm?.net ?? 1185.0;
+  const bsObj = data.bs || {};
+  const bsPeriods = bsObj.periods || annualPeriods;
+  const equity = (bsObj as any).total_equity || [];
+  const cash = (bsObj as any).cash || [];
+  const shortDebt = (bsObj as any).short_debt || [];
+  const longDebt = (bsObj as any).long_debt || [];
 
-  // Chart 1 & 2: 6 Annual years + TTM
-  const chart1Labels = [...annualPeriods.slice(-6), "TTM"];
-  const chart1Net = [...netAnnual.slice(-6), ttmNet];
-  const chart2Rev = [...revAnnual.slice(-6), ttmRev];
-  const chart2Gp = [...gpAnnual.slice(-6), ttmGp];
-  const chart2Net = [...netAnnual.slice(-6), ttmNet];
+  const cfObj = data.cf || {};
+  const cfPeriods = cfObj.periods || annualPeriods;
+  const cfo = (cfObj as any).cfo || [];
 
-  const gmPct = chart2Rev.map((r, i) => (chart2Gp[i] != null && r > 0 ? parseFloat(((chart2Gp[i] / r) * 100).toFixed(1)) : 0));
-  const nmPct = chart2Rev.map((r, i) => (chart2Net[i] != null && r > 0 ? parseFloat(((chart2Net[i] / r) * 100).toFixed(1)) : 0));
+  // 1. Chart 1: صافي الربح السنوي بملايين الريالات
+  const netAnnualData = annualPeriods.map((p, i) => ({
+    period: cleanPeriod(p),
+    net: netAnnual[i] ?? null,
+  }));
 
-  // Chart 3: CFO real series (6 annual periods)
-  const cf = data.cf;
-  const cfoVals = cf?.cfo || [];
-  const cfLabels = (cf?.periods || []).map((p) => (p.includes("_") ? p.split("_")[1].split("-")[0] : p.split("-")[0]));
-
-  // Chart 4: Total Equity vs Net Debt in Billions SAR
-  const bs = data.bs;
-  const eqVals = (bs?.total_equity || []).map((v) => parseFloat((v / 1000.0).toFixed(1)));
-  const totalDebt = (bs?.short_debt || []).map((sd, i) => (sd || 0) + ((bs?.long_debt && bs.long_debt[i]) || 0));
-  const ndVals = totalDebt.map((td, i) => {
-    const cash = (bs?.cash && bs.cash[i]) || 0;
-    return parseFloat(((td - cash) / 1000.0).toFixed(1));
+  // 2. Chart 2: هوامش الربح % سنوياً (إجمالي مقابل صافي)
+  const marginsData = annualPeriods.map((p, i) => {
+    const r = revAnnual[i] || 0;
+    const g = gpAnnual[i] || 0;
+    const n = netAnnual[i] || 0;
+    return {
+      period: cleanPeriod(p),
+      gm: r > 0 ? Number(((g / r) * 100).toFixed(1)) : null,
+      nm: r > 0 ? Number(((n / r) * 100).toFixed(1)) : null,
+    };
   });
-  const bsLabels = (bs?.periods || []).map((p) => (p.endsWith("-12") ? p.split("-")[0] : p.endsWith("-03") ? `Q1'${p.slice(2, 4)}` : p));
+
+  // 3. Chart 3: التدفق التشغيلي CFO سنوياً
+  const cfoData = cfPeriods.map((p, i) => ({
+    period: cleanPeriod(p),
+    cfo: cfo[i] ?? null,
+  }));
+
+  // 4. Chart 4: صافي الدين مقابل حقوق الملكية (بمليارات الريالات)
+  const debtEquityData = bsPeriods.map((p, i) => {
+    const eq = (equity[i] || 0) / 1000.0; // تحويل إلى مليارات
+    const totDebt = (shortDebt[i] || 0) + (longDebt[i] || 0);
+    const c = cash[i] || 0;
+    const netDebt = (totDebt - c) / 1000.0; // صافي الدين بالمليارات
+
+    return {
+      period: cleanPeriod(p),
+      equity: Number(eq.toFixed(2)),
+      netDebt: Number(netDebt.toFixed(2)),
+    };
+  });
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-      {/* Chart 1: Annual Net Profit Bar Chart */}
-      <div className="rounded-[4px] border border-[#E5E7EB] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-4">
-        <h4 className="text-xs font-bold mb-2 text-[#1A1A1A]">صافي الربح السنوي (فعلي) — بملايين الريالات</h4>
-        <BarChartSVG values={chart1Net} labels={chart1Labels} allowNeg={chart1Net.some((v) => v < 0)} />
-      </div>
-
-      {/* Chart 2: Gross vs Net Margin Lines */}
-      <div className="rounded-[4px] border border-[#E5E7EB] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-4">
-        <h4 className="text-xs font-bold mb-1 text-[#1A1A1A]">الهوامش ٪ سنوياً (فعلي)</h4>
-        <div className="flex gap-3 text-[10.5px] text-[#6B7280] mb-1">
-          <span className="flex items-center gap-1">
-            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-[#8C3B32]" /> إجمالي
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-[#475569]" /> صافي
-          </span>
-        </div>
-        {gmPct.length > 0 && nmPct.length > 0 ? (
-          <LineChartSVG
-            series1={gmPct}
-            series2={nmPct}
-            labels={chart1Labels}
-            color1="#8C3B32"
-            color2="#475569"
-            format={(v) => v.toFixed(0) + "%"}
-          />
-        ) : (
-          <div className="h-[138px] flex items-center justify-center text-xs text-[#9CA3AF]">بيانات الهوامش غير متاحة</div>
-        )}
-      </div>
-
-      {/* Chart 3: CFO Bar Chart with Real Data & Negative Support */}
-      <div className="rounded-[4px] border border-[#E5E7EB] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-4">
-        <h4 className="text-xs font-bold mb-2 text-[#1A1A1A]">التدفق التشغيلي CFO سنوياً (فعلي) — دورات ضخ واسترداد</h4>
-        {cfoVals.length > 0 ? (
-          <BarChartSVG values={cfoVals} labels={cfLabels} allowNeg={true} />
-        ) : (
-          <div className="h-[150px] flex items-center justify-center text-xs text-[#9CA3AF]">
-            بيانات التدفقات النقدية غير متاحة
+    <div className="space-y-3.5">
+      {/* الصف الأول: الأرباح والهوامش */}
+      <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
+        {/* 1. صافي الربح السنوي (فعلي) */}
+        <div className={PANEL}>
+          <div className="flex items-center justify-between pb-1">
+            <h4 className="text-[12.5px] font-bold text-[#1A1A1A]">صافي الربح السنوي (فعلي)</h4>
+            <span className="text-[10.5px] text-[#9CA3AF]">ملايين الريالات</span>
           </div>
-        )}
+          <div className="mt-2 h-[140px] w-full" dir="ltr">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={netAnnualData} margin={{ top: 10, right: 15, left: -15, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                <XAxis dataKey="period" axisLine={false} tickLine={false} tick={{ fill: "#6B7280", fontSize: 10.5 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: "#9CA3AF", fontSize: 10 }} tickFormatter={(v) => fmt(v, 0)} />
+                {netAnnualData.some((d) => (d.net ?? 0) < 0) && <ReferenceLine y={0} stroke="#D1D5DB" />}
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const d = payload[0].payload;
+                      return (
+                        <div dir="rtl" className="rounded border border-[#E5E7EB] bg-white p-2 shadow-lg text-[11.5px]">
+                          <div className="font-bold text-[#1A1A1A]">{d.period}</div>
+                          <div className="mt-1 text-[#8C3B32]">
+                            صافي الربح: <b className="tabular-nums" dir="ltr">{fmt(d.net, 1)} م.ر</b>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Bar dataKey="net" radius={[3, 3, 0, 0]} maxBarSize={32}>
+                  {netAnnualData.map((entry, idx) => (
+                    <Cell key={idx} fill={(entry.net ?? 0) >= 0 ? "#8C3B32" : "#DC2626"} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* 2. الهوامش ٪ سنوياً (فعلي) */}
+        <div className={PANEL}>
+          <div className="flex items-center justify-between pb-1">
+            <h4 className="text-[12.5px] font-bold text-[#1A1A1A]">الهوامش ٪ سنوياً (فعلي)</h4>
+            <div className="flex items-center gap-3 text-[10.5px]">
+              <span className="flex items-center gap-1 text-[#8C3B32]"><span className="inline-block h-2 w-2 rounded-full bg-[#8C3B32]" />إجمالي</span>
+              <span className="flex items-center gap-1 text-[#EA580C]"><span className="inline-block h-2 w-2 rounded-full bg-[#EA580C]" />صافي</span>
+            </div>
+          </div>
+          <div className="mt-2 h-[140px] w-full" dir="ltr">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={marginsData} margin={{ top: 10, right: 15, left: -15, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                <XAxis dataKey="period" axisLine={false} tickLine={false} tick={{ fill: "#6B7280", fontSize: 10.5 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: "#9CA3AF", fontSize: 10 }} tickFormatter={(v) => `${v}%`} />
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const d = payload[0].payload;
+                      return (
+                        <div dir="rtl" className="rounded border border-[#E5E7EB] bg-white p-2 shadow-lg text-[11.5px]">
+                          <div className="font-bold text-[#1A1A1A]">{d.period}</div>
+                          <div className="mt-1 text-[#8C3B32]">هامش إجمالي: <b>{fmt(d.gm, 1)}%</b></div>
+                          <div className="text-[#EA580C]">هامش صافي: <b>{fmt(d.nm, 1)}%</b></div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Line type="monotone" dataKey="gm" stroke="#8C3B32" strokeWidth={2} dot={{ r: 3.5 }} name="هامش إجمالي" />
+                <Line type="monotone" dataKey="nm" stroke="#EA580C" strokeWidth={2} dot={{ r: 3.5 }} name="هامش صافي" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
       </div>
 
-      {/* Chart 4: Net Debt vs Equity in Billions SAR */}
-      <div className="rounded-[4px] border border-[#E5E7EB] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-4">
-        <h4 className="text-xs font-bold mb-1 text-[#1A1A1A]">صافي الدين مقابل حقوق الملكية — بمليارات الريالات</h4>
-        <div className="flex gap-3 text-[10.5px] text-[#6B7280] mb-1">
-          <span className="flex items-center gap-1">
-            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-[#8C3B32]" /> حقوق الملكية
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-[#DC2626]" /> صافي الدين
-          </span>
-        </div>
-        {eqVals.length > 0 && ndVals.length > 0 ? (
-          <LineChartSVG
-            series1={eqVals}
-            series2={ndVals}
-            labels={bsLabels}
-            color1="#8C3B32"
-            color2="#DC2626"
-            format={(v) => v.toFixed(1)}
-          />
-        ) : (
-          <div className="h-[138px] flex items-center justify-center text-xs text-[#9CA3AF]">
-            بيانات الميزانية غير متاحة
+      {/* الصف الثاني: التدفق التشغيلي وصافي الدين مقابل حقوق الملكية */}
+      <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
+        {/* 3. التدفق التشغيلي CFO سنوياً */}
+        <div className={PANEL}>
+          <div className="flex items-center justify-between pb-1">
+            <h4 className="text-[12.5px] font-bold text-[#1A1A1A]">التدفق التشغيلي CFO سنوياً (فعلي)</h4>
+            <span className="text-[10.5px] text-[#9CA3AF]">ملايين الريالات</span>
           </div>
-        )}
+          <div className="mt-2 h-[140px] w-full" dir="ltr">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={cfoData} margin={{ top: 10, right: 15, left: -15, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                <XAxis dataKey="period" axisLine={false} tickLine={false} tick={{ fill: "#6B7280", fontSize: 10.5 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: "#9CA3AF", fontSize: 10 }} tickFormatter={(v) => fmt(v, 0)} />
+                {cfoData.some((d) => (d.cfo ?? 0) < 0) && <ReferenceLine y={0} stroke="#D1D5DB" />}
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const d = payload[0].payload;
+                      return (
+                        <div dir="rtl" className="rounded border border-[#E5E7EB] bg-white p-2 shadow-lg text-[11.5px]">
+                          <div className="font-bold text-[#1A1A1A]">{d.period}</div>
+                          <div className="mt-1 text-[#1E3A8A]">
+                            التدفق التشغيلي (CFO): <b className="tabular-nums" dir="ltr">{fmt(d.cfo, 1)} م.ر</b>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Bar dataKey="cfo" radius={[3, 3, 0, 0]} maxBarSize={32}>
+                  {cfoData.map((entry, idx) => (
+                    <Cell key={idx} fill={(entry.cfo ?? 0) >= 0 ? "#1E3A8A" : "#DC2626"} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* 4. صافي الدين مقابل حقوق الملكية */}
+        <div className={PANEL}>
+          <div className="flex items-center justify-between pb-1">
+            <h4 className="text-[12.5px] font-bold text-[#1A1A1A]">صافي الدين مقابل حقوق الملكية</h4>
+            <div className="flex items-center gap-3 text-[10.5px]">
+              <span className="flex items-center gap-1 text-[#8C3B32]"><span className="inline-block h-2 w-2 rounded-full bg-[#8C3B32]" />حقوق الملكية</span>
+              <span className="flex items-center gap-1 text-[#DC2626]"><span className="inline-block h-2 w-2 rounded-full bg-[#DC2626]" />صافي الدين</span>
+            </div>
+          </div>
+          <div className="mt-2 h-[140px] w-full" dir="ltr">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={debtEquityData} margin={{ top: 10, right: 15, left: -15, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                <XAxis dataKey="period" axisLine={false} tickLine={false} tick={{ fill: "#6B7280", fontSize: 10.5 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: "#9CA3AF", fontSize: 10 }} tickFormatter={(v) => `${v}B`} />
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const d = payload[0].payload;
+                      return (
+                        <div dir="rtl" className="rounded border border-[#E5E7EB] bg-white p-2 shadow-lg text-[11.5px]">
+                          <div className="font-bold text-[#1A1A1A]">{d.period}</div>
+                          <div className="mt-1 flex justify-between gap-4 text-[#8C3B32]">
+                            <span>حقوق الملكية:</span>
+                            <b className="tabular-nums" dir="ltr">{fmt(d.equity, 2)} مليار ر.س</b>
+                          </div>
+                          <div className="flex justify-between gap-4 text-[#DC2626]">
+                            <span>صافي الدين:</span>
+                            <b className="tabular-nums" dir="ltr">{fmt(d.netDebt, 2)} مليار ر.س</b>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Line type="monotone" dataKey="equity" stroke="#8C3B32" strokeWidth={2} dot={{ r: 3.5 }} name="حقوق الملكية" />
+                <Line type="monotone" dataKey="netDebt" stroke="#DC2626" strokeWidth={2} dot={{ r: 3.5 }} name="صافي الدين" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
       </div>
     </div>
   );

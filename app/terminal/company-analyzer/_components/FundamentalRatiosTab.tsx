@@ -174,7 +174,11 @@ export default function FundamentalRatiosTab({
                             }`}
                             dir="ltr"
                           >
-                            {val == null ? "·" : "pct" in r && r.pct ? pctS(val) : fmt(val, 1) + "%"}
+                            {val == null
+                              ? "—"
+                              : "pct" in r && r.pct
+                              ? pctS(val)
+                              : fmt(val, 1) + "%"}
                           </td>
                         ))
                       )}
