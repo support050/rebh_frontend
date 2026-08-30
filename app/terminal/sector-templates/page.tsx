@@ -139,11 +139,18 @@ export default function SectorTemplatesOptimalPage() {
   // Selected or default active row for bar chart
   const chartRow = useMemo(() => {
     if (!curStmt.rows || curStmt.rows.length === 0) return null;
-    return selectedRowIdx != null
-      ? curStmt.rows[selectedRowIdx]
-      : curStmt.rows.find((r) => r.net) ||
+    if (selectedRowIdx != null && curStmt.rows[selectedRowIdx]) {
+      return curStmt.rows[selectedRowIdx];
+    }
+    // Default: find Net Profit row, or Total/Revenue row, or first row with non-empty values
+    return (
+      curStmt.rows.find((r) => r.en === "Net Profit for the Period" || r.ar.includes("صافي الربح للفترة")) ||
+      curStmt.rows.find((r) => r.net) ||
+      curStmt.rows.find((r) => r.en === "Revenue / Turnover" || r.ar.includes("الإيرادات")) ||
       curStmt.rows.find((r) => r.t === "total") ||
-      curStmt.rows[0];
+      curStmt.rows.find((r) => r.v && r.v.some((x) => x !== 0)) ||
+      curStmt.rows[0]
+    );
   }, [curStmt, selectedRowIdx]);
 
   if (loading || !C) {

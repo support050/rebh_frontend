@@ -11,6 +11,7 @@ import {
   CartesianGrid,
   ReferenceLine,
   Cell,
+  LabelList,
 } from "recharts";
 import type { RowData, StmtView } from "../types";
 import { fmtM, fmtEPS, toDiscrete } from "../utils";
@@ -82,7 +83,7 @@ export default function StatementChartCard({ chartRow, curStmt, isReal }: Props)
 
       <div className="mt-2 h-[210px] w-full" dir="ltr">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData} margin={{ top: 15, right: 15, left: -10, bottom: 0 }}>
+          <BarChart data={chartData} margin={{ top: 18, right: 15, left: -10, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
 
             <XAxis
@@ -100,7 +101,11 @@ export default function StatementChartCard({ chartRow, curStmt, isReal }: Props)
               tickFormatter={(v) =>
                 chartRow.eps
                   ? v.toFixed(2)
-                  : (v / 1000).toLocaleString("en-US", { maximumFractionDigits: 0 })
+                  : v >= 1000
+                  ? `${(v / 1000).toFixed(1)}B`
+                  : Math.abs(v) >= 1
+                  ? `${Math.round(v)}M`
+                  : v.toFixed(1)
               }
               domain={["auto", "auto"]}
             />
@@ -136,6 +141,20 @@ export default function StatementChartCard({ chartRow, curStmt, isReal }: Props)
             />
 
             <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={48}>
+              <LabelList
+                dataKey="value"
+                position="top"
+                formatter={(v: any) =>
+                  v == null
+                    ? ""
+                    : chartRow.eps
+                    ? Number(v).toFixed(2)
+                    : Math.abs(Number(v)) >= 1000
+                    ? `${(Number(v) / 1000).toFixed(1)}B`
+                    : fmtM(Number(v))
+                }
+                style={{ fill: "#6B7280", fontSize: 10, fontWeight: 600 }}
+              />
               {chartData.map((entry, index) => {
                 const isPositive = (entry.value ?? 0) >= 0;
                 const fill = isPositive ? "#8C3B32" : "#DC2626";

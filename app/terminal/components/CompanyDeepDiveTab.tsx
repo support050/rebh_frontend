@@ -171,25 +171,31 @@ export function CompanyDeepDiveTab({
   // Build dynamic Income Statement Head & Rows
   const isHead = ["Line", ...(data?.income_statement?.periods || []), "TTM°"];
   const isData = data?.income_statement;
+  const isBank = data?.is_bank ?? false;
+
   const isRows: string[][] = isData
     ? [
         [
-          "Revenue",
+          isBank ? "Special Commission Income" : "Revenue",
           ...(isData.rev || []).map((v) => fmt(v, 0)),
           fmt(isData.ttm?.rev, 0),
         ],
+        ...(isBank
+          ? []
+          : [
+              [
+                "Gross Profit",
+                ...(isData.gp || []).map((v) => (v ? fmt(v, 0) : "—")),
+                isData.ttm?.gp ? fmt(isData.ttm?.gp, 0) : "—",
+              ],
+            ]),
         [
-          "Gross Profit",
-          ...(isData.gp || []).map((v) => fmt(v, 0)),
-          fmt(isData.ttm?.gp, 0),
+          isBank ? "Operating Income" : "Operating Profit (EBIT)",
+          ...(isData.op || []).map((v) => (v ? fmt(v, 0) : "—")),
+          isData.ttm?.op ? fmt(isData.ttm?.op, 0) : "—",
         ],
         [
-          "Operating Profit (EBIT)",
-          ...(isData.op || []).map((v) => fmt(v, 0)),
-          fmt(isData.ttm?.op, 0),
-        ],
-        [
-          "Finance Costs",
+          isBank ? "Financing / Commission Costs" : "Finance Costs",
           ...(isData.fin_cost || []).map((v) => (v ? `(${fmt(Math.abs(v), 0)})` : "—")),
           isData.ttm?.fin_cost ? `(${fmt(Math.abs(isData.ttm.fin_cost), 0)})` : "—",
         ],
@@ -205,8 +211,8 @@ export function CompanyDeepDiveTab({
         ],
         [
           "EPS (SAR)",
-          ...(isData.eps || []).map((v) => fmt(v, 2)),
-          fmt(isData.ttm?.eps, 2),
+          ...(isData.eps || []).map((v) => (v ? fmt(v, 2) : "—")),
+          isData.ttm?.eps ? fmt(isData.ttm?.eps, 2) : "—",
         ],
       ]
     : [];

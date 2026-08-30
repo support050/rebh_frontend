@@ -1,16 +1,17 @@
 // Shared formatting utilities for sector-templates
 import type { RowData } from "./types";
 
-/** Format a value in thousands to display in millions with parentheses for negatives */
+/** Format a value that is already in Millions of SAR with parentheses for negatives */
 export function fmtM(v: number): string {
-  const m = v / 1000;
-  const a = Math.abs(m);
+  const a = Math.abs(v);
   const s =
-    a >= 100
-      ? Math.round(a).toLocaleString("en-US")
+    a >= 1000
+      ? a.toLocaleString("en-US", { maximumFractionDigits: 1 })
       : a >= 1
         ? a.toLocaleString("en-US", { maximumFractionDigits: 1 })
-        : a.toLocaleString("en-US", { maximumFractionDigits: 2 });
+        : a === 0
+          ? "0"
+          : a.toLocaleString("en-US", { maximumFractionDigits: 2 });
   return v < 0 ? `(${s})` : s;
 }
 

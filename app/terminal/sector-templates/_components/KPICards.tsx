@@ -16,15 +16,40 @@ export default function KPICards({ C }: Props) {
           if (row.ar === k.name || row.en === k.name) return true;
           const rAr = (row.ar || "").toLowerCase();
           const rEn = (row.en || "").toLowerCase();
-          if (k.eps && (row.eps || rAr.includes("السهم") || rEn.includes("share") || rEn.includes("eps"))) return true;
-          if (kNameLower.includes("إيراد") || kNameLower.includes("دخل") || kNameLower.includes("revenue")) {
-            if (rAr.includes("إيراد") || rAr.includes("مبيعات") || rEn.includes("revenue") || rEn.includes("turnover") || rAr.includes("عمولة خاصة") || rEn.includes("special commission income")) return true;
+          
+          if (k.eps || kNameLower.includes("السهم") || kNameLower.includes("eps")) {
+            return (
+              rEn.includes("basic earnings per share") ||
+              rAr.includes("ربحية السهم الأساسية") ||
+              rAr.includes("ربحية السهم") ||
+              rEn.includes("earnings per share")
+            );
+          }
+          if (kNameLower.includes("صافي الربح") || kNameLower.includes("صافي ربح") || kNameLower.includes("net profit")) {
+            return (
+              rEn === "net profit for the period" ||
+              rEn === "net profit attributable to shareholders of parent" ||
+              rAr === "صافي الربح للفترة" ||
+              rAr.includes("صافي الربح") ||
+              rAr.includes("صافي ربح")
+            );
           }
           if (kNameLower.includes("تشغيل") || kNameLower.includes("operating")) {
-            if (rAr.includes("تشغيل") || rEn.includes("operating") || rAr.includes("دخل العمليات")) return true;
+            return (
+              rEn.includes("operating income") ||
+              rAr.includes("الربح التشغيلي") ||
+              rAr.includes("الدخل التشغيلي") ||
+              rEn.includes("operating profit")
+            );
           }
-          if (kNameLower.includes("صافي") || kNameLower.includes("ربح") || kNameLower.includes("net")) {
-            if (row.net || rAr.includes("صافي الربح") || rAr.includes("صافي ربح") || rEn.includes("net profit") || rEn.includes("net income")) return true;
+          if (kNameLower.includes("إيراد") || kNameLower.includes("دخل") || kNameLower.includes("revenue")) {
+            return (
+              rEn.includes("revenue") ||
+              rAr.includes("إيراد") ||
+              rAr.includes("مبيعات") ||
+              rEn.includes("turnover") ||
+              rAr.includes("عمولة خاصة")
+            );
           }
           return false;
         }) || C.rows[idx];
