@@ -53,16 +53,16 @@ export default function StatementTable({ C, curStmt, selectedRowIdx, onSelectRow
   };
 
   return (
-    <div className="overflow-hidden rounded-[4px] border border-[#E5E7EB] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+    <div className="overflow-hidden rounded-[4px] border border-[#E5E7EB] dark:border-[#2C2C2A] bg-white dark:bg-[#1A1A19] shadow-[0_1px_3px_rgba(0,0,0,0.06)] transition-colors">
       {/* Table Action Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E5E7EB] bg-[#F3F4F6] px-4 py-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E5E7EB] dark:border-[#2C2C2A] bg-[#F3F4F6] dark:bg-[#222220] px-4 py-2.5 transition-colors">
         <div className="flex items-center gap-2">
-          <span className="text-[12px] font-medium text-[#6B7280]">عرض الجدول:</span>
+          <span className="text-[12px] font-medium text-[#6B7280] dark:text-[#898781]">عرض الجدول:</span>
           <button
             onClick={() => setIsCommonSize(false)}
             className={`rounded-[4px] px-2.5 py-1 text-[11.5px] font-medium transition-colors ${!isCommonSize
-              ? "border border-[#8C3B32] bg-white font-bold text-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
-              : "border border-transparent text-[#6B7280] hover:text-[#1A1A1A]"
+              ? "border border-[#8C3B32] dark:border-[#3987E5] bg-white dark:bg-[#0d0d0d] font-bold text-[#8C3B32] dark:text-[#3987E5] shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+              : "border border-transparent text-[#6B7280] dark:text-[#898781] hover:text-[#1A1A1A] dark:hover:text-[#F2F1ED]"
               }`}
           >
             القيم الفعلية (ر.س)
@@ -81,7 +81,7 @@ export default function StatementTable({ C, curStmt, selectedRowIdx, onSelectRow
         <div className="flex items-center gap-2">
           <button
             onClick={exportToCSV}
-            className="flex items-center gap-1 rounded-[4px] border border-[#E5E7EB] bg-white px-3 py-1 text-[11.5px] text-[#6B7280] transition-colors hover:bg-[#F3F4F6] hover:text-[#1A1A1A]"
+            className="flex items-center gap-1 rounded-[4px] border border-[#E5E7EB] dark:border-[#2C2C2A] bg-white dark:bg-[#1A1A19] px-3 py-1 text-[11.5px] text-[#6B7280] dark:text-[#898781] transition-colors hover:bg-[#F3F4F6] dark:hover:bg-[#222220] hover:text-[#1A1A1A] dark:hover:text-[#F2F1ED]"
           >
             <span>📥</span> تصدير Excel / CSV
           </button>
@@ -91,15 +91,15 @@ export default function StatementTable({ C, curStmt, selectedRowIdx, onSelectRow
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-[13px]">
           <thead>
-            <tr className="border-b border-[#E5E7EB] bg-[#F3F4F6]">
-              <th className="sticky inset-inline-start-0 z-20 bg-[#F3F4F6] px-3 py-2 text-right text-[11.5px] font-semibold text-[#6B7280] shadow-[-1px_0_0_#E5E7EB_inset]">
+            <tr className="border-b border-[#E5E7EB] dark:border-[#2C2C2A] bg-[#F3F4F6] dark:bg-[#222220]">
+              <th className="sticky inset-inline-start-0 z-20 bg-[#F3F4F6] dark:bg-[#222220] px-3 py-2 text-right text-[11.5px] font-semibold text-[#6B7280] dark:text-[#898781] shadow-[-1px_0_0_#E5E7EB_inset] dark:shadow-[-1px_0_0_#2C2C2A_inset]">
                 البند
               </th>
               {curStmt.periods.map((p, i) => (
                 <th
                   key={i}
                   title={curStmt.periodsEn[i]}
-                  className="whitespace-nowrap px-3 py-2 text-left text-[11.5px] font-semibold text-[#6B7280]"
+                  className="whitespace-nowrap px-3 py-2 text-left text-[11.5px] font-semibold text-[#6B7280] dark:text-[#898781]"
                 >
                   {p}
                 </th>
@@ -116,10 +116,10 @@ export default function StatementTable({ C, curStmt, selectedRowIdx, onSelectRow
             {curStmt.rows.map((r, ri) => {
               if (r.t === "section") {
                 return (
-                  <tr key={ri} className="bg-white">
+                  <tr key={ri} className="bg-white dark:bg-[#1A1A19]">
                     <td
                       colSpan={nCols + 3}
-                      className="border-0 pt-3 pb-1 text-right text-[11px] font-bold tracking-wider text-[#6B7280]"
+                      className="border-0 pt-3 pb-1 text-right text-[11px] font-bold tracking-wider text-[#6B7280] dark:text-[#898781]"
                     >
                       {r.ar}
                     </td>
@@ -139,20 +139,20 @@ export default function StatementTable({ C, curStmt, selectedRowIdx, onSelectRow
 
               const trClass =
                 r.t === "total"
-                  ? "font-bold border-t-2 border-[#1A1A1A] bg-[#F3F4F6]"
+                  ? "font-bold border-t-2 border-[#1A1A1A] dark:border-[#F2F1ED] bg-[#F3F4F6] dark:bg-[#222220]"
                   : r.t === "subtotal"
-                    ? "font-bold border-t-[1.5px] border-[#D1D5DB]"
-                    : "hover:bg-[#F7F8FA]";
+                    ? "font-bold border-t-[1.5px] border-[#D1D5DB] dark:border-[#444]"
+                    : "hover:bg-[#F7F8FA] dark:hover:bg-[#222220]";
 
               return (
                 <React.Fragment key={ri}>
                   <tr
                     onClick={() => onSelectRow(ri)}
-                    className={`cursor-pointer border-b border-[#E5E7EB] transition-colors ${isSel ? "bg-[#8C3B32]/[0.06]" : trClass
+                    className={`cursor-pointer border-b border-[#E5E7EB] dark:border-[#2C2C2A] transition-colors ${isSel ? "bg-[#8C3B32]/[0.06] dark:bg-[#3987E5]/[0.08]" : trClass
                       }`}
                   >
                     <td
-                      className={`sticky inset-inline-start-0 z-10 whitespace-nowrap px-3 py-2 text-right text-[#1A1A1A] shadow-[-1px_0_0_#E5E7EB_inset] ${isSel ? "bg-[#8C3B32]/[0.06]" : r.t === "total" ? "bg-[#F3F4F6]" : "bg-white"
+                      className={`sticky inset-inline-start-0 z-10 whitespace-nowrap px-3 py-2 text-right text-[#1A1A1A] dark:text-[#F2F1ED] shadow-[-1px_0_0_#E5E7EB_inset] dark:shadow-[-1px_0_0_#2C2C2A_inset] ${isSel ? "bg-[#8C3B32]/[0.06] dark:bg-[#3987E5]/[0.08]" : r.t === "total" ? "bg-[#F3F4F6] dark:bg-[#222220]" : "bg-white dark:bg-[#1A1A19]"
                         }`}
                     >
                       {r.ar}
@@ -173,7 +173,7 @@ export default function StatementTable({ C, curStmt, selectedRowIdx, onSelectRow
                       return (
                         <td
                           key={i}
-                          className={`whitespace-nowrap px-3 py-2 text-left tabular-nums ${estCls} ${negCls} ${isSel ? "font-semibold text-[#1A1A1A]" : !estCls && !negCls ? "text-[#1A1A1A]" : ""
+                          className={`whitespace-nowrap px-3 py-2 text-left tabular-nums ${estCls} ${negCls} ${isSel ? "font-semibold text-[#1A1A1A] dark:text-[#F2F1ED]" : !estCls && !negCls ? "text-[#1A1A1A] dark:text-[#F2F1ED]" : ""
                             }`}
                           dir="ltr"
                         >
@@ -270,7 +270,7 @@ export default function StatementTable({ C, curStmt, selectedRowIdx, onSelectRow
       </div>
 
       {/* Footer Notes & Forensic Auditing Strip */}
-      <div className="flex flex-wrap items-center gap-3.5 border-t border-[#E5E7EB] bg-[#F7F8FA] px-4 py-3 text-[11.5px] text-[#6B7280]">
+      <div className="flex flex-wrap items-center gap-3.5 border-t border-[#E5E7EB] dark:border-[#2C2C2A] bg-[#F7F8FA] dark:bg-[#222220] px-4 py-3 text-[11.5px] text-[#6B7280] dark:text-[#898781] transition-colors">
         {C.foot.map((f, i) =>
           i === 1 && C.real ? (
             <span
@@ -290,13 +290,13 @@ export default function StatementTable({ C, curStmt, selectedRowIdx, onSelectRow
               "الجسر إلى M1: فلتر جاهز على هذا البند عبر كل شركات القطاع — API نقطي-زمني بلا lookahead bias"
             )
           }
-          className="mr-auto rounded-[4px] border border-[#E5E7EB] bg-white px-3 py-1 text-[12px] text-[#8C3B32] transition-colors hover:bg-[#F3F4F6]"
+          className="mr-auto rounded-[4px] border border-[#E5E7EB] dark:border-[#2C2C2A] bg-white dark:bg-[#1A1A19] px-3 py-1 text-[12px] text-[#8C3B32] dark:text-[#3987E5] transition-colors hover:bg-[#F3F4F6] dark:hover:bg-[#222220]"
         >
           ⚲ افرز السوق على أي بند
         </button>
 
         {showChecks && (
-          <div className="basis-full rounded-[4px] border border-[#E5E7EB] bg-white p-3 text-[11.5px] leading-relaxed text-[#1A1A1A]">
+          <div className="basis-full rounded-[4px] border border-[#E5E7EB] dark:border-[#2C2C2A] bg-white dark:bg-[#1A1A19] p-3 text-[11.5px] leading-relaxed text-[#1A1A1A] dark:text-[#F2F1ED] transition-colors">
             <b>لوحة الفحوص — نسخة الإفصاح Q1 2026 (v1، فحص محدود، لا إعادة عرض حتى تاريخه):</b>
             <br />
             ✓ قائمة الدخل: مجموع المكونات = الإجمالي المعلن لكل فترة (تطابق تام بالآلاف، tolerance = 0)

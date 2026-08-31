@@ -72,9 +72,17 @@ export default function SectorPeersRank({ data }: Props) {
         })}
       </div>
 
-      {/* Decision Context Callout Box matching HTML reference */}
+      {/* Decision Context Callout Box dynamically generated from real numbers */}
       <div className="px-5 py-3.5 border-t border-[#E5E7EB] bg-[#F3F4F6] text-xs text-[#6B7280] leading-relaxed">
-        <b className="text-[#1A1A1A]">دار الأركان أدنى القائمة في ROE</b> (دوران أصول 0.10 — دورة مشاريع طويلة) لكنها من الأرخص دفترياً (P/B ‏0.98). التوتر بين الربحية والتقييم مع رهان التوسع الممول بالصكوك (+4.9 مليار في 2025) وتغطية فوائد 1.5× — هذه هي المعطيات الثلاثة التي يُبنى عليها القرار.
+        <b className="text-[#1A1A1A]">
+          {data.name} ({data.sym})
+        </b>{" "}
+        تحقق عائداً على حقوق الملكية بنسبة{" "}
+        <b className="text-[#1A1A1A]">{data.cur?.roe != null ? `${data.cur.roe.toFixed(1)}%` : "—"}</b>{" "}
+        {data.pct?.roe != null ? `(الترتيب المئوي ${data.pct.roe}% بين شركات القطاع)` : ""}{" "}
+        بمضاعف قيمة دفترية{" "}
+        <b className="text-[#1A1A1A]">{data.cur?.pb != null ? `${data.cur.pb.toFixed(2)}x` : "—"}</b> ومكرر ربحية{" "}
+        <b className="text-[#1A1A1A]">{data.cur?.pe != null ? `${data.cur.pe.toFixed(1)}x` : "—"}</b>. تُظهر هذه المقارنة موقع الشركة المالي والتقييمي الفعلي مقارنة بنظيراتها في قطاع {data.sec || "السوق"}.
       </div>
     </div>
   );

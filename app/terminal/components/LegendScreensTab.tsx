@@ -98,7 +98,7 @@ function renderBadges(r: ScreenRow) {
   return badges;
 }
 
-export function LegendScreensTab({ rows }: { rows: ScreenRow[] }) {
+export function LegendScreensTab({ rows, pulledDate }: { rows: ScreenRow[]; pulledDate?: string }) {
   const [curScr, setCurScr] = React.useState<ScreenKey>("magic");
   const [sortKey, setSortKey] = React.useState<string | null>(null);
   const [sortAsc, setSortAsc] = React.useState(true);
@@ -122,10 +122,6 @@ export function LegendScreensTab({ rows }: { rows: ScreenRow[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="text-[10px] font-semibold uppercase tracking-[1.2px] text-[#9CA3AF]">
-        Fundamental Screens — each applies its author&apos;s actual published methodology
-      </div>
-
       {/* Screen Buttons */}
       <div className="flex flex-wrap gap-2">
         {(Object.entries(SCREENS) as [ScreenKey, ScreenDef][]).map(([key, s]) => (
@@ -145,7 +141,7 @@ export function LegendScreensTab({ rows }: { rows: ScreenRow[] }) {
       {/* Screen Panel */}
       <div className="rounded-[4px] border border-[#E5E7EB] bg-white overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         <h3 className="border-b border-[#E5E7EB] px-4 py-3 font-bold text-[12.5px] text-[#1A1A1A]">
-          {screen.t} <span className="font-normal text-[10px] text-[#9CA3AF]">· real data 2026-08-18</span>
+          {screen.t} <span className="font-normal text-[10px] text-[#9CA3AF]">· real data {pulledDate || "latest filings"}</span>
         </h3>
 
         <div className="px-4 py-2 text-[11px] text-[#6B7280]">{screen.d}</div>

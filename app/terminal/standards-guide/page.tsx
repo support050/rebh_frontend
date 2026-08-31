@@ -203,13 +203,12 @@ const SCREENS: Record<ScreenKey, ScreenDef> = {
     cell: (r, k) =>
       k === "p_roe" && r.p_roe != null ? (
         <span
-          className={`inline-block min-w-[26px] rounded px-1 text-center text-[10px] font-bold ${
-            r.p_roe >= 67
-              ? "bg-[#16A34A]/10 dark:bg-[#0CA30C]/20 text-[#16A34A] dark:text-[#0CA30C]"
-              : r.p_roe >= 34
+          className={`inline-block min-w-[26px] rounded px-1 text-center text-[10px] font-bold ${r.p_roe >= 67
+            ? "bg-[#16A34A]/10 dark:bg-[#0CA30C]/20 text-[#16A34A] dark:text-[#0CA30C]"
+            : r.p_roe >= 34
               ? "bg-[#F3F4F6] dark:bg-[#222220] text-[#6B7280] dark:text-[#C3C2B7]"
               : "bg-[#FEF2F2] dark:bg-[#E66767]/15 text-[#DC2626] dark:text-[#E66767]"
-          }`}
+            }`}
         >
           {r.p_roe}
         </span>
@@ -225,17 +224,17 @@ function fmt(v: number | null | undefined, digits = 1): string {
 export default function LegendsScreenerPage() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  const [cur, setCur] = useState<ScreenKey>("magic");
-  const [sortK, setSortK] = useState<string | null>(null);
-  const [sortAsc, setSortAsc] = useState(true);
-  const [query, setQuery] = useState("");
-
+  
   const [data, setData] = useState<CompanyData[]>([]);
-  const [audit, setAudit] = useState<AuditData | null>(null);
+  const [audit, setAudit] = useState<AuditData>({ pass: 0, na: 0, fixed: 0, mixed: 0, corrupt: 0, magic_n: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cur, setCur] = useState<ScreenKey>("magic");
+  const [sortK, setSortK] = useState<string | null>(null);
+  const [sortAsc, setSortAsc] = useState(false);
+  const [query, setQuery] = useState("");
+  const [mounted, setMounted] = useState(false);
+  const [pulledDate, setPulledDate] = useState<string>("");
 
   useEffect(() => {
     setMounted(true);
@@ -245,9 +244,10 @@ export default function LegendsScreenerPage() {
       setLoading(true);
       setError(null);
       try {
-        const [resRatios, resAudit] = await Promise.all([
+        const [resRatios, resAudit, resMacro] = await Promise.all([
           authFetch("/api/terminal/all-ratios/"),
           authFetch("/api/terminal/audit-summary/"),
+          authFetch("/api/terminal/market-machine/"),
         ]);
         if (!cancelled) {
           if (resRatios.ok) {
@@ -259,6 +259,12 @@ export default function LegendsScreenerPage() {
           if (resAudit.ok) {
             const aud = await resAudit.json();
             setAudit(aud);
+          }
+          if (resMacro.ok) {
+            const macro = await resMacro.json();
+            if (macro?.macro?.pulled_date) {
+              setPulledDate(macro.macro.pulled_date);
+            }
           }
         }
       } catch (err: any) {
@@ -278,15 +284,7 @@ export default function LegendsScreenerPage() {
     };
   }, []);
 
-  // Derive freshest "as of" date from live dataset
-  const asOfDate = useMemo(() => {
-    const dates = data.map((d) => d.end).filter(Boolean) as string[];
-    if (dates.length > 0) {
-      dates.sort();
-      return dates[dates.length - 1];
-    }
-    return "2026-08-18";
-  }, [data]);
+  const asOfDate = pulledDate || new Date().toISOString().slice(0, 10);
 
   const S = SCREENS[cur];
   const screenRows = useMemo(() => {
@@ -363,9 +361,6 @@ export default function LegendsScreenerPage() {
       <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-[#E5E7EB] dark:border-[#2C2C2A] bg-white dark:bg-[#1A1A19] px-6 py-3.5 transition-colors">
         <div>
           <h1 className="text-lg font-bold text-[#1A1A1A] dark:text-[#F2F1ED]">مجلس المال — شاشات الأساطير على السوق السعودي</h1>
-          <div className="mt-1 text-[11.5px] text-[#6B7280] dark:text-[#C3C2B7]">
-            قوائم دخل + <b>ميزانيات + تدفقات نقدية</b> لكل السوق، مسحوبة مباشرة من قاعدة ربح ({asOfDate}) · أسعار إغلاق اليوم نفسه · كل شاشة تطبق منهجية صاحبها الحقيقية لا تقريباً · ° محسوب · ≈ تقدير معلن · ⚑ بيانات قيد المراجعة
-          </div>
         </div>
 
         <button
@@ -414,10 +409,6 @@ export default function LegendsScreenerPage() {
                 <div className="mt-0.5 text-[10.5px] text-[#6B7280] dark:text-[#C3C2B7]">غير مالية + بيانات نظيفة + محدثة</div>
               </div>
             </div>
-
-            <div className="mt-3 border-t border-dashed border-[#E5E7EB] dark:border-[#2C2C2A] pt-2.5 text-[12px] leading-relaxed text-[#6B7280] dark:text-[#C3C2B7]">
-              <b className="text-[#1A1A1A] dark:text-[#F2F1ED]">اكتشاف جوهري أثناء السحب:</b> الطبقة الموحّدة في قاعدة البيانات تضاعف الإجماليات (إجمالي الأصول المعلن = الحقيقي + غير المتداولة مرة ثانية) في <b className="text-[#1A1A1A] dark:text-[#F2F1ED]">{audit.fixed}</b> شركة — المحرك اكتشفها بفحص «الأصول = المطلوبات + الملكية»، واستنتج معادلة الاسترداد الدقيقة وتحقق منها بالريال على دار الأركان وأسمنت السعودية (TA<sub>حقيقي</sub> = (TA<sub>موحّد</sub> + المتداولة) ÷ 2). <b className="text-[#1A1A1A] dark:text-[#F2F1ED]">مطلوب إصلاحها عند المصدر — التفاصيل في خطة المبرمج.</b> كذلك: بند الصكوك/المرابحات غير ممثل في حقل الدين الموحّد لبعض الشركات — عولج بتقدير معلن (≈) من المطلوبات غير المتداولة حتى يُصلح الـ mapping.
-            </div>
           </div>
         )}
 
@@ -431,11 +422,10 @@ export default function LegendsScreenerPage() {
                   setCur(key);
                   setSortK(null);
                 }}
-                className={`rounded-full border-[1.5px] px-4 py-1.5 text-[12.5px] transition-colors ${
-                  cur === key
-                    ? "border-[#8C3B32] dark:border-[#3987E5] bg-[#8C3B32]/5 dark:bg-[#3987E5]/15 font-bold text-[#8C3B32] dark:text-[#3987E5] shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
-                    : "border-[#E5E7EB] dark:border-[#2C2C2A] bg-white dark:bg-[#1A1A19] text-[#6B7280] dark:text-[#C3C2B7] hover:bg-[#F3F4F6] dark:hover:bg-[#222220]"
-                }`}
+                className={`rounded-full border-[1.5px] px-4 py-1.5 text-[12.5px] transition-colors ${cur === key
+                  ? "border-[#8C3B32] dark:border-[#3987E5] bg-[#8C3B32]/5 dark:bg-[#3987E5]/15 font-bold text-[#8C3B32] dark:text-[#3987E5] shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+                  : "border-[#E5E7EB] dark:border-[#2C2C2A] bg-white dark:bg-[#1A1A19] text-[#6B7280] dark:text-[#C3C2B7] hover:bg-[#F3F4F6] dark:hover:bg-[#222220]"
+                  }`}
               >
                 {scr.t.split(" — ")[0]}
               </button>
@@ -481,11 +471,10 @@ export default function LegendsScreenerPage() {
                       <th
                         key={key}
                         onClick={() => setSort(key)}
-                        className={`cursor-pointer select-none whitespace-nowrap px-2.5 py-2 text-[10.5px] font-semibold text-[#6B7280] dark:text-[#898781] hover:text-[#1A1A1A] dark:hover:text-[#F2F1ED] ${
-                          key === "name"
-                            ? "sticky inset-inline-start-0 z-10 bg-[#F3F4F6] dark:bg-[#222220] text-right shadow-[-1px_0_0_#E5E7EB_inset] dark:shadow-[-1px_0_0_#2C2C2A_inset]"
-                            : "text-left"
-                        } ${sortK === key ? "text-[#8C3B32] dark:text-[#3987E5]" : ""}`}
+                        className={`cursor-pointer select-none whitespace-nowrap px-2.5 py-2 text-[10.5px] font-semibold text-[#6B7280] dark:text-[#898781] hover:text-[#1A1A1A] dark:hover:text-[#F2F1ED] ${key === "name"
+                          ? "sticky inset-inline-start-0 z-10 bg-[#F3F4F6] dark:bg-[#222220] text-right shadow-[-1px_0_0_#E5E7EB_inset] dark:shadow-[-1px_0_0_#2C2C2A_inset]"
+                          : "text-left"
+                          } ${sortK === key ? "text-[#8C3B32] dark:text-[#3987E5]" : ""}`}
                       >
                         {label}
                         {sortK === key && <span className="mr-0.5">{sortAsc ? " ↑" : " ↓"}</span>}
@@ -543,8 +532,8 @@ export default function LegendsScreenerPage() {
                               ? v > 0
                                 ? "text-[#16A34A] dark:text-[#0CA30C]"
                                 : v < 0
-                                ? "text-[#DC2626] dark:text-[#E66767]"
-                                : "text-[#1A1A1A] dark:text-[#F2F1ED]"
+                                  ? "text-[#DC2626] dark:text-[#E66767]"
+                                  : "text-[#1A1A1A] dark:text-[#F2F1ED]"
                               : "text-[#1A1A1A] dark:text-[#F2F1ED]";
                           return (
                             <td

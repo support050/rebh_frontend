@@ -80,16 +80,16 @@ export default function KPICards({ C }: Props) {
         return (
           <div
             key={idx}
-            className="relative rounded-[4px] border border-[#E5E7EB] bg-white p-4 pb-10 shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+            className="relative rounded-[4px] border border-[#E5E7EB] dark:border-[#2C2C2A] bg-white dark:bg-[#1A1A19] p-4 pb-10 shadow-[0_1px_3px_rgba(0,0,0,0.06)] transition-colors"
           >
-            <h4 className="text-[11px] font-semibold uppercase tracking-wide text-[#6B7280]">{k.short || k.name}</h4>
-            <div className="mt-1 text-[21px] font-bold tabular-nums text-[#1A1A1A]" dir="ltr">
+            <h4 className="text-[11px] font-semibold uppercase tracking-wide text-[#6B7280] dark:text-[#898781]">{k.short || k.name}</h4>
+            <div className="mt-1 text-[21px] font-bold tabular-nums text-[#1A1A1A] dark:text-[#F2F1ED]" dir="ltr">
               {vLast == null
                 ? "—"
                 : k.eps
                 ? fmtEPS(vLast as number)
                 : fmtM(Math.abs(vLast as number))}{" "}
-              <small className="text-[11.5px] font-normal text-[#6B7280]">
+              <small className="text-[11.5px] font-normal text-[#6B7280] dark:text-[#898781]">
                 {k.eps ? "ريال" : "مليون ر.س"}
               </small>
             </div>
@@ -99,7 +99,7 @@ export default function KPICards({ C }: Props) {
                   {yoyText}
                 </span>
               )}
-              <span className="text-[10.5px] text-[#9CA3AF]">على أساس سنوي ({C.kpis.cmp})</span>
+              <span className="text-[10.5px] text-[#9CA3AF] dark:text-[#898781]">على أساس سنوي ({C.kpis.cmp})</span>
             </div>
 
             {/* Sparkline SVG */}
@@ -117,7 +117,8 @@ export default function KPICards({ C }: Props) {
                     x2="98"
                     y1={spk.zero}
                     y2={spk.zero}
-                    stroke="#E5E7EB"
+                    stroke="currentColor"
+                    className="text-[#E5E7EB] dark:text-[#2C2C2A]"
                     strokeWidth="1"
                     strokeDasharray="2 2"
                   />

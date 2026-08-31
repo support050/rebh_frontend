@@ -21,8 +21,8 @@ interface Props {
 
 export default function TemplateSwitcher({ activeKey, onSelect, themeBtnLabel, onToggleTheme, companiesData }: Props) {
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-[#E5E7EB] bg-white px-7 py-3">
-      <span className="text-[12px] text-[#6B7280]">قالب لكل تصنيف:</span>
+    <div className="flex flex-wrap items-center gap-2 border-b border-[#E5E7EB] dark:border-[#2C2C2A] bg-white dark:bg-[#1A1A19] px-7 py-3 transition-colors">
+      <span className="text-[12px] text-[#6B7280] dark:text-[#898781]">قالب لكل تصنيف:</span>
       {STATIC_TABS.map(([key, staticName, staticDesc]) => {
         const comp = companiesData?.[key];
         const displayName = comp
@@ -34,25 +34,25 @@ export default function TemplateSwitcher({ activeKey, onSelect, themeBtnLabel, o
             key={key}
             onClick={() => onSelect(key)}
             className={`flex flex-col items-start rounded-[4px] border px-3 py-1.5 text-right transition-colors ${activeKey === key
-                ? "border-[#8C3B32] bg-[#8C3B32]/5 font-bold text-[#1A1A1A] shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
-                : "border-[#E5E7EB] bg-white text-[#6B7280] hover:bg-[#F3F4F6]"
+                ? "border-[#8C3B32] dark:border-[#3987E5] bg-[#8C3B32]/5 dark:bg-[#3987E5]/15 font-bold text-[#1A1A1A] dark:text-[#F2F1ED] shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+                : "border-[#E5E7EB] dark:border-[#2C2C2A] bg-white dark:bg-[#1A1A19] text-[#6B7280] dark:text-[#898781] hover:bg-[#F3F4F6] dark:hover:bg-[#222220]"
               }`}
           >
             <span className="text-[12.5px]">{displayName}</span>
-            <small className="text-[10px] text-[#9CA3AF]">{desc}</small>
+            <small className="text-[10px] text-[#9CA3AF] dark:text-[#898781]">{desc}</small>
           </button>
         );
       })}
       <a
         href="/terminal/forensic-audit"
-        className="flex flex-col items-start rounded-[4px] border border-[#8C3B32]/25 bg-[#8C3B32]/[0.04] px-3 py-1.5 text-right text-[#8C3B32] hover:bg-[#8C3B32]/10 transition-colors"
+        className="flex flex-col items-start rounded-[4px] border border-[#8C3B32]/25 dark:border-[#3987E5]/25 bg-[#8C3B32]/[0.04] dark:bg-[#3987E5]/[0.08] px-3 py-1.5 text-right text-[#8C3B32] dark:text-[#3987E5] hover:bg-[#8C3B32]/10 dark:hover:bg-[#3987E5]/15 transition-colors"
       >
         <span className="text-[12.5px] font-bold">ورقة التدقيق المالي ↗</span>
-        <small className="text-[10px] text-[#8C3B32]/70">فحص أي سهم (تدقيق XBRL كامل)</small>
+        <small className="text-[10px] text-[#8C3B32]/70 dark:text-[#3987E5]/70">فحص أي سهم (تدقيق XBRL كامل)</small>
       </a>
       <button
         onClick={onToggleTheme}
-        className="mr-auto rounded-[4px] border border-[#E5E7EB] px-3 py-1 text-[12px] text-[#6B7280] hover:bg-[#F3F4F6] transition-colors"
+        className="mr-auto rounded-[4px] border border-[#E5E7EB] dark:border-[#2C2C2A] px-3 py-1 text-[12px] text-[#6B7280] dark:text-[#898781] hover:bg-[#F3F4F6] dark:hover:bg-[#222220] transition-colors"
       >
         {themeBtnLabel}
       </button>

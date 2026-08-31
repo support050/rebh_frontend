@@ -252,9 +252,7 @@ export function CompanyDeepDiveTab({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="text-[10px] font-semibold uppercase tracking-[1.2px] text-[#9CA3AF]">
-          Company Deep-Dive — the full financial workup, one page
-        </div>
+        <div></div>
 
         {/* Search Input for Any Symbol */}
         <form onSubmit={handleSearchSubmit} className="flex items-center gap-2">

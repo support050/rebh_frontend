@@ -15,10 +15,6 @@ interface AuditSummaryTabProps {
 export function ForensicAuditTab({ auditData }: AuditSummaryTabProps) {
   return (
     <div className="space-y-4">
-      <div className="text-[10px] font-semibold uppercase tracking-[1.2px] text-[#9CA3AF]">
-        Forensic Audit — Burry layer · what the engine checked, found, fixed and refuses to show
-      </div>
-
       {/* KPI Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard

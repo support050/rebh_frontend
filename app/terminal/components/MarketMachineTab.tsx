@@ -35,10 +35,6 @@ export function MarketMachineTab({ macro }: MarketMachineProps) {
 
   return (
     <div className="space-y-4">
-      <div className="text-[10px] font-semibold uppercase tracking-[1.2px] text-[#9CA3AF]">
-        The Economic Machine — Dalio layer · aggregated from every pulled filing, not estimates
-      </div>
-
       {/* KPI Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
@@ -60,9 +56,9 @@ export function MarketMachineTab({ macro }: MarketMachineProps) {
           color=""
         />
         <KpiCard
-          value={`${macro.coverage_weak_n} / ${macro.coverage_all_n}`}
-          label="companies with interest coverage < 2×°"
-          sub="the leverage watchlist — where the cycle bites first"
+          value={`${fmt(macro.top10_mc_share_pct)}%`}
+          label="top 10 market-cap concentration°"
+          sub="breadth must be count-based, not cap-weighted"
           color=""
         />
       </div>
@@ -74,10 +70,10 @@ export function MarketMachineTab({ macro }: MarketMachineProps) {
             Sector Earnings Breadth{" "}
             <span className="font-normal text-[10px] text-[#9CA3AF]">· % of sector with TTM profit growing YoY° · sectors with n&lt;3 withheld</span>
           </h3>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overflow-y-auto max-h-[380px]">
             <table className="w-full text-right text-[11.8px] tabular-nums">
-              <thead>
-                <tr className="bg-[#F3F4F6] text-[9.8px] text-[#6B7280]">
+              <thead className="sticky top-0 z-10 bg-[#F3F4F6] shadow-sm">
+                <tr className="text-[9.8px] text-[#6B7280]">
                   <th className="px-3 py-2 text-left font-semibold">Sector</th>
                   <th className="px-3 py-2 font-semibold">n</th>
                   <th className="px-3 py-2 font-semibold">% growing</th>

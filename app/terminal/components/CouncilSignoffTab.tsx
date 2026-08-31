@@ -54,10 +54,6 @@ export function CouncilSignoffTab() {
 
   return (
     <div className="space-y-4">
-      <div className="text-[10px] font-semibold uppercase tracking-[1.2px] text-[#9CA3AF]">
-        The Council — every market wizard, assembled and agreeing on this financial layer
-      </div>
-
       <div className="overflow-hidden rounded-[4px] border border-[#E5E7EB] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         <h3 className="border-b border-[#E5E7EB] px-4 py-3 font-bold text-[12.5px] text-[#1A1A1A]">
           Unanimous sign-off{" "}

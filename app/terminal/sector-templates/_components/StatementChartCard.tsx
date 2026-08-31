@@ -25,7 +25,7 @@ interface Props {
 export default function StatementChartCard({ chartRow, curStmt, isReal }: Props) {
   if (!chartRow || !chartRow.v) {
     return (
-      <div className="rounded-[4px] border border-[#E5E7EB] bg-white p-4 text-center text-[#6B7280] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+      <div className="rounded-[4px] border border-[#E5E7EB] dark:border-[#2C2C2A] bg-white dark:bg-[#1A1A19] p-4 text-center text-[#6B7280] dark:text-[#898781] shadow-[0_1px_3px_rgba(0,0,0,0.06)] transition-colors">
         لا توجد بيانات متاحة لهذا البند
       </div>
     );
@@ -66,9 +66,9 @@ export default function StatementChartCard({ chartRow, curStmt, isReal }: Props)
   const hasNegative = vals.some((v) => v != null && v < 0);
 
   return (
-    <div className="rounded-[4px] border border-[#E5E7EB] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+    <div className="rounded-[4px] border border-[#E5E7EB] dark:border-[#2C2C2A] bg-white dark:bg-[#1A1A19] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] transition-colors">
       <div className="flex flex-wrap items-center justify-between pb-2">
-        <h3 className="text-[14px] font-bold text-[#1A1A1A]">
+        <h3 className="text-[14px] font-bold text-[#1A1A1A] dark:text-[#F2F1ED]">
           {chartRow.ar}
           {isCum
             ? " — ربعي (محسوب° من التراكمي المعلن)"
@@ -76,7 +76,7 @@ export default function StatementChartCard({ chartRow, curStmt, isReal }: Props)
             ? " — كما ورد"
             : " — ربعي"}
         </h3>
-        <span className="text-[11.5px] text-[#9CA3AF]">
+        <span className="text-[11.5px] text-[#9CA3AF] dark:text-[#898781]">
           اضغط أي بند في الجدول لتغيير الشارت · تفاعلي Hover
         </span>
       </div>
@@ -119,9 +119,9 @@ export default function StatementChartCard({ chartRow, curStmt, isReal }: Props)
                   return (
                     <div
                       dir="rtl"
-                      className="rounded border border-[#E5E7EB] bg-white p-2.5 shadow-lg text-[12px]"
+                      className="rounded border border-[#E5E7EB] dark:border-[#2C2C2A] bg-white dark:bg-[#1A1A19] p-2.5 shadow-lg text-[12px]"
                     >
-                      <div className="font-bold text-[#1A1A1A]">
+                      <div className="font-bold text-[#1A1A1A] dark:text-[#F2F1ED]">
                         {d.periodAr} ({d.periodEn})
                       </div>
                       <div className="mt-1 flex items-center justify-between gap-4 text-[#6B7280]">

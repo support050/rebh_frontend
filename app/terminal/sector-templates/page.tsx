@@ -155,9 +155,9 @@ export default function SectorTemplatesOptimalPage() {
 
   if (loading || !C) {
     return (
-      <div dir="rtl" className="flex min-h-screen items-center justify-center bg-[#F7F8FA] text-[#1A1A1A]">
+      <div dir="rtl" className="flex min-h-screen items-center justify-center bg-[#F7F8FA] dark:bg-[#0D0D0D] text-[#1A1A1A] dark:text-[#F2F1ED]">
         <div className="text-center">
-          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-[#E5E7EB] border-t-[#8C3B32]" />
+          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-[#E5E7EB] dark:border-[#2C2C2A] border-t-[#8C3B32] dark:border-t-[#3987E5]" />
           <div className="text-[15px] font-bold">جارٍ تحميل منظومة قوالب القطاعات المالية OPTIMAL v3...</div>
           <div className="mt-1 text-[12px] text-[#6B7280]">قوالب البنوك، الدورية، التأمين، شركات التمويل، وصناديق الريت</div>
         </div>
@@ -166,7 +166,7 @@ export default function SectorTemplatesOptimalPage() {
   }
 
   return (
-    <div dir="rtl" className="min-h-screen bg-[#F7F8FA] font-sans text-[14px] text-[#1A1A1A]">
+    <div dir="rtl" className="min-h-screen bg-[#F7F8FA] dark:bg-[#0D0D0D] font-sans text-[14px] text-[#1A1A1A] dark:text-[#F2F1ED] transition-colors">
       {/* ── 1. Top Sector Template Switcher ── */}
       <TemplateSwitcher
         activeKey={cKey}
@@ -181,7 +181,7 @@ export default function SectorTemplatesOptimalPage() {
       <CompanyHeader C={C} />
 
       <div className="mx-auto max-w-[1280px] space-y-4 px-7 py-4 pb-16">
-        <div className="text-[12px] text-[#9CA3AF]">{C.unit}</div>
+        <div className="text-[12px] text-[#9CA3AF] dark:text-[#898781]">{C.unit}</div>
 
         {/* ── 3. Price Bridge & Results Marks ── */}
         <PriceBridge priceData={priceData} priceLoading={priceLoading} C={C} />

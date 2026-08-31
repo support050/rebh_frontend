@@ -3,6 +3,9 @@ import React from "react";
 interface QuantLabTabProps {
   quantData: {
     factors: Record<string, {
+      name?: string;
+      sector?: string;
+      flags?: string[];
       value: number | null;
       quality: number | null;
       cash: number | null;
@@ -22,13 +25,18 @@ interface QuantLabTabProps {
   fmt: (v: number | null | undefined, digits?: number) => string;
 }
 
-// UX note: the original table had no way to find a single name in a long
-// cross-sectional ranking, and only ever sorted by composite rank. Added a
-// symbol/company search box and click-to-sort columns (matching the pattern
-// used on the Ratios — All Market tab) so this behaves consistently with the
-// rest of the terminal.
+type SortKey = "rank" | "composite" | "value" | "quality" | "cash" | "growth" | "balance" | "coverage" | "sym" | "name" | "sector";
 
-type SortKey = "rank" | "composite" | "value" | "quality" | "cash" | "growth" | "balance" | "coverage" | "sym";
+function renderBadges(flags: string[] = []) {
+  const badges: React.ReactNode[] = [];
+  if (flags.includes("≈debt")) {
+    badges.push(<span key="approx" className="ml-1.5 inline-block rounded-full bg-[#F3F4F6] px-1.5 text-[9px] text-[#6B7280]" title="LT debt approximated">≈</span>);
+  }
+  if (flags.includes("⚑")) {
+    badges.push(<span key="flag" className="ml-1.5 inline-block rounded-full bg-[#FEF2F2] px-1.5 text-[9px] text-[#DC2626]">⚑</span>);
+  }
+  return badges;
+}
 
 export function QuantLabTab({ quantData }: QuantLabTabProps) {
   const [query, setQuery] = React.useState("");
@@ -42,7 +50,13 @@ export function QuantLabTab({ quantData }: QuantLabTabProps) {
 
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
-    const rows = q ? allFactors.filter(([sym]) => sym.toLowerCase().includes(q)) : allFactors;
+    const rows = q 
+      ? allFactors.filter(([sym, f]) => 
+          sym.toLowerCase().includes(q) || 
+          (f.name && f.name.toLowerCase().includes(q)) || 
+          (f.sector && f.sector.toLowerCase().includes(q))
+        ) 
+      : allFactors;
     return [...rows].sort((a, b) => {
       const [symA, fA] = a;
       const [symB, fB] = b;
@@ -51,6 +65,12 @@ export function QuantLabTab({ quantData }: QuantLabTabProps) {
       if (sortKey === "sym") {
         x = symA;
         y = symB;
+      } else if (sortKey === "name") {
+        x = fA.name || symA;
+        y = fB.name || symB;
+      } else if (sortKey === "sector") {
+        x = fA.sector || "";
+        y = fB.sector || "";
       } else {
         x = (fA as any)[sortKey];
         y = (fB as any)[sortKey];
@@ -68,7 +88,7 @@ export function QuantLabTab({ quantData }: QuantLabTabProps) {
     if (sortKey === key) setSortAsc((v) => !v);
     else {
       setSortKey(key);
-      setSortAsc(key === "sym");
+      setSortAsc(key === "sym" || key === "name" || key === "sector" || key === "rank");
     }
   }
 
@@ -101,10 +121,6 @@ export function QuantLabTab({ quantData }: QuantLabTabProps) {
 
   return (
     <div className="space-y-4">
-      <div className="text-[10px] font-semibold uppercase tracking-[1.2px] text-[#9CA3AF]">
-        Quant Lab — cross-sectional factor model · Asness/Shaw layer
-      </div>
-
       {/* 4 Quant KPIs */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard value={`${quantData.quant.scored_n}`} label={`companies scored (of ${quantData.quant.pool_n} eligible non-financials)`} sub="excluded names are listed, never silent" />
@@ -119,7 +135,7 @@ export function QuantLabTab({ quantData }: QuantLabTabProps) {
           <h3 className="font-bold text-[12.5px] text-[#1A1A1A]">
             Composite Factor Ranking{" "}
             <span className="font-normal text-[10px] text-[#9CA3AF]">
-              · equal-weight z-scores: Value (−EV/EBIT) · Quality (ROIC) · Cash (FCF yield) · Growth (net YoY) · Balance (−D/E)
+              · equal-weight 5-factor cross-sectional model · fresh non-financials only
             </span>
           </h3>
 
@@ -128,8 +144,8 @@ export function QuantLabTab({ quantData }: QuantLabTabProps) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleSearchKeyDown}
-            placeholder="Search symbol…"
-            className="w-full max-w-[200px] rounded-[4px] border border-[#E5E7EB] bg-[#F7F8FA] px-3 py-1.5 text-[11.5px] text-[#1A1A1A] placeholder:text-[#9CA3AF] outline-none transition-colors focus:border-[#8C3B32] focus:ring-2 focus:ring-[#8C3B32]/15"
+            placeholder="Search company or symbol…"
+            className="w-full max-w-[220px] rounded-[4px] border border-[#E5E7EB] bg-[#F7F8FA] px-3 py-1.5 text-[11.5px] text-[#1A1A1A] placeholder:text-[#9CA3AF] outline-none transition-colors focus:border-[#8C3B32] focus:ring-2 focus:ring-[#8C3B32]/15"
           />
         </div>
 
@@ -149,10 +165,16 @@ export function QuantLabTab({ quantData }: QuantLabTabProps) {
                   #
                 </th>
                 <th
-                  onClick={() => handleSort("sym")}
-                  className={`sticky left-0 z-10 cursor-pointer select-none whitespace-nowrap bg-[#F3F4F6] px-2.5 py-2 text-left font-semibold ${sortKey === "sym" ? "text-[#8C3B32]" : ""}`}
+                  onClick={() => handleSort("name")}
+                  className={`sticky left-0 z-10 cursor-pointer select-none whitespace-nowrap bg-[#F3F4F6] px-2.5 py-2 text-left font-semibold ${sortKey === "name" ? "text-[#8C3B32]" : ""}`}
                 >
-                  Symbol
+                  Company
+                </th>
+                <th
+                  onClick={() => handleSort("sector")}
+                  className={`cursor-pointer select-none whitespace-nowrap px-2.5 py-2 text-left font-semibold ${sortKey === "sector" ? "text-[#8C3B32]" : ""}`}
+                >
+                  Sector
                 </th>
                 {cols.map(([label, key]) => (
                   <th
@@ -170,9 +192,12 @@ export function QuantLabTab({ quantData }: QuantLabTabProps) {
               {filtered.map(([sym, f]) => (
                 <tr key={sym} id={`quant-row-${sym}`} className="border-b border-[#E5E7EB] transition-colors hover:bg-[#F3F4F6]">
                   <td className="px-2.5 py-1.5 text-left font-bold text-[#1A1A1A]">{f.rank}</td>
-                  <td className="sticky left-0 z-10 bg-white px-2.5 py-1.5 text-left font-semibold text-[#1A1A1A]">
-                    {sym}
+                  <td className="sticky left-0 z-10 bg-white px-2.5 py-1.5 text-left font-bold text-[#1A1A1A]">
+                    <span className="tracking-wide uppercase">{f.name || sym}</span>{" "}
+                    <span className="font-normal text-[10px] text-[#9CA3AF]">{sym}</span>
+                    {renderBadges(f.flags)}
                   </td>
+                  <td className="px-2.5 py-1.5 text-left text-[#6B7280] text-[11px] whitespace-nowrap">{f.sector || "General"}</td>
                   <td className="px-2.5 py-1.5 font-bold text-[#8C3B32]">{f.composite.toFixed(2)}</td>
                   {zc(f.value)}
                   {zc(f.quality)}

@@ -296,7 +296,7 @@ function TerminalContent() {
 
             {/* ══════════ TAB: LEGEND SCREENS ══════════ */}
             {activeTab === "screens" && (
-              <LegendScreensTab rows={ratiosData as any} />
+              <LegendScreensTab rows={ratiosData as any} pulledDate={macro?.pulled_date} />
             )}
 
             {/* ══════════ TAB: RATIOS — ALL MARKET ══════════ */}
