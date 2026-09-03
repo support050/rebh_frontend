@@ -426,6 +426,16 @@ export default function Navbar() {
 
       ],
     },
+    Terminal: {
+      en: 'Terminal',
+      href: '#',
+      items: [
+        { en: 'Terminal', href: '/terminal' },
+        { en: 'Company-analyzer', href: '/terminal/company-analyzer' },
+        { en: 'sector-templete', href: '/terminal/sector-templates' },
+        { en: 'standards-guide', href: '/terminal/standards-guide' },
+      ],
+    },
   }
 
   // ── Handlers ─────────────────────────────────

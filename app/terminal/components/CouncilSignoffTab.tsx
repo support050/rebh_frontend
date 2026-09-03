@@ -63,9 +63,8 @@ export function CouncilSignoffTab() {
         </h3>
 
         {loading ? (
-          <div className="p-12 text-center text-[#6B7280]">
-            <div className="mb-2 inline-block h-6 w-6 animate-spin rounded-full border-2 border-[#8C3B32] border-t-transparent" />
-            <p>Verifying methodology sign-offs against active filings…</p>
+          <div className="p-12 text-center flex items-center justify-center">
+            <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-[#8C3B32] border-t-transparent" />
           </div>
         ) : error || !data ? (
           <div className="m-4 rounded-[4px] border border-[#FECACA] bg-[#FEF2F2] p-4 text-center text-[12px] text-[#DC2626]">

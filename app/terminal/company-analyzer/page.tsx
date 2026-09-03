@@ -341,11 +341,8 @@ export default function CompanyFundamentalPage() {
   // ── LOADING STATE ──
   if (loading) {
     return (
-      <div dir="rtl" className="flex min-h-screen items-center justify-center bg-[#F7F8FA]">
-        <div className="text-center">
-          <div className="text-lg font-bold text-[#1A1A1A]">جارٍ تحميل بيانات التحليل الأساسي...</div>
-          <div className="text-[12px] text-[#6B7280]">استرجاع القوائم والسلاسل الزمنية للرمز {sym}</div>
-        </div>
+      <div dir="rtl" className="flex min-h-screen items-center justify-center bg-[#F7F8FA] dark:bg-[#0D0D0D]">
+        <div className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-[#E5E7EB] dark:border-[#2C2C2A] border-t-[#8C3B32] dark:border-t-[#3987E5]" />
       </div>
     );
   }

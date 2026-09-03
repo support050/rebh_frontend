@@ -272,11 +272,11 @@ function TerminalContent() {
 
         {loading ? (
           <div
-            className="rounded-[4px] border p-12 text-center shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
-            style={{ backgroundColor: T.panel, borderColor: T.border, color: T.muted }}
+            className="rounded-[4px] border p-12 text-center shadow-[0_1px_3px_rgba(0,0,0,0.06)] flex items-center justify-center"
+            style={{ backgroundColor: T.panel, borderColor: T.border }}
           >
             <div
-              className="mb-2 inline-block h-6 w-6 animate-spin rounded-full border-2"
+              className="inline-block h-6 w-6 animate-spin rounded-full border-2"
               style={{
                 borderLeftColor: T.accent,
                 borderRightColor: T.accent,
@@ -284,8 +284,6 @@ function TerminalContent() {
                 borderTopColor: 'transparent',
               }}
             />
-
-            <p>Loading real-time XBRL terminal engine…</p>
           </div>
         ) : (
           <>

@@ -93,9 +93,8 @@ export default function ForensicSheetPage() {
 
         {/* Loading / Error States */}
         {loading && (
-          <div className="rounded-[4px] border border-[#E5E7EB] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-12 text-center text-[#6B7280] text-sm">
-            <div className="inline-block animate-spin w-6 h-6 border-2 border-[#8C3B32] border-t-transparent rounded-full mb-3" />
-            <p>جاري استرجاع القوائم المالية وإجراء الفحوصات الجنائية لـ ({symbol})...</p>
+          <div className="rounded-[4px] border border-[#E5E7EB] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-12 text-center flex items-center justify-center">
+            <div className="inline-block animate-spin w-6 h-6 border-2 border-[#8C3B32] border-t-transparent rounded-full" />
           </div>
         )}
 

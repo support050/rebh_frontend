@@ -155,12 +155,8 @@ export default function SectorTemplatesOptimalPage() {
 
   if (loading || !C) {
     return (
-      <div dir="rtl" className="flex min-h-screen items-center justify-center bg-[#F7F8FA] dark:bg-[#0D0D0D] text-[#1A1A1A] dark:text-[#F2F1ED]">
-        <div className="text-center">
-          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-[#E5E7EB] dark:border-[#2C2C2A] border-t-[#8C3B32] dark:border-t-[#3987E5]" />
-          <div className="text-[15px] font-bold">جارٍ تحميل منظومة قوالب القطاعات المالية OPTIMAL v3...</div>
-          <div className="mt-1 text-[12px] text-[#6B7280]">قوالب البنوك، الدورية، التأمين، شركات التمويل، وصناديق الريت</div>
-        </div>
+      <div dir="rtl" className="flex min-h-screen items-center justify-center bg-[#F7F8FA] dark:bg-[#0D0D0D]">
+        <div className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-[#E5E7EB] dark:border-[#2C2C2A] border-t-[#8C3B32] dark:border-t-[#3987E5]" />
       </div>
     );
   }

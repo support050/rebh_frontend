@@ -457,9 +457,8 @@ export default function LegendsScreenerPage() {
           <div className="px-4 pb-2.5 text-[11.5px] text-[#9CA3AF] dark:text-[#898781]">{screenRows.length} شركة</div>
 
           {loading ? (
-            <div className="p-12 text-center text-[#6B7280] dark:text-[#C3C2B7]">
-              <div className="mb-2 inline-block h-6 w-6 animate-spin rounded-full border-2 border-[#8C3B32] dark:border-[#3987E5] border-t-transparent dark:border-t-transparent" />
-              <p className="text-[12px]">جاري تحميل بيانات شاشات الأساطير من إفصاحات XBRL الفعلية…</p>
+            <div className="p-12 text-center">
+              <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-[#8C3B32] dark:border-[#3987E5] border-t-transparent dark:border-t-transparent" />
             </div>
           ) : (
 

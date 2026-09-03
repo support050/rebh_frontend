@@ -290,9 +290,8 @@ export function CompanyDeepDiveTab({
       </div>
 
       {loading ? (
-        <div className="rounded-[4px] border border-[#E5E7EB] bg-white p-12 text-center text-[#6B7280] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <div className="mb-2 inline-block h-6 w-6 animate-spin rounded-full border-2 border-[#8C3B32] border-t-transparent" />
-          <p>Loading company financial audit for {curSym}…</p>
+        <div className="rounded-[4px] border border-[#E5E7EB] bg-white p-12 text-center shadow-[0_1px_3px_rgba(0,0,0,0.06)] flex items-center justify-center">
+          <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-[#8C3B32] border-t-transparent" />
         </div>
       ) : error || !data ? (
         <div className="rounded-[4px] border border-[#FECACA] bg-[#FEF2F2] p-4 text-center text-[12px] text-[#DC2626]">
