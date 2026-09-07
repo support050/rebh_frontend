@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Search } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api/config";
 
 interface PeerCompany {
@@ -30,6 +30,9 @@ interface SectorPeersTableProps {
 export default function SectorPeersTable({ currentSymbol, sector }: SectorPeersTableProps) {
   const [peers, setPeers] = useState<PeerCompany[]>([]);
   const [loading, setLoading] = useState(true);
+  // UX addition: the original table had no way to jump to a specific peer once the
+  // sector list got long. Added a lightweight local filter — logic/data flow untouched.
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     async function loadPeers() {
@@ -57,9 +60,17 @@ export default function SectorPeersTable({ currentSymbol, sector }: SectorPeersT
     }
   }, [sector]);
 
+  const filteredPeers = useMemo(() => {
+    if (!query.trim()) return peers;
+    const q = query.trim().toLowerCase();
+    return peers.filter(
+      p => p.sym.toLowerCase().includes(q) || p.n.toLowerCase().includes(q)
+    );
+  }, [peers, query]);
+
   if (loading) {
     return (
-      <div className="bg-[#121924] border border-[#1e2836] rounded-xl p-5 text-center text-xs text-[#657081] font-mono">
+      <div className="bg-white border border-[#E5E7EB] rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-6 text-center text-xs text-[#6B7280] font-mono">
         جاري تحميل نظراء القطاع ({sector})...
       </div>
     );
@@ -70,73 +81,91 @@ export default function SectorPeersTable({ currentSymbol, sector }: SectorPeersT
   }
 
   return (
-    <div className="bg-[#121924] border border-[#1e2836] rounded-xl p-5 overflow-hidden">
-      <div className="flex justify-between items-center mb-3">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-white font-mono flex items-center gap-2">
-          مقارنة نظراء القطاع — PEERS ({sector})
-        </h3>
-        <span className="text-[10px] text-[#657081] font-mono">
-          {peers.length} شركات في القطاع مرتبة حسب القيمة السوقية
-        </span>
+    <div className="bg-white border border-[#E5E7EB] rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-6 overflow-hidden">
+      <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
+        <div>
+          <h3 className="text-sm font-bold text-[#1A1A1A]">
+            مقارنة نظراء القطاع ({sector})
+          </h3>
+          <span className="text-[11px] text-[#6B7280] font-mono">
+            {filteredPeers.length} من {peers.length} شركة، مرتبة حسب القيمة السوقية
+          </span>
+        </div>
+
+        <div className="relative">
+          <Search className="w-3.5 h-3.5 text-[#9CA3AF] absolute right-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="ابحث عن رمز أو اسم شركة..."
+            className="text-xs bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px] pl-3 pr-8 py-1.5 w-[220px] text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#8C3B32] focus:ring-1 focus:ring-[#8C3B32]/20 transition-colors"
+          />
+        </div>
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-xs font-mono text-right">
+        <table className="w-full text-xs text-right border-collapse">
           <thead>
-            <tr className="text-[#657081] border-b border-[#1e2836] bg-[#0e1218]">
-              <th className="p-2.5">الرمز والشركة</th>
-              <th className="p-2.5">القيمة السوقية</th>
-              <th className="p-2.5">السعر</th>
-              <th className="p-2.5">مكرر P/E</th>
-              <th className="p-2.5">مكرر P/B</th>
-              <th className="p-2.5">العائد ROE%</th>
-              <th className="p-2.5">الرافعة D/E</th>
-              <th className="p-2.5">نمو الأرباح YoY</th>
-              <th className="p-2.5">الانتقال</th>
+            <tr className="text-[#6B7280] border-b border-[#E5E7EB] bg-[#F3F4F6]">
+              <th className="p-2.5 font-semibold sticky right-0 bg-[#F3F4F6]">الرمز والشركة</th>
+              <th className="p-2.5 font-semibold">القيمة السوقية</th>
+              <th className="p-2.5 font-semibold">السعر</th>
+              <th className="p-2.5 font-semibold">مكرر P/E</th>
+              <th className="p-2.5 font-semibold">مكرر P/B</th>
+              <th className="p-2.5 font-semibold">العائد ROE%</th>
+              <th className="p-2.5 font-semibold">الرافعة D/E</th>
+              <th className="p-2.5 font-semibold">نمو الأرباح YoY</th>
+              <th className="p-2.5 font-semibold">الانتقال</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#1e2836]">
-            {peers.map((p) => {
+          <tbody className="divide-y divide-[#E5E7EB]">
+            {filteredPeers.length === 0 && (
+              <tr>
+                <td colSpan={9} className="p-6 text-center text-[#9CA3AF] font-mono text-xs">
+                  لا توجد شركات مطابقة لبحثك
+                </td>
+              </tr>
+            )}
+            {filteredPeers.map((p) => {
               const isCurrent = p.sym === currentSymbol;
               return (
                 <tr
                   key={p.sym}
-                  className={`hover:bg-white/[0.03] transition ${
-                    isCurrent ? "bg-[#3987e5]/10 font-bold" : ""
-                  }`}
+                  className={`transition-colors ${isCurrent ? "bg-[#F3F4F6]" : "hover:bg-[#F3F4F6]/60"
+                    }`}
                 >
-                  <td className="p-2.5 flex items-center gap-2">
-                    <span className="text-white font-mono">{p.sym}</span>
-                    <span className="text-[#a7b1bd] font-sans text-[11px] truncate max-w-[140px]">
+                  <td className={`p-2.5 flex items-center gap-2 sticky right-0 ${isCurrent ? "bg-[#F3F4F6]" : "bg-white"}`}>
+                    <span className="text-[#1A1A1A] font-mono font-semibold">{p.sym}</span>
+                    <span className="text-[#6B7280] text-[11px] truncate max-w-[140px]">
                       {p.n}
                     </span>
                     {isCurrent && (
-                      <span className="text-[9px] px-1.5 py-0.2 bg-[#3987e5] text-white rounded font-sans">
+                      <span className="text-[9px] px-1.5 py-0.5 bg-[#8C3B32] text-white rounded-full">
                         السهم الحالي
                       </span>
                     )}
                   </td>
-                  <td className="p-2.5 text-white">
+                  <td className="p-2.5 text-[#1A1A1A] font-mono tabular-nums">
                     {p.mc ? `${(p.mc / 1000).toFixed(1)}B` : "—"}
                   </td>
-                  <td className="p-2.5 text-white">{p.px ? p.px.toFixed(2) : "—"}</td>
-                  <td className="p-2.5 text-[#d9b64a]">{p.pe ? `${p.pe.toFixed(1)}x` : "—"}</td>
-                  <td className="p-2.5 text-white">{p.pb ? `${p.pb.toFixed(2)}x` : "—"}</td>
-                  <td className="p-2.5 text-emerald-400">
+                  <td className="p-2.5 text-[#1A1A1A] font-mono tabular-nums">{p.px ? p.px.toFixed(2) : "—"}</td>
+                  <td className="p-2.5 text-[#8C3B32] font-mono tabular-nums">{p.pe ? `${p.pe.toFixed(1)}x` : "—"}</td>
+                  <td className="p-2.5 text-[#1A1A1A] font-mono tabular-nums">{p.pb ? `${p.pb.toFixed(2)}x` : "—"}</td>
+                  <td className="p-2.5 text-[#16A34A] font-mono tabular-nums">
                     {p.roe != null ? `${p.roe.toFixed(1)}%` : "—"}
                   </td>
-                  <td className="p-2.5 text-white">{p.de != null ? `${p.de.toFixed(2)}x` : "—"}</td>
+                  <td className="p-2.5 text-[#1A1A1A] font-mono tabular-nums">{p.de != null ? `${p.de.toFixed(2)}x` : "—"}</td>
                   <td
-                    className={`p-2.5 font-bold ${
-                      p.g_net != null && p.g_net >= 0 ? "text-emerald-400" : "text-rose-400"
-                    }`}
+                    className={`p-2.5 font-mono font-semibold tabular-nums ${p.g_net != null && p.g_net >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"
+                      }`}
                   >
                     {p.g_net != null ? `${p.g_net > 0 ? "+" : ""}${p.g_net.toFixed(1)}%` : "—"}
                   </td>
                   <td className="p-2.5">
                     <Link
                       href={`/rebh/${p.sym}`}
-                      className="text-[#3987e5] hover:text-white flex items-center gap-0.5 text-[11px]"
+                      className="text-[#8C3B32] hover:underline flex items-center gap-0.5 text-[11px] font-medium"
                     >
                       <span>فحص</span>
                       <ArrowUpRight className="w-3 h-3" />

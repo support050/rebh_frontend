@@ -9,6 +9,7 @@ import {
     DollarSign,
     Trash2,
 } from "lucide-react";
+import { API_BASE_URL } from "@/lib/api/config";
 
 /* ============================================================
    REBH · Trade Journal — the discipline machine
@@ -69,17 +70,47 @@ export default function TradeJournalPage() {
     const [sellPrice, setSellPrice] = useState("");
     const [reason, setReason] = useState("");
 
-    // ---- load / persist ----
+    // ---- load / persist from backend API ----
     useEffect(() => {
-        try {
-            const raw = localStorage.getItem(STORAGE_KEY);
-            const rawCap = localStorage.getItem(CAPITAL_KEY);
-            if (raw) setTrades(JSON.parse(raw));
-            if (rawCap) setCapital(Number(rawCap));
-        } catch (e) {
-            console.error("Failed to load trade journal from storage", e);
+        async function fetchJournal() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/rebh/journal`, {
+                    credentials: "include"
+                });
+                if (res.ok) {
+                    const serverTrades = await res.json();
+                    if (Array.isArray(serverTrades) && serverTrades.length > 0) {
+                        setTrades(serverTrades.map((t: any) => ({
+                            id: String(t.id),
+                            symbol: t.symbol || t.sym,
+                            type: t.type || "buy",
+                            shares: t.shares,
+                            buyPrice: t.buy_price ?? t.buyPx,
+                            sellPrice: t.sell_price ?? t.sellPx,
+                            status: t.status,
+                            reason: t.reason,
+                            createdAt: t.trade_date || t.tradeDate
+                        })));
+                    } else {
+                        // fallback to localStorage if server empty
+                        const raw = localStorage.getItem(STORAGE_KEY);
+                        if (raw) {
+                            const localTrades = JSON.parse(raw);
+                            if (Array.isArray(localTrades)) setTrades(localTrades);
+                        }
+                    }
+                }
+                const rawCap = localStorage.getItem(CAPITAL_KEY);
+                if (rawCap) setCapital(Number(rawCap));
+            } catch (e) {
+                console.error("Failed to load trade journal from API", e);
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (raw) setTrades(JSON.parse(raw));
+            } finally {
+                setHydrated(true);
+            }
         }
-        setHydrated(true);
+        fetchJournal();
     }, []);
 
     useEffect(() => {
@@ -87,7 +118,7 @@ export default function TradeJournalPage() {
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(trades));
         } catch (e) {
-            console.error("Failed to persist trade journal", e);
+            console.error("Failed to persist trade journal to localStorage", e);
         }
     }, [trades, hydrated]);
 
@@ -110,38 +141,36 @@ export default function TradeJournalPage() {
             return { ...t, ret, amt, pnl };
         });
 
-        const wins = withMath.filter((t) => t.ret > 0);
-        const losses = withMath.filter((t) => t.ret <= 0);
+        const wins = withMath.filter((t) => t.pnl > 0);
+        const losses = withMath.filter((t) => t.pnl < 0);
 
-        const winRate = withMath.length ? wins.length / withMath.length : 0;
-        const lossRate = 1 - winRate;
+        const winRate = withMath.length > 0 ? wins.length / withMath.length : 0;
+        const lossRate = withMath.length > 0 ? losses.length / withMath.length : 0;
 
-        const avgGain = wins.length ? wins.reduce((a, t) => a + t.ret, 0) / wins.length : 0;
-        const avgLoss = losses.length
-            ? Math.abs(losses.reduce((a, t) => a + t.ret, 0) / losses.length)
-            : 0;
+        const avgGain = wins.length > 0 ? wins.reduce((s, t) => s + t.ret, 0) / wins.length : 0;
+        const avgLoss = losses.length > 0 ? Math.abs(losses.reduce((s, t) => s + t.ret, 0) / losses.length) : 0;
 
-        // Reward/Risk = Avg Gain % / Avg Loss %
         const rr = avgLoss > 0 ? avgGain / avgLoss : null;
+        // Expectancy = (Win% * Avg Win) - (Loss% * Avg Loss)
+        const expectancyPct = (winRate * avgGain) - (lossRate * avgLoss);
+        const expectancySar = expectancyPct * (capital > 0 ? capital * 0.1 : 10000); // normalized to 10% position size
 
-        // Expectancy = (WinRate * AvgWin) - (LossRate * AvgLoss)  — expressed as % return
-        const expectancyPct = winRate * avgGain - lossRate * avgLoss;
+        const netPnl = withMath.reduce((s, t) => s + t.pnl, 0);
 
-        const netPnl = withMath.reduce((a, t) => a + t.pnl, 0);
-        const expectancySar =
-            withMath.length > 0 ? netPnl / withMath.length : 0;
-
-        // sizing check: any single closed trade whose loss exceeded 3% of capital
-        const oversizedLosses = withMath.filter(
-            (t) => t.pnl < 0 && Math.abs(t.pnl) / capital > 0.03
-        );
+        // 3% max loss check per Al-Amer rule
+        const oversizedLosses = withMath.filter((t) => {
+            if (t.pnl >= 0) return false;
+            return Math.abs(t.pnl) > capital * 0.03;
+        });
 
         return {
+            totalTrades: trades.length,
             closedCount: withMath.length,
             activeCount: trades.filter((t) => t.status === "active").length,
             wins: wins.length,
             losses: losses.length,
             winRate,
+            lossRate,
             avgGain,
             avgLoss,
             rr,
@@ -149,7 +178,6 @@ export default function TradeJournalPage() {
             expectancySar,
             netPnl,
             oversizedLosses,
-            withMath,
         };
     }, [trades, capital]);
 
@@ -163,37 +191,115 @@ export default function TradeJournalPage() {
         setReason("");
     }
 
-    function addTrade(e: React.FormEvent) {
+    async function addTrade(e: React.FormEvent) {
         e.preventDefault();
         const sh = Number(shares);
         const bp = Number(buyPrice);
         const sp = sellPrice.trim() === "" ? null : Number(sellPrice);
         if (!symbol.trim() || !sh || !bp || !reason.trim()) return; // reason mandatory per course methodology
 
-        const newTrade: Trade = {
-            id: uid(),
+        const payload = {
             symbol: symbol.trim().toUpperCase(),
-            type,
+            trade_type: type,
             shares: sh,
-            buyPrice: bp,
-            sellPrice: sp,
+            buy_price: bp,
+            sell_price: sp,
             reason: reason.trim(),
             status: sp != null ? "closed" : "active",
-            createdAt: new Date().toISOString().slice(0, 10),
+            trade_date: new Date().toISOString().slice(0, 10),
         };
-        setTrades((prev) => [newTrade, ...prev]);
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/rebh/journal`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                const data = await res.json();
+                const serverId = data.id || uid();
+                const newTrade: Trade = {
+                    id: String(serverId),
+                    symbol: payload.symbol,
+                    type,
+                    shares: sh,
+                    buyPrice: bp,
+                    sellPrice: sp,
+                    reason: payload.reason,
+                    status: payload.status as TradeStatus,
+                    createdAt: payload.trade_date,
+                };
+                setTrades((prev) => [newTrade, ...prev]);
+            } else {
+                // fallback local
+                const newTrade: Trade = {
+                    id: uid(),
+                    symbol: payload.symbol,
+                    type,
+                    shares: sh,
+                    buyPrice: bp,
+                    sellPrice: sp,
+                    reason: payload.reason,
+                    status: payload.status as TradeStatus,
+                    createdAt: payload.trade_date,
+                };
+                setTrades((prev) => [newTrade, ...prev]);
+            }
+        } catch (_) {
+            const newTrade: Trade = {
+                id: uid(),
+                symbol: payload.symbol,
+                type,
+                shares: sh,
+                buyPrice: bp,
+                sellPrice: sp,
+                reason: payload.reason,
+                status: payload.status as TradeStatus,
+                createdAt: payload.trade_date,
+            };
+            setTrades((prev) => [newTrade, ...prev]);
+        }
         resetForm();
         setShowForm(false);
     }
 
-    function closeTrade(id: string, sp: number) {
+    async function closeTrade(id: string, sp: number) {
         setTrades((prev) =>
             prev.map((t) => (t.id === id ? { ...t, sellPrice: sp, status: "closed" } : t))
         );
+        const target = trades.find((t) => t.id === id);
+        if (target && !id.startsWith("d")) {
+            try {
+                await fetch(`${API_BASE_URL}/api/rebh/journal/${id}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify({
+                        symbol: target.symbol,
+                        trade_type: target.type,
+                        shares: target.shares,
+                        buy_price: target.buyPrice,
+                        sell_price: sp,
+                        status: "closed",
+                        reason: target.reason,
+                        trade_date: target.createdAt
+                    })
+                });
+            } catch (_) {}
+        }
     }
 
-    function removeTrade(id: string) {
+    async function removeTrade(id: string) {
         setTrades((prev) => prev.filter((t) => t.id !== id));
+        if (!id.startsWith("d")) {
+            try {
+                await fetch(`${API_BASE_URL}/api/rebh/journal/${id}`, {
+                    method: "DELETE",
+                    credentials: "include"
+                });
+            } catch (_) {}
+        }
     }
 
     function loadDemo() {
@@ -210,9 +316,9 @@ export default function TradeJournalPage() {
 
             <header style={styles.header}>
                 <div style={styles.headerTitleRow}>
-                    <BookOpen size={26} color="#63a5f0" />
+                    <BookOpen size={26} color="#8C3B32" />
                     <h1 style={styles.h1}>
-                        REBH <span style={{ color: "#63a5f0" }}>TRADE JOURNAL</span>
+                        REBH <span style={{ color: "#8C3B32" }}>TRADE JOURNAL</span>
                     </h1>
                 </div>
                 <p style={styles.sub}>
@@ -226,33 +332,33 @@ export default function TradeJournalPage() {
             {/* ---------------- KPI BAR ---------------- */}
             <section style={styles.kpiBar}>
                 <KpiCard
-                    icon={<CheckCircle2 size={18} color={stats.winRate >= 0.6 ? "#2ecc71" : "#e8c464"} />}
+                    icon={<CheckCircle2 size={18} color={stats.winRate >= 0.6 ? "#16A34A" : "#B45309"} />}
                     label="معدل الربح (Win Rate)"
                     value={pct(stats.winRate * 100, 0)}
-                    valueColor={stats.winRate >= 0.6 ? "#2ecc71" : stats.winRate >= 0.5 ? "#e8c464" : "#e85d5d"}
+                    valueColor={stats.winRate >= 0.6 ? "#16A34A" : stats.winRate >= 0.5 ? "#B45309" : "#DC2626"}
                     badge={stats.winRate >= 0.6 ? "ممتاز" : undefined}
                     footnote={`${stats.wins} رابحة / ${stats.losses} خاسرة من ${stats.closedCount}`}
                 />
                 <KpiCard
-                    icon={<TrendingUp size={18} color="#63a5f0" />}
+                    icon={<TrendingUp size={18} color="#2563EB" />}
                     label="المكافأة/المخاطرة (R/R)"
                     value={stats.rr != null ? `${fmt(stats.rr, 2)}×` : "—"}
-                    valueColor={stats.rr != null && stats.rr >= 3 ? "#2ecc71" : stats.rr != null && stats.rr >= 2 ? "#e8c464" : "#e85d5d"}
+                    valueColor={stats.rr != null && stats.rr >= 3 ? "#16A34A" : stats.rr != null && stats.rr >= 2 ? "#B45309" : "#DC2626"}
                     badge={stats.rr != null && stats.rr >= 3 ? "الهدف ≥3×" : undefined}
                     footnote={`متوسط ربح ${pct(stats.avgGain * 100, 1)} / متوسط خسارة ${pct(stats.avgLoss * 100, 1)}`}
                 />
                 <KpiCard
-                    icon={<DollarSign size={18} color={stats.expectancyPct > 0 ? "#2ecc71" : "#e85d5d"} />}
+                    icon={<DollarSign size={18} color={stats.expectancyPct > 0 ? "#16A34A" : "#DC2626"} />}
                     label="التوقّع (Expectancy)"
                     value={pct(stats.expectancyPct * 100, 2)}
-                    valueColor={stats.expectancyPct > 0 ? "#2ecc71" : "#e85d5d"}
+                    valueColor={stats.expectancyPct > 0 ? "#16A34A" : "#DC2626"}
                     footnote={`${fmt(stats.expectancySar, 0)} SAR / صفقة مغلقة`}
                 />
                 <KpiCard
-                    icon={<DollarSign size={18} color={stats.netPnl >= 0 ? "#2ecc71" : "#e85d5d"} />}
+                    icon={<DollarSign size={18} color={stats.netPnl >= 0 ? "#16A34A" : "#DC2626"} />}
                     label="صافي الربح والخسارة"
                     value={`${fmt(stats.netPnl, 0)} SAR`}
-                    valueColor={stats.netPnl >= 0 ? "#2ecc71" : "#e85d5d"}
+                    valueColor={stats.netPnl >= 0 ? "#16A34A" : "#DC2626"}
                     footnote={`${stats.activeCount} مركز نشط حالياً`}
                 />
             </section>
@@ -401,8 +507,9 @@ export default function TradeJournalPage() {
                                                     style={{
                                                         ...styles.statusBadge,
                                                         background:
-                                                            t.status === "active" ? "rgba(99,165,240,.15)" : "rgba(255,255,255,.06)",
-                                                        color: t.status === "active" ? "#63a5f0" : "#aab6c6",
+                                                            t.status === "active" ? "#EFF6FF" : "#F3F4F6",
+                                                        color: t.status === "active" ? "#2563EB" : "#6B7280",
+                                                        border: `1px solid ${t.status === "active" ? "#BFDBFE" : "#E5E7EB"}`,
                                                     }}
                                                 >
                                                     {t.status === "active" ? "نشطة" : "مغلقة"}
@@ -411,14 +518,14 @@ export default function TradeJournalPage() {
                                             <td style={styles.td}>{fmt(t.shares, 0)}</td>
                                             <td style={styles.td}>{fmt(t.buyPrice, 2)}</td>
                                             <td style={styles.td}>{t.sellPrice != null ? fmt(t.sellPrice, 2) : "—"}</td>
-                                            <td style={{ ...styles.td, color: ret == null ? "#5f6d80" : ret > 0 ? "#2ecc71" : "#e85d5d" }}>
+                                            <td style={{ ...styles.td, color: ret == null ? "#9CA3AF" : ret > 0 ? "#16A34A" : "#DC2626", fontWeight: ret == null ? 400 : 600 }}>
                                                 {ret != null ? pct(ret * 100, 1) : "—"}
                                             </td>
-                                            <td style={{ ...styles.td, color: pnl == null ? "#5f6d80" : pnl >= 0 ? "#2ecc71" : "#e85d5d" }}>
+                                            <td style={{ ...styles.td, color: pnl == null ? "#9CA3AF" : pnl >= 0 ? "#16A34A" : "#DC2626", fontWeight: pnl == null ? 400 : 600 }}>
                                                 {pnl != null ? fmt(pnl, 0) : "—"}
                                                 {sizePct != null && sizePct > 0.03 && pnl! < 0 ? " ⚑>3%" : ""}
                                             </td>
-                                            <td style={{ ...styles.td, textAlign: "right", fontSize: 11.5, color: "#aab6c6" }}>
+                                            <td style={{ ...styles.td, textAlign: "right", fontSize: 11.5, color: "#6B7280" }}>
                                                 {t.reason}
                                             </td>
                                             <td style={styles.td}>
@@ -481,7 +588,7 @@ function KpiCard({
                 <div style={styles.kpiIconWrap}>{icon}</div>
                 {badge && <span style={styles.kpiBadge}>{badge}</span>}
             </div>
-            <div style={{ ...styles.kpiValue, color: valueColor || "#e8edf4" }}>{value}</div>
+            <div style={{ ...styles.kpiValue, color: valueColor || "#1A1A1A" }}>{value}</div>
             <div style={styles.kpiLabel}>{label}</div>
             {footnote && <div style={styles.kpiFoot}>{footnote}</div>}
         </div>
@@ -490,7 +597,7 @@ function KpiCard({
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
-        <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "#aab6c6" }}>
+        <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "#6B7280" }}>
             {label}
             {children}
         </label>
@@ -499,19 +606,22 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 /* ================= styles ================= */
 
+// NOTE: kept as inline style objects (matching the original implementation's approach)
+// rather than converting to Tailwind classes, to minimize risk of behavioral drift —
+// only color/radius/shadow VALUES changed to match the new light design system.
 const styles: Record<string, React.CSSProperties> = {
     page: {
         minHeight: "100vh",
-        background: "#0a0c10",
-        color: "#e8edf4",
+        background: "#F7F8FA",
+        color: "#1A1A1A",
         fontFamily: "'Segoe UI', system-ui, sans-serif",
         padding: "26px 24px 60px",
         direction: "rtl",
     },
-    header: { marginBottom: 22, borderBottom: "1px solid #1d2735", paddingBottom: 16 },
+    header: { marginBottom: 22, borderBottom: "1px solid #E5E7EB", paddingBottom: 16 },
     headerTitleRow: { display: "flex", alignItems: "center", gap: 10 },
-    h1: { fontSize: 22, fontWeight: 900, margin: 0 },
-    sub: { color: "#aab6c6", fontSize: 12.5, marginTop: 8, maxWidth: 900, lineHeight: 1.7 },
+    h1: { fontSize: 22, fontWeight: 900, margin: 0, color: "#1A1A1A" },
+    sub: { color: "#6B7280", fontSize: 12.5, marginTop: 8, maxWidth: 900, lineHeight: 1.7 },
     kpiBar: {
         display: "grid",
         gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
@@ -519,31 +629,33 @@ const styles: Record<string, React.CSSProperties> = {
         marginBottom: 16,
     },
     kpiCard: {
-        background: "#121924",
-        border: "1px solid #1d2735",
-        borderRadius: 14,
+        background: "#FFFFFF",
+        border: "1px solid #E5E7EB",
+        borderRadius: 4,
         padding: "14px 16px",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
     },
     kpiIconWrap: { display: "flex", alignItems: "center" },
     kpiBadge: {
         fontSize: 10.5,
         fontWeight: 800,
-        color: "#d9b64a",
-        background: "rgba(217,182,74,.12)",
-        border: "1px solid #d9b64a",
+        color: "#8C3B32",
+        background: "#FBEAE8",
+        border: "1px solid #F0CFC9",
         borderRadius: 20,
         padding: "2px 9px",
     },
     kpiValue: { fontSize: 24, fontWeight: 900, marginTop: 10, fontFamily: "Consolas, monospace" },
-    kpiLabel: { fontSize: 11, color: "#5f6d80", marginTop: 4, letterSpacing: 0.3 },
-    kpiFoot: { fontSize: 10.5, color: "#5f6d80", marginTop: 6 },
+    kpiLabel: { fontSize: 11, color: "#6B7280", marginTop: 4, letterSpacing: 0.3, textTransform: "uppercase" },
+    kpiFoot: { fontSize: 10.5, color: "#9CA3AF", marginTop: 6 },
     warnBanner: {
-        background: "rgba(232,93,93,.08)",
-        borderInlineStart: "3px solid #e85d5d",
-        borderRadius: 8,
+        background: "#FEF2F2",
+        border: "1px solid #FECACA",
+        borderInlineStart: "3px solid #DC2626",
+        borderRadius: 4,
         padding: "10px 14px",
         fontSize: 12.5,
-        color: "#e8edf4",
+        color: "#DC2626",
         marginBottom: 16,
     },
     controlsRow: {
@@ -552,21 +664,26 @@ const styles: Record<string, React.CSSProperties> = {
         alignItems: "center",
         flexWrap: "wrap",
         marginBottom: 16,
+        background: "#FFFFFF",
+        border: "1px solid #E5E7EB",
+        borderRadius: 4,
+        padding: "14px 16px",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
     },
-    capitalLabel: { display: "flex", flexDirection: "column", gap: 4, fontSize: 11.5, color: "#aab6c6" },
+    capitalLabel: { display: "flex", flexDirection: "column", gap: 4, fontSize: 11.5, color: "#6B7280" },
     capitalInput: {
-        background: "#0e141d",
-        border: "1px solid #1d2735",
-        borderRadius: 9,
-        color: "#e8edf4",
+        background: "#F7F8FA",
+        border: "1px solid #E5E7EB",
+        borderRadius: 4,
+        color: "#1A1A1A",
         padding: "8px 12px",
         fontSize: 13,
         width: 160,
     },
     primaryBtn: {
-        background: "#3987e5",
+        background: "#8C3B32",
         border: "none",
-        borderRadius: 9,
+        borderRadius: 4,
         color: "#fff",
         padding: "9px 18px",
         fontSize: 12.5,
@@ -577,9 +694,9 @@ const styles: Record<string, React.CSSProperties> = {
     },
     ghostBtn: {
         background: "transparent",
-        border: "1px solid #1d2735",
-        borderRadius: 9,
-        color: "#aab6c6",
+        border: "1px solid #E5E7EB",
+        borderRadius: 4,
+        color: "#6B7280",
         padding: "9px 16px",
         fontSize: 12.5,
         fontWeight: 700,
@@ -587,20 +704,22 @@ const styles: Record<string, React.CSSProperties> = {
     },
     ghostDangerBtn: {
         background: "transparent",
-        border: "1px solid #1d2735",
-        borderRadius: 9,
-        color: "#e85d5d",
+        border: "1px solid #FECACA",
+        borderRadius: 4,
+        color: "#DC2626",
         padding: "9px 16px",
         fontSize: 12.5,
         fontWeight: 700,
         cursor: "pointer",
     },
     formPanel: {
-        background: "#121924",
-        border: "1px solid #d9b64a",
-        borderRadius: 14,
+        background: "#FFFFFF",
+        border: "1px solid #E5E7EB",
+        borderRadius: 4,
         padding: "18px 20px",
         marginBottom: 18,
+        boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+        borderInlineStart: "3px solid #8C3B32",
     },
     formGrid: {
         display: "grid",
@@ -609,66 +728,70 @@ const styles: Record<string, React.CSSProperties> = {
         marginBottom: 12,
     },
     input: {
-        background: "#0e141d",
-        border: "1px solid #1d2735",
-        borderRadius: 9,
-        color: "#e8edf4",
+        background: "#F7F8FA",
+        border: "1px solid #E5E7EB",
+        borderRadius: 4,
+        color: "#1A1A1A",
         padding: "8px 12px",
         fontSize: 13,
         outline: "none",
         fontFamily: "inherit",
     },
     panel: {
-        background: "#121924",
-        border: "1px solid #1d2735",
-        borderRadius: 14,
+        background: "#FFFFFF",
+        border: "1px solid #E5E7EB",
+        borderRadius: 4,
         padding: "18px 20px",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
     },
     panelTitle: {
         fontSize: 12,
-        color: "#5f6d80",
+        color: "#6B7280",
         letterSpacing: 1.4,
         textTransform: "uppercase",
         marginBottom: 12,
+        fontWeight: 700,
     },
-    empty: { color: "#5f6d80", fontSize: 12.5, padding: 18, textAlign: "center" },
+    empty: { color: "#9CA3AF", fontSize: 12.5, padding: 18, textAlign: "center" },
     table: { width: "100%", borderCollapse: "collapse", fontSize: 12.5 },
     th: {
         fontSize: 10,
-        color: "#5f6d80",
+        color: "#6B7280",
         textAlign: "center",
         padding: "7px 9px",
-        borderBottom: "1.5px solid #1d2735",
+        borderBottom: "1px solid #E5E7EB",
+        background: "#F3F4F6",
         letterSpacing: 0.6,
         whiteSpace: "nowrap",
     },
     td: {
         padding: "6.5px 9px",
-        borderBottom: "1px solid #1d2735",
+        borderBottom: "1px solid #E5E7EB",
         textAlign: "center",
         whiteSpace: "nowrap",
+        color: "#1A1A1A",
     },
     statusBadge: {
         display: "inline-block",
-        borderRadius: 6,
+        borderRadius: 20,
         padding: "2px 8px",
         fontSize: 10.5,
         fontWeight: 800,
     },
     smallGhostBtn: {
         background: "transparent",
-        border: "1px solid #1d2735",
-        borderRadius: 7,
-        color: "#63a5f0",
+        border: "1px solid #E5E7EB",
+        borderRadius: 4,
+        color: "#2563EB",
         padding: "3px 9px",
         fontSize: 10.5,
         cursor: "pointer",
     },
     smallDangerBtn: {
         background: "transparent",
-        border: "1px solid #1d2735",
-        borderRadius: 7,
-        color: "#e85d5d",
+        border: "1px solid #E5E7EB",
+        borderRadius: 4,
+        color: "#DC2626",
         padding: "3px 8px",
         fontSize: 10.5,
         cursor: "pointer",
@@ -676,7 +799,7 @@ const styles: Record<string, React.CSSProperties> = {
         alignItems: "center",
     },
     footer: {
-        color: "#5f6d80",
+        color: "#9CA3AF",
         fontSize: 10.5,
         textAlign: "center",
         padding: "30px 0 0",
@@ -684,7 +807,7 @@ const styles: Record<string, React.CSSProperties> = {
 };
 
 const globalCss = `
-  input:focus, select:focus, textarea:focus { border-color: #3987e5 !important; }
-  table tr:hover td { background: rgba(255,255,255,.02); }
-  button:hover { filter: brightness(1.1); }
+  input:focus, select:focus, textarea:focus { border-color: #8C3B32 !important; box-shadow: 0 0 0 2px rgba(140,59,50,0.1); }
+  table tr:hover td { background: #F7F8FA; }
+  button:hover { filter: brightness(0.97); }
 `;

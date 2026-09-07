@@ -9,9 +9,9 @@ interface Props {
 }
 
 // Sparkline SVG component exactly matching universal_template.html line 149-154
-function Sparkline({ vals, w = 110, h = 24, color = "#63a5f0" }: { vals: (number | null)[]; w?: number; h?: number; color?: string }) {
+function Sparkline({ vals, w = 110, h = 24, color = "#8C3B32" }: { vals: (number | null)[]; w?: number; h?: number; color?: string }) {
   const vs = vals.filter((v): v is number => v != null);
-  if (vs.length < 2) return <span className="text-[#657081] font-mono text-[10px]">—</span>;
+  if (vs.length < 2) return <span className="text-[#9CA3AF] font-mono text-[10px]">—</span>;
 
   const mn = Math.min(...vs, 0);
   const mx = Math.max(...vs, 0);
@@ -26,12 +26,15 @@ function Sparkline({ vals, w = 110, h = 24, color = "#63a5f0" }: { vals: (number
   return (
     <svg width={w} height={h} className="inline-block align-middle overflow-visible">
       {mn < 0 && (
-        <line x1="2" x2={w - 2} y1={Y(0)} y2={Y(0)} stroke="#1e2836" strokeWidth="1" strokeDasharray="2,2" />
+        <line x1="2" x2={w - 2} y1={Y(0)} y2={Y(0)} stroke="#E5E7EB" strokeWidth="1" strokeDasharray="2,2" />
       )}
       <polyline points={pts} fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
+
+// Distinct, muted line colors that stay legible on a white card without reading as neon
+const LINE_COLORS = ["#8C3B32", "#B8863F", "#6B4C8A", "#16A34A", "#2E6B8C"];
 
 const DEFAULT_QL = ["Q1'24", "Q2'24", "Q3'24", "Q4'24°", "Q1'25", "Q2'25", "Q3'25", "Q4'25°", "Q1'26"];
 
@@ -61,7 +64,7 @@ export default function QuarterlyEngineRoom({ symbol }: Props) {
 
   if (loading) {
     return (
-      <div className="bg-[#121924] border border-[#1e2836] rounded-xl p-5 text-center text-xs text-[#657081] font-mono">
+      <div className="bg-white border border-[#E5E7EB] rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-6 text-center text-xs text-[#6B7280] font-mono">
         جاري تحميل بيانات غرفة المحركات الربعية (9 Quarters Engine)...
       </div>
     );
@@ -82,11 +85,11 @@ export default function QuarterlyEngineRoom({ symbol }: Props) {
 
   const lines: { label: string; vals: (number | null)[]; isEps?: boolean; color: string }[] = [];
 
-  if (rev.length > 0) lines.push({ label: "الإيرادات (Revenue)", vals: rev, color: "#3987e5" });
-  if (gp.length > 0) lines.push({ label: "إجمالي الربح (Gross Profit)", vals: gp, color: "#d9b64a" });
-  if (op.length > 0) lines.push({ label: "الربح التشغيلي (Operating Profit)", vals: op, color: "#c084fc" });
-  if (net.length > 0) lines.push({ label: "صافي الربح (Net Profit)", vals: net, color: "#2ecc71" });
-  if (eps.length > 0) lines.push({ label: "ربحية السهم (EPS ر.س)", vals: eps, isEps: true, color: "#38bdf8" });
+  if (rev.length > 0) lines.push({ label: "الإيرادات (Revenue)", vals: rev, color: LINE_COLORS[0] });
+  if (gp.length > 0) lines.push({ label: "إجمالي الربح (Gross Profit)", vals: gp, color: LINE_COLORS[1] });
+  if (op.length > 0) lines.push({ label: "الربح التشغيلي (Operating Profit)", vals: op, color: LINE_COLORS[2] });
+  if (net.length > 0) lines.push({ label: "صافي الربح (Net Profit)", vals: net, color: LINE_COLORS[3] });
+  if (eps.length > 0) lines.push({ label: "ربحية السهم (EPS ر.س)", vals: eps, isEps: true, color: LINE_COLORS[4] });
 
   if (lines.length === 0) return null;
 
@@ -103,35 +106,38 @@ export default function QuarterlyEngineRoom({ symbol }: Props) {
   };
 
   return (
-    <div className="bg-[#121924] border border-[#1e2836] rounded-xl p-5 overflow-hidden space-y-3">
-      <div className="flex flex-wrap justify-between items-center gap-2 border-b border-[#1e2836] pb-3">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-white font-mono flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-[#3987e5]" />
-          غرفة المحركات الربعية — QUARTERLY ENGINE ROOM (9 Discrete Quarters°)
+    // UX note: on narrow screens, the first column ("البند المالي") scrolls away with the
+    // rest of the table even though it's the row label. Made it sticky below so it stays
+    // readable while scrolling through 9 quarters of data.
+    <div className="bg-white border border-[#E5E7EB] rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-6 overflow-hidden space-y-4">
+      <div className="flex flex-wrap justify-between items-center gap-2 border-b border-[#E5E7EB] pb-4">
+        <h3 className="text-sm font-bold text-[#1A1A1A] flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-[#8C3B32]" />
+          غرفة المحركات الربعية — Quarterly Engine Room (9 أرباع)
         </h3>
-        <span className="text-[10px] text-[#657081] font-mono">
-          سلسلة الـ 9 أرباع المالية الحقيقية المدققة مع مؤشر TTM ومسار النمو البياني Sparkline
+        <span className="text-[11px] text-[#6B7280] font-mono">
+          سلسلة الـ 9 أرباع المالية المدققة مع مؤشر TTM ومسار النمو
         </span>
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-xs font-mono text-left">
+        <table className="w-full text-xs text-left border-collapse">
           <thead>
-            <tr className="text-[#657081] border-b border-[#1e2836] bg-[#0e1218]">
-              <th className="p-2.5 text-right min-w-[150px]">البند المالي</th>
+            <tr className="text-[#6B7280] bg-[#F3F4F6] border-b border-[#E5E7EB]">
+              <th className="p-2.5 text-right min-w-[150px] sticky right-0 bg-[#F3F4F6] font-semibold">البند المالي</th>
               {qPeriods.map((p: string, idx: number) => (
-                <th key={idx} className="p-2.5 text-right whitespace-nowrap">
-                  {idx === qPeriods.length - 1 ? <b className="text-white">{p}</b> : p}
+                <th key={idx} className="p-2.5 text-right whitespace-nowrap font-mono font-normal">
+                  {idx === qPeriods.length - 1 ? <b className="text-[#1A1A1A] font-semibold">{p}</b> : p}
                 </th>
               ))}
-              <th className="p-2.5 text-right bg-[#182130] text-[#d9b64a] font-bold">TTM°</th>
-              <th className="p-2.5 text-center min-w-[120px]">مسار النمو (Sparkline)</th>
+              <th className="p-2.5 text-right bg-[#F3F4F6] text-[#8C3B32] font-bold border-r border-[#E5E7EB]">TTM°</th>
+              <th className="p-2.5 text-center min-w-[120px]">مسار النمو</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#1e2836]">
+          <tbody className="divide-y divide-[#E5E7EB]">
             {lines.map((line, idx) => (
-              <tr key={idx} className="hover:bg-white/[0.02]">
-                <td className="p-2.5 text-right font-sans font-bold text-white">
+              <tr key={idx} className="hover:bg-[#F3F4F6]/60 transition-colors">
+                <td className="p-2.5 text-right font-semibold text-[#1A1A1A] sticky right-0 bg-white">
                   {line.label}
                 </td>
                 {line.vals.map((v, vIdx) => {
@@ -139,13 +145,13 @@ export default function QuarterlyEngineRoom({ symbol }: Props) {
                   return (
                     <td
                       key={vIdx}
-                      className={`p-2.5 text-right tabular-nums ${isNeg ? "text-rose-400" : "text-[#a7b1bd]"}`}
+                      className={`p-2.5 text-right tabular-nums font-mono ${isNeg ? "text-[#DC2626]" : "text-[#1A1A1A]"}`}
                     >
                       {fmt(v, line.isEps)}
                     </td>
                   );
                 })}
-                <td className="p-2.5 text-right font-bold text-white bg-[#182130] tabular-nums">
+                <td className="p-2.5 text-right font-bold text-[#1A1A1A] bg-[#F3F4F6] tabular-nums font-mono border-r border-[#E5E7EB]">
                   {getTTM(line.vals, line.isEps)}
                 </td>
                 <td className="p-2.5 text-center">
@@ -157,8 +163,8 @@ export default function QuarterlyEngineRoom({ symbol }: Props) {
         </table>
       </div>
 
-      <div className="pt-2 text-[10px] text-[#657081] font-mono flex justify-between items-center">
-        <span>ملاحظة: الربع الرابع محسوب آلياً بالفرق°: القوائم السنوية − مجموع 9 أشهر</span>
+      <div className="pt-3 border-t border-[#E5E7EB] text-[11px] text-[#9CA3AF] flex flex-wrap justify-between gap-1">
+        <span>ملاحظة: الربع الرابع محسوب آلياً بالفرق° (القوائم السنوية − مجموع 9 أشهر)</span>
         <span>القيم بملايين الريالات ما عدا ربحية السهم (EPS)</span>
       </div>
     </div>

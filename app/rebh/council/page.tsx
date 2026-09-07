@@ -1,12 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
     CheckSquare,
     HelpCircle,
     AlertOctagon,
     UserCheck,
     ShieldCheck,
+    Flag,
+    Building2,
+    Save,
+    AlertTriangle,
+    RefreshCw,
 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api/config";
 
@@ -98,6 +103,11 @@ const uid = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2,
 
 export default function CouncilAuditStation() {
     const [tab, setTab] = useState<TabKey>("fisher");
+    const [symbol, setSymbol] = useState<string>("2222.SR");
+    const [companyData, setCompanyData] = useState<any>(null);
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [isSaving, setIsSaving] = useState<boolean>(false);
+    const [saveStatus, setSaveStatus] = useState<string | null>(null);
 
     /* ---------------- Fisher state ---------------- */
     const [fisherScores, setFisherScores] = useState<Record<number, ScoreVal>>(
@@ -105,7 +115,7 @@ export default function CouncilAuditStation() {
     );
 
     const fisherResult = useMemo(() => {
-        const total = FISHER_15.reduce((a, f) => a + fisherScores[f.id], 0);
+        const total = FISHER_15.reduce((a, f) => a + (fisherScores[f.id] ?? 0.5), 0);
         const integrityFail = fisherScores[15] === 0;
         return { total, integrityFail };
     }, [fisherScores]);
@@ -126,211 +136,384 @@ export default function CouncilAuditStation() {
     /* ---------------- Bank flags state ---------------- */
     const [bankChecked, setBankChecked] = useState<Set<string>>(new Set());
 
+    // Fetch company automated audit & saved checklist
+    useEffect(() => {
+        let isMounted = true;
+        async function loadCompanyCouncil() {
+            setIsLoading(true);
+            setSaveStatus(null);
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/rebh/council/${symbol}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (!isMounted) return;
+                    setCompanyData(data);
+
+                    // Restore saved scores if available
+                    if (data.saved_checklist) {
+                        const savedF = data.saved_checklist.fisher_scores;
+                        if (savedF && Object.keys(savedF).length > 0) {
+                            const restoredScores: Record<number, ScoreVal> = {};
+                            FISHER_15.forEach((item) => {
+                                restoredScores[item.id] = (savedF[String(item.id)] ?? savedF[item.id] ?? 0.5) as ScoreVal;
+                            });
+                            setFisherScores(restoredScores);
+                        }
+                        if (data.saved_checklist.danger_flags) {
+                            setDangerChecked(new Set(data.saved_checklist.danger_flags));
+                        }
+                        if (data.saved_checklist.red_flags) {
+                            setRedflagChecked(new Set(data.saved_checklist.red_flags));
+                        }
+                        if (data.saved_checklist.bank_flags) {
+                            setBankChecked(new Set(data.saved_checklist.bank_flags));
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to load company council audit:", err);
+            } finally {
+                if (isMounted) setIsLoading(false);
+            }
+        }
+        loadCompanyCouncil();
+        return () => { isMounted = false; };
+    }, [symbol]);
+
+    // Save interactive evaluations for company
+    async function handleSaveChecklist() {
+        setIsSaving(true);
+        setSaveStatus(null);
+        try {
+            const fisherPayload: Record<string, number> = {};
+            Object.entries(fisherScores).forEach(([k, v]) => {
+                fisherPayload[k] = v;
+            });
+
+            const res = await fetch(`${API_BASE_URL}/api/rebh/council/${symbol}/save`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    symbol,
+                    fisher_scores: fisherPayload,
+                    danger_flags: Array.from(dangerChecked),
+                    red_flags: Array.from(redflagChecked),
+                    bank_flags: Array.from(bankChecked),
+                }),
+            });
+
+            if (res.ok) {
+                setSaveStatus("تم حفظ التقييمات وقائمة التدقيق للشركة بنجاح ✓");
+                setTimeout(() => setSaveStatus(null), 4000);
+            } else {
+                setSaveStatus("فشل حفظ التقييم في الخادم");
+            }
+        } catch (err) {
+            setSaveStatus("خطأ في الاتصال بالخادم أثناء الحفظ");
+        } finally {
+            setIsSaving(false);
+        }
+    }
+
     return (
-        <div style={styles.page}>
+        <div className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] font-sans">
             <style>{globalCss}</style>
 
-            <header style={styles.header}>
-                <div style={styles.headerTitleRow}>
-                    <ShieldCheck size={26} color="#63a5f0" />
-                    <h1 style={styles.h1}>
-                        REBH <span style={{ color: "#63a5f0" }}>COUNCIL &amp; 31-CHECKLIST AUDIT</span>
-                    </h1>
-                </div>
-                <p style={styles.sub}>
-                    Philip Fisher&apos;s 15-Point checklist, the course&apos;s Danger
-                    Signs &amp; Red Flags (Lecture 15), and the Assiry 12 Bank Red
-                    Flags — scored interactively, with real-time verdicts.
-                </p>
-            </header>
-
-            {/* ---------------- TABS ---------------- */}
-            <nav style={styles.tabRow}>
-                <TabButton
-                    active={tab === "fisher"}
-                    onClick={() => setTab("fisher")}
-                    icon={<CheckSquare size={15} />}
-                    label="قائمة فيشر (Fisher 15)"
-                />
-                <TabButton
-                    active={tab === "redflags"}
-                    onClick={() => setTab("redflags")}
-                    icon={<AlertOctagon size={15} />}
-                    label="أعلام الخطر والحوكمة (Red Flags)"
-                />
-                <TabButton
-                    active={tab === "bank"}
-                    onClick={() => setTab("bank")}
-                    icon={<UserCheck size={15} />}
-                    label="فاحص البنوك (Bank Flags)"
-                />
-            </nav>
-
-            {/* ---------------- FISHER 15 ---------------- */}
-            {tab === "fisher" && (
-                <section style={styles.panel}>
-                    <div style={styles.verdictBar}>
-                        <div style={styles.verdictScore}>
-                            <span style={styles.verdictNum}>{fisherResult.total.toFixed(1)}</span>
-                            <span style={styles.verdictOf}>/ 15</span>
+            <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+                {/* ---------------- HEADER ---------------- */}
+                <header className="mb-6 border-b border-[#E5E7EB] pb-5">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div className="flex items-center gap-2.5">
+                            <ShieldCheck size={24} className="text-[#8C3B32]" />
+                            <div>
+                                <h1 className="text-xl font-bold tracking-tight">
+                                    REBH <span className="text-[#8C3B32]">Council &amp; 31-Checklist Audit</span>
+                                </h1>
+                                <p className="mt-1 text-[13px] text-[#6B7280]">
+                                    محطة مجلس التدقيق الشامل وقوائم فيشر وأعلام الخطر المحاسبية المرتبطة بالشركة
+                                </p>
+                            </div>
                         </div>
-                        <VerdictBadge
+
+                        {/* Company Selector & Save Action */}
+                        <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-1.5 rounded-[4px] border border-[#E5E7EB] bg-white px-3 py-1.5 shadow-sm">
+                                <Building2 size={16} className="text-[#8C3B32]" />
+                                <select
+                                    value={symbol}
+                                    onChange={(e) => setSymbol(e.target.value)}
+                                    className="bg-transparent text-[13px] font-bold text-[#1A1A1A] outline-none"
+                                >
+                                    <option value="2222.SR">2222.SR - أرامكو السعودية</option>
+                                    <option value="1120.SR">1120.SR - مصرف الراجحي</option>
+                                    <option value="1180.SR">1180.SR - البنك الأهلي السعودي</option>
+                                    <option value="2010.SR">2010.SR - سابك</option>
+                                    <option value="7010.SR">7010.SR - إس تي سي</option>
+                                    <option value="2280.SR">2280.SR - المراعي</option>
+                                    <option value="4001.SR">4001.SR - أسواق العثيم</option>
+                                    <option value="2380.SR">2380.SR - بترورابغ</option>
+                                </select>
+                            </div>
+
+                            <button
+                                onClick={handleSaveChecklist}
+                                disabled={isSaving || isLoading}
+                                className="inline-flex items-center gap-1.5 rounded-[4px] bg-[#8C3B32] px-3.5 py-1.5 text-[12.5px] font-bold text-white shadow transition-opacity hover:opacity-90 disabled:opacity-50"
+                            >
+                                {isSaving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
+                                <span>حفظ التقييم</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {saveStatus && (
+                        <div className="mt-3 rounded-[4px] border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-2 text-[12px] font-medium text-[#16A34A]">
+                            {saveStatus}
+                        </div>
+                    )}
+
+                    {/* Company Audit Summary Banner */}
+                    {companyData && (
+                        <div className="mt-4 rounded-[4px] border border-[#E5E7EB] bg-white p-3.5 text-[12.5px] shadow-sm">
+                            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#F3F4F6] pb-2">
+                                <div className="font-semibold text-[#1A1A1A]">
+                                    {companyData.name_ar} ({companyData.symbol}) — <span className="text-[#6B7280] font-normal">{companyData.sector}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[11px] text-[#6B7280]">شارة الثقة المحاسبية:</span>
+                                    <span className="rounded bg-[#F3F4F6] px-2 py-0.5 text-[11px] font-bold text-[#1A1A1A]">
+                                        {companyData.automated_audit?.trust_badge?.badge_text || "قيد التدقيق"}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Automated Forensics & Signals */}
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                                <span className="text-[11.5px] font-medium text-[#8C3B32]">إشارات الرصد الآلي:</span>
+                                {companyData.automated_audit?.signals?.length > 0 ? (
+                                    companyData.automated_audit.signals.map((sig: string, idx: number) => (
+                                        <span key={idx} className="inline-flex items-center gap-1 rounded bg-[#FEF2F2] px-2 py-0.5 text-[11px] font-medium text-[#DC2626]">
+                                            <AlertTriangle size={11} />
+                                            {sig}
+                                        </span>
+                                    ))
+                                ) : (
+                                    <span className="text-[11.5px] text-[#16A34A]">لا توجد إشارات تحذيرية آلية حرجة في القوائم ✓</span>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </header>
+
+                {/* ---------------- TABS ---------------- */}
+                {/* Note: three checklists cover different, non-overlapping question types
+                    (weighted score / tally of binary flags / capped count), so a shared tab
+                    group keeps them from competing for space while making it clear they're
+                    views of the same audit, not separate pages. */}
+                <nav className="mb-5 flex flex-wrap gap-2">
+                    <TabButton
+                        active={tab === "fisher"}
+                        onClick={() => setTab("fisher")}
+                        icon={<CheckSquare size={15} />}
+                        label="قائمة فيشر (Fisher 15)"
+                    />
+                    <TabButton
+                        active={tab === "redflags"}
+                        onClick={() => setTab("redflags")}
+                        icon={<AlertOctagon size={15} />}
+                        label="أعلام الخطر والحوكمة (Red Flags)"
+                    />
+                    <TabButton
+                        active={tab === "bank"}
+                        onClick={() => setTab("bank")}
+                        icon={<UserCheck size={15} />}
+                        label="فاحص البنوك (Bank Flags)"
+                    />
+                </nav>
+
+                {/* ---------------- FISHER 15 ---------------- */}
+                {tab === "fisher" && (
+                    <section className="rounded-[4px] border border-[#E5E7EB] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] sm:p-6">
+                        <VerdictBar
+                            value={fisherResult.total.toFixed(1)}
+                            suffix="/ 15"
                             ok={fisherResult.total >= 12 && !fisherResult.integrityFail}
                             disqualified={fisherResult.integrityFail}
                             okLabel="Fisher Grade — مؤهل للاستثمار النوعي"
                             failLabel="Disqualified — النزاهة غير متحققة (بند 15)"
                             midLabel="دون الحد المطلوب (12/15)"
                         />
-                    </div>
-                    {fisherResult.integrityFail && (
-                        <div style={styles.dangerBanner}>
-                            ⚑ بند 15 (نزاهة الإدارة) هو الوحيد الإلزامي في قائمة فيشر — فشل
-                            هذا البند وحده يُسقط الشركة من الاستثمار النوعي بصرف النظر عن
-                            بقية النقاط.
-                        </div>
-                    )}
 
-                    <div style={{ marginTop: 16 }}>
-                        {FISHER_15.map((f) => (
-                            <div key={f.id} style={styles.fisherRow}>
-                                <div style={styles.fisherQCol}>
-                                    <span style={styles.fisherIdx}>
-                                        {f.id}
-                                        {f.mandatory ? " ⚑" : ""}
-                                    </span>
-                                    <div>
-                                        <div style={styles.fisherQ}>{f.q}</div>
-                                        <div style={styles.fisherQAr}>{f.qAr}</div>
+                        {fisherResult.integrityFail && (
+                            <DangerBanner>
+                                بند 15 (نزاهة الإدارة) هو الوحيد الإلزامي في قائمة فيشر — فشل
+                                هذا البند وحده يُسقط الشركة من الاستثمار النوعي بصرف النظر عن
+                                بقية النقاط.
+                            </DangerBanner>
+                        )}
+
+                        {/* Score legend: header row explains what 0 / 0.5 / 1 mean once,
+                            instead of repeating that context in every one of the 15 rows. */}
+                        <div className="mt-5 hidden grid-cols-[1fr_150px] gap-3.5 border-b border-[#E5E7EB] pb-2 text-[11px] font-medium uppercase tracking-wide text-[#9CA3AF] sm:grid">
+                            <span>Point</span>
+                            <span className="flex justify-end gap-4 pr-1">
+                                <span className="w-6 text-center">0</span>
+                                <span className="w-6 text-center">0.5</span>
+                                <span className="w-6 text-center">1</span>
+                            </span>
+                        </div>
+
+                        <div className="divide-y divide-[#E5E7EB]">
+                            {FISHER_15.map((f) => (
+                                <div
+                                    key={f.id}
+                                    className="grid grid-cols-1 gap-3 py-3 sm:grid-cols-[1fr_150px] sm:items-center"
+                                >
+                                    <div className="flex items-start gap-2.5">
+                                        <span className="mt-0.5 min-w-[22px] font-mono text-xs font-bold text-[#8C3B32]">
+                                            {f.id}
+                                            {f.mandatory ? " ⚑" : ""}
+                                        </span>
+                                        <div>
+                                            <div className="text-[13px] text-[#1A1A1A]">{f.q}</div>
+                                            <div className="mt-0.5 text-[12px] text-[#6B7280]" dir="rtl">
+                                                {f.qAr}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-start gap-4 sm:justify-end sm:pr-1">
+                                        {[0, 0.5, 1].map((v) => (
+                                            <label
+                                                key={v}
+                                                className="flex flex-col items-center gap-1 text-[11px] text-[#6B7280]"
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name={`fisher-${f.id}`}
+                                                    checked={fisherScores[f.id] === v}
+                                                    onChange={() =>
+                                                        setFisherScores((prev) => ({ ...prev, [f.id]: v as ScoreVal }))
+                                                    }
+                                                    className="h-3.5 w-3.5 accent-[#8C3B32]"
+                                                />
+                                                {v}
+                                            </label>
+                                        ))}
                                     </div>
                                 </div>
-                                <div style={styles.scoreGroup}>
-                                    {[0, 0.5, 1].map((v) => (
-                                        <label key={v} style={styles.scoreOption}>
-                                            <input
-                                                type="radio"
-                                                name={`fisher-${f.id}`}
-                                                checked={fisherScores[f.id] === v}
-                                                onChange={() =>
-                                                    setFisherScores((prev) => ({ ...prev, [f.id]: v as ScoreVal }))
-                                                }
-                                                style={{ accentColor: "#3987e5" }}
-                                            />
-                                            {v}
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                    <div style={styles.footnote}>
-                        <HelpCircle size={12} style={{ marginInlineEnd: 4, verticalAlign: "middle" }} />
-                        Fisher tolerance: a company can fail 1–2 ordinary points and still
-                        qualify. Point 15 (integrity) repairs — or disqualifies — all the
-                        others.
-                    </div>
-                </section>
-            )}
-
-            {/* ---------------- RED FLAGS ---------------- */}
-            {tab === "redflags" && (
-                <section style={styles.panel}>
-                    <div style={styles.verdictBar}>
-                        <div style={styles.verdictScore}>
-                            <span style={styles.verdictNum}>{totalFlagsTicked}</span>
-                            <span style={styles.verdictOf}>ticked</span>
+                            ))}
                         </div>
-                        <VerdictBadge
+
+                        <Footnote>
+                            Fisher tolerance: a company can fail 1–2 ordinary points and still
+                            qualify. Point 15 (integrity) repairs — or disqualifies — all the
+                            others.
+                        </Footnote>
+                    </section>
+                )}
+
+                {/* ---------------- RED FLAGS ---------------- */}
+                {tab === "redflags" && (
+                    <section className="rounded-[4px] border border-[#E5E7EB] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] sm:p-6">
+                        <VerdictBar
+                            value={String(totalFlagsTicked)}
+                            suffix="ticked"
                             ok={totalFlagsTicked === 0}
                             disqualified={totalFlagsTicked >= 2}
                             okLabel="نظيفة — لا إشارات خطر"
                             failLabel="2 danger signs together = Walk Away — انسحب"
                             midLabel="إشارة واحدة — راقب عن قرب"
                         />
-                    </div>
 
-                    <h3 style={styles.groupTitle}>THE SIX DANGER SIGNS (Lecture 15)</h3>
-                    {DANGER_SIGNS.map((f) => (
-                        <FlagCheckbox
-                            key={f.id}
-                            item={f}
-                            checked={dangerChecked.has(f.id)}
-                            onToggle={() => toggleFlag(dangerChecked, setDangerChecked, f.id)}
-                        />
-                    ))}
-
-                    <h3 style={{ ...styles.groupTitle, marginTop: 18 }}>THE RED FLAGS</h3>
-                    {RED_FLAGS.map((f) => (
-                        <FlagCheckbox
-                            key={f.id}
-                            item={f}
-                            checked={redflagChecked.has(f.id)}
-                            onToggle={() => toggleFlag(redflagChecked, setRedflagChecked, f.id)}
-                        />
-                    ))}
-
-                    {totalFlagsTicked >= 2 && (
-                        <div style={styles.dangerBanner}>
-                            ⚑ تجمّع إشارتان أو أكثر معاً: قاعدة الدورة — انسحب. لا تحتاج
-                            لمعرفة السبب الدقيق؛ يكفي أن الثقة في الأرقام اهتزت.
+                        <GroupTitle>الست إشارات الخطر (Lecture 15)</GroupTitle>
+                        <div className="divide-y divide-[#E5E7EB]">
+                            {DANGER_SIGNS.map((f) => (
+                                <FlagCheckbox
+                                    key={f.id}
+                                    item={f}
+                                    checked={dangerChecked.has(f.id)}
+                                    onToggle={() => toggleFlag(dangerChecked, setDangerChecked, f.id)}
+                                />
+                            ))}
                         </div>
-                    )}
-                    <div style={styles.footnote}>
-                        <HelpCircle size={12} style={{ marginInlineEnd: 4, verticalAlign: "middle" }} />
-                        The capital-increase rule is absolute: any rights issue is
-                        negative by default — &quot;give me a reason to stop seeing it as
-                        negative,&quot; never the reverse.
-                    </div>
-                </section>
-            )}
 
-            {/* ---------------- BANK FLAGS ---------------- */}
-            {tab === "bank" && (
-                <section style={styles.panel}>
-                    <div style={styles.verdictBar}>
-                        <div style={styles.verdictScore}>
-                            <span style={styles.verdictNum}>{bankChecked.size}</span>
-                            <span style={styles.verdictOf}>/ 12</span>
+                        <GroupTitle className="mt-5">الأعلام الحمراء (Red Flags)</GroupTitle>
+                        <div className="divide-y divide-[#E5E7EB]">
+                            {RED_FLAGS.map((f) => (
+                                <FlagCheckbox
+                                    key={f.id}
+                                    item={f}
+                                    checked={redflagChecked.has(f.id)}
+                                    onToggle={() => toggleFlag(redflagChecked, setRedflagChecked, f.id)}
+                                />
+                            ))}
                         </div>
-                        <VerdictBadge
+
+                        {totalFlagsTicked >= 2 && (
+                            <DangerBanner>
+                                تجمّع إشارتان أو أكثر معاً: قاعدة الدورة — انسحب. لا تحتاج
+                                لمعرفة السبب الدقيق؛ يكفي أن الثقة في الأرقام اهتزت.
+                            </DangerBanner>
+                        )}
+
+                        <Footnote>
+                            The capital-increase rule is absolute: any rights issue is
+                            negative by default — &quot;give me a reason to stop seeing it as
+                            negative,&quot; never the reverse.
+                        </Footnote>
+                    </section>
+                )}
+
+                {/* ---------------- BANK FLAGS ---------------- */}
+                {tab === "bank" && (
+                    <section className="rounded-[4px] border border-[#E5E7EB] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] sm:p-6">
+                        <VerdictBar
+                            value={String(bankChecked.size)}
+                            suffix="/ 12"
                             ok={bankChecked.size === 0}
                             disqualified={bankChecked.size >= 3}
                             okLabel="لا إشارات خطر بنكية"
                             failLabel="≥3 flags — Buffett: never just one cockroach"
                             midLabel="راقب — أقل من 3 إشارات"
                         />
-                    </div>
 
-                    <h3 style={styles.groupTitle}>THE 12 BANK RED FLAGS (Assiry Banking Module)</h3>
-                    {BANK_FLAGS.map((f) => (
-                        <label key={f.id} style={styles.bankRow}>
-                            <input
-                                type="checkbox"
-                                checked={bankChecked.has(f.id)}
-                                onChange={() => toggleFlag(bankChecked, setBankChecked, f.id)}
-                                style={{ accentColor: "#e85d5d", marginTop: 3 }}
-                            />
-                            <div>
-                                <div style={styles.fisherQ}>{f.label}</div>
-                                <div style={styles.fisherQAr}>{f.labelAr}</div>
-                                {f.note && <div style={styles.bankNote}>{f.note}</div>}
-                            </div>
-                        </label>
-                    ))}
+                        <GroupTitle>ال 12 إشارة خطر بنكية (Assiry Banking Module)</GroupTitle>
+                        <div className="divide-y divide-[#E5E7EB]">
+                            {BANK_FLAGS.map((f) => (
+                                <label key={f.id} className="flex cursor-pointer items-start gap-2.5 py-3">
+                                    <input
+                                        type="checkbox"
+                                        checked={bankChecked.has(f.id)}
+                                        onChange={() => toggleFlag(bankChecked, setBankChecked, f.id)}
+                                        className="mt-0.5 h-4 w-4 accent-[#8C3B32]"
+                                    />
+                                    <div>
+                                        <div className="text-[13px] text-[#1A1A1A]">{f.label}</div>
+                                        <div className="mt-0.5 text-[12px] text-[#6B7280]" dir="rtl">
+                                            {f.labelAr}
+                                        </div>
+                                        {f.note && (
+                                            <div className="mt-1 text-[11px] italic text-[#9CA3AF]">{f.note}</div>
+                                        )}
+                                    </div>
+                                </label>
+                            ))}
+                        </div>
 
-                    <div style={styles.footnote}>
-                        <HelpCircle size={12} style={{ marginInlineEnd: 4, verticalAlign: "middle" }} />
-                        Applies to banking-sector stocks only — a bank is a money
-                        broker, not a factory: the standard industrial safety elements
-                        do not apply to it. Data source:{" "}
-                        <code style={{ color: "#63a5f0" }}>{API_BASE_URL}</code>
-                    </div>
-                </section>
-            )}
+                        <Footnote>
+                            Applies to banking-sector stocks only — a bank is a money
+                            broker, not a factory: the standard industrial safety elements
+                            do not apply to it. Data source:{" "}
+                            <code className="text-[#8C3B32]">{API_BASE_URL}</code>
+                        </Footnote>
+                    </section>
+                )}
 
-            <footer style={styles.footer}>
-                REBH Council · قوائم تدقيق تفاعلية — تعرض القراءة ولا توصي بالشراء أو
-                البيع
-            </footer>
+                <footer className="mt-8 text-center text-[11px] text-[#9CA3AF]">
+                    REBH Council · قوائم تدقيق تفاعلية — تعرض القراءة ولا توصي بالشراء أو
+                    البيع
+                </footer>
+            </div>
         </div>
     );
 }
@@ -351,14 +534,52 @@ function TabButton({
     return (
         <button
             onClick={onClick}
-            style={{
-                ...styles.tabBtn,
-                ...(active ? styles.tabBtnActive : {}),
-            }}
+            className={
+                active
+                    ? "inline-flex items-center gap-1.5 rounded-[4px] border border-[#8C3B32] bg-white px-4 py-2 text-[12.5px] font-bold text-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+                    : "inline-flex items-center gap-1.5 rounded-[4px] border border-[#E5E7EB] bg-white px-4 py-2 text-[12.5px] font-medium text-[#6B7280] transition-colors hover:border-[#8C3B32]/40 hover:text-[#1A1A1A]"
+            }
         >
             {icon}
             <span>{label}</span>
         </button>
+    );
+}
+
+/* Verdict bar recast as a small KPI card: uppercase muted label above a bold
+   value, with a status badge — matches the shared stat-card pattern instead
+   of a one-off dark bar. */
+function VerdictBar({
+    value,
+    suffix,
+    ok,
+    disqualified,
+    okLabel,
+    failLabel,
+    midLabel,
+}: {
+    value: string;
+    suffix: string;
+    ok: boolean;
+    disqualified: boolean;
+    okLabel: string;
+    failLabel: string;
+    midLabel: string;
+}) {
+    return (
+        <div className="flex flex-wrap items-center gap-4 border-b border-[#E5E7EB] pb-4">
+            <div className="flex items-baseline gap-1.5 font-mono">
+                <span className="text-[28px] font-bold leading-none text-[#1A1A1A]">{value}</span>
+                <span className="text-[13px] text-[#9CA3AF]">{suffix}</span>
+            </div>
+            <VerdictBadge
+                ok={ok}
+                disqualified={disqualified}
+                okLabel={okLabel}
+                failLabel={failLabel}
+                midLabel={midLabel}
+            />
+        </div>
     );
 }
 
@@ -375,37 +596,45 @@ function VerdictBadge({
     failLabel: string;
     midLabel: string;
 }) {
-    let bg = "rgba(232,196,100,.13)";
-    let border = "#e8c464";
-    let color = "#e8c464";
+    let classes = "border-[#E5E7EB] bg-[#F3F4F6] text-[#6B7280]";
     let label = midLabel;
 
     if (disqualified) {
-        bg = "rgba(232,93,93,.14)";
-        border = "#e85d5d";
-        color = "#e85d5d";
+        classes = "border-[#FECACA] bg-[#FEF2F2] text-[#DC2626]";
         label = failLabel;
     } else if (ok) {
-        bg = "rgba(46,204,113,.14)";
-        border = "#2ecc71";
-        color = "#2ecc71";
+        classes = "border-[#BBF7D0] bg-[#F0FDF4] text-[#16A34A]";
         label = okLabel;
     }
 
     return (
-        <span
-            style={{
-                background: bg,
-                border: `1.5px solid ${border}`,
-                color,
-                borderRadius: 10,
-                padding: "8px 16px",
-                fontSize: 12.5,
-                fontWeight: 800,
-            }}
-        >
+        <span className={`rounded-full border px-3.5 py-1.5 text-[12px] font-bold ${classes}`}>
             {label}
         </span>
+    );
+}
+
+function DangerBanner({ children }: { children: React.ReactNode }) {
+    return (
+        <div className="mt-4 flex items-start gap-2 rounded-[4px] border border-[#FECACA] bg-[#FEF2F2] px-3.5 py-2.5 text-[12.5px] text-[#DC2626]">
+            <Flag size={14} className="mt-0.5 shrink-0" />
+            <span>{children}</span>
+        </div>
+    );
+}
+
+function GroupTitle({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+    return (
+        <h3 className={`mb-2 mt-4 text-[13px] font-semibold text-[#1A1A1A] ${className}`}>{children}</h3>
+    );
+}
+
+function Footnote({ children }: { children: React.ReactNode }) {
+    return (
+        <div className="mt-4 flex items-start gap-1.5 border-t border-[#E5E7EB] pt-3 text-[11.5px] leading-relaxed text-[#6B7280]">
+            <HelpCircle size={13} className="mt-0.5 shrink-0 text-[#9CA3AF]" />
+            <span>{children}</span>
+        </div>
     );
 }
 
@@ -419,154 +648,26 @@ function FlagCheckbox({
     onToggle: () => void;
 }) {
     return (
-        <label style={styles.flagRow}>
+        <label className="flex cursor-pointer items-start gap-2.5 py-2.5">
             <input
                 type="checkbox"
                 checked={checked}
                 onChange={onToggle}
-                style={{ accentColor: "#e85d5d", marginTop: 3 }}
+                className="mt-0.5 h-4 w-4 accent-[#8C3B32]"
             />
             <div>
-                <div style={styles.fisherQ}>{item.label}</div>
-                <div style={styles.fisherQAr}>{item.labelAr}</div>
+                <div className="text-[13px] text-[#1A1A1A]">{item.label}</div>
+                <div className="mt-0.5 text-[12px] text-[#6B7280]" dir="rtl">
+                    {item.labelAr}
+                </div>
             </div>
         </label>
     );
 }
 
-/* ================= styles ================= */
-
-const styles: Record<string, React.CSSProperties> = {
-    page: {
-        minHeight: "100vh",
-        background: "#0a0c10",
-        color: "#e8edf4",
-        fontFamily: "'Segoe UI', system-ui, sans-serif",
-        padding: "26px 24px 60px",
-    },
-    header: { marginBottom: 20, borderBottom: "1px solid #1e2836", paddingBottom: 16 },
-    headerTitleRow: { display: "flex", alignItems: "center", gap: 10 },
-    h1: { fontSize: 21, fontWeight: 900, margin: 0, letterSpacing: -0.3 },
-    sub: { color: "#a8b0bc", fontSize: 12.5, marginTop: 8, maxWidth: 900, lineHeight: 1.7 },
-    tabRow: { display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" },
-    tabBtn: {
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 7,
-        background: "#121924",
-        border: "1px solid #1e2836",
-        borderRadius: 10,
-        color: "#a8b0bc",
-        padding: "9px 16px",
-        fontSize: 12.5,
-        fontWeight: 700,
-        cursor: "pointer",
-    },
-    tabBtnActive: {
-        background: "#3987e5",
-        borderColor: "#3987e5",
-        color: "#fff",
-    },
-    panel: {
-        background: "#121924",
-        border: "1px solid #1e2836",
-        borderRadius: 14,
-        padding: "20px 22px",
-    },
-    verdictBar: {
-        display: "flex",
-        alignItems: "center",
-        gap: 16,
-        flexWrap: "wrap",
-        borderBottom: "1px solid #1e2836",
-        paddingBottom: 16,
-        marginBottom: 4,
-    },
-    verdictScore: {
-        display: "flex",
-        alignItems: "baseline",
-        gap: 4,
-        fontFamily: "Consolas, monospace",
-    },
-    verdictNum: { fontSize: 30, fontWeight: 900, color: "#f0f2f5" },
-    verdictOf: { fontSize: 13, color: "#626b78" },
-    dangerBanner: {
-        background: "rgba(232,93,93,.08)",
-        borderInlineStart: "3px solid #e85d5d",
-        borderRadius: 8,
-        padding: "10px 14px",
-        fontSize: 12.5,
-        color: "#e8edf4",
-        marginTop: 14,
-    },
-    fisherRow: {
-        display: "grid",
-        gridTemplateColumns: "1fr 150px",
-        gap: 14,
-        alignItems: "center",
-        padding: "10px 0",
-        borderBottom: "1px solid #1e2836",
-    },
-    fisherQCol: { display: "flex", gap: 10, alignItems: "flex-start" },
-    fisherIdx: {
-        fontFamily: "Consolas, monospace",
-        fontSize: 12,
-        color: "#d9b64a",
-        fontWeight: 800,
-        minWidth: 22,
-    },
-    fisherQ: { fontSize: 12.5, color: "#e8edf4" },
-    fisherQAr: { fontSize: 11.5, color: "#626b78", marginTop: 2, direction: "rtl" as const },
-    scoreGroup: { display: "flex", gap: 10, justifyContent: "flex-end" },
-    scoreOption: {
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        fontSize: 10.5,
-        color: "#a8b0bc",
-        gap: 2,
-    },
-    groupTitle: {
-        fontSize: 11,
-        color: "#f0d47c",
-        letterSpacing: 1.4,
-        textTransform: "uppercase",
-        margin: "12px 0 8px",
-    },
-    flagRow: {
-        display: "flex",
-        gap: 10,
-        alignItems: "flex-start",
-        padding: "8px 0",
-        borderBottom: "1px solid #1e2836",
-        cursor: "pointer",
-    },
-    bankRow: {
-        display: "flex",
-        gap: 10,
-        alignItems: "flex-start",
-        padding: "9px 0",
-        borderBottom: "1px solid #1e2836",
-        cursor: "pointer",
-    },
-    bankNote: { fontSize: 10.5, color: "#e8c464", marginTop: 3, fontStyle: "italic" },
-    footnote: {
-        fontSize: 11,
-        color: "#626b78",
-        marginTop: 16,
-        paddingTop: 12,
-        borderTop: "1px solid #1e2836",
-    },
-    footer: {
-        color: "#626b78",
-        fontSize: 10.5,
-        textAlign: "center",
-        padding: "30px 0 0",
-    },
-};
-
+/* ================= global css ================= */
+/* Kept minimal — focus rings and hover states are now handled by Tailwind
+   utility classes above instead of blanket element selectors. */
 const globalCss = `
-  input:focus { outline: none; }
-  button:hover { filter: brightness(1.1); }
-  label:hover { color: #f0f2f5; }
+  input:focus-visible { outline: 2px solid #8C3B32; outline-offset: 2px; }
 `;

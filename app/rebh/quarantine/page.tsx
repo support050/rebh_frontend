@@ -49,6 +49,15 @@ interface QuarantineRow {
 }
 
 /* ---------------------------------------------------------------------- */
+/*  Design system tokens                                                   */
+/* ---------------------------------------------------------------------- */
+
+const CARD = "bg-white border border-[#E5E7EB] rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.06)]";
+const SUBCARD = "bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px]";
+const INPUT =
+    "bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px] text-[13px] text-[#1A1A1A] placeholder:text-[#9CA3AF] outline-none focus:border-[#8C3B32] focus:ring-2 focus:ring-[#8C3B32]/10 transition";
+
+/* ---------------------------------------------------------------------- */
 /*  Helpers                                                                 */
 /* ---------------------------------------------------------------------- */
 
@@ -60,88 +69,46 @@ const fmt = (v: number | null | undefined, d = 1) =>
             minimumFractionDigits: 0,
         });
 
-function classifyCompany(c: CompanyUniverseItem): QuarantineReason[] {
-    const reasons: QuarantineReason[] = [];
-    const flags = c.flags || [];
-
-    const hasNoFilings = !c.n && !c.sec; // heuristic: essentially no data at all
-    if (hasNoFilings) {
-        reasons.push({
-            kind: "no-filings",
-            label:
-                "No filings at source — absent from the importer roster (roster fix required)",
-        });
-    }
-
-    const noIncomeStatement =
-        c.fresh &&
-        c.pe == null &&
-        c.roe == null &&
-        c.pb == null;
-    if (noIncomeStatement) {
-        reasons.push({
-            kind: "empty-statement",
-            label:
-                "Income statement empty at source° (tag-mapper bug — one fix releases the whole class)",
-        });
-    }
-
-    if (!c.fresh) {
-        reasons.push({
-            kind: "stale",
-            label: "Statements stale — never priced against today, by rule",
-        });
-    }
-
-    const corrupted =
-        c.bs_ok === false ||
-        flags.some((f) => /implausible|corrupt/i.test(f));
-    if (corrupted) {
-        reasons.push({
-            kind: "corruption",
-            label: "Severe figure corruption ⚑ — excluded from market aggregates",
-        });
-    }
-
-    // surface any raw ⚑ flags not already captured above as "other"
-    flags
-        .filter((f) => f.startsWith("⚑"))
-        .forEach((f) => {
-            if (!/implausible|corrupt/i.test(f)) {
-                reasons.push({ kind: "other", label: f.replace(/^⚑/, "").trim() });
-            }
-        });
-
-    return reasons;
-}
-
+// Reason severity colors kept to the design system's two semantic colors:
+// warning-class reasons use the amber-ish "caution" treatment, and
+// corruption/other (the more severe class) uses the error red.
 const REASON_META: Record<
     QuarantineReasonKind,
-    { icon: typeof AlertTriangle; color: string; chip: string }
+    { icon: typeof AlertTriangle; color: string; bg: string; border: string; chip: string }
 > = {
     "no-filings": {
         icon: FileQuestion,
-        color: "#f59e0b",
+        color: "#B45309",
+        bg: "#FFFBEB",
+        border: "#FDE68A",
         chip: "No filings",
     },
     "empty-statement": {
         icon: AlertTriangle,
-        color: "#f59e0b",
+        color: "#B45309",
+        bg: "#FFFBEB",
+        border: "#FDE68A",
         chip: "Empty income stmt°",
     },
     stale: {
         icon: RefreshCw,
-        color: "#f59e0b",
+        color: "#B45309",
+        bg: "#FFFBEB",
+        border: "#FDE68A",
         chip: "Stale",
     },
     corruption: {
         icon: ShieldAlert,
-        color: "#f43f5e",
+        color: "#DC2626",
+        bg: "#FEF2F2",
+        border: "#FECACA",
         chip: "Corruption ⚑",
     },
     other: {
         icon: AlertTriangle,
-        color: "#f43f5e",
+        color: "#DC2626",
+        bg: "#FEF2F2",
+        border: "#FECACA",
         chip: "Flag",
     },
 };
@@ -170,18 +137,25 @@ export default function QuarantinePage() {
     >("all");
     const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
+    const [quarantineMeta, setQuarantineMeta] = useState<any>(null);
+
     async function load() {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch(`${API_BASE_URL}/api/rebh/universe`, {
-                cache: "no-store",
-            });
-            if (!res.ok) throw new Error(`Request failed (${res.status})`);
-            const data: CompanyUniverseItem[] = await res.json();
-            setUniverse(data);
+            const [uniRes, quarRes] = await Promise.all([
+                fetch(`${API_BASE_URL}/api/rebh/universe`, { cache: "no-store" }),
+                fetch(`${API_BASE_URL}/api/rebh/quarantine`, { cache: "no-store" })
+            ]);
+            if (!uniRes.ok) throw new Error(`Universe request failed (${uniRes.status})`);
+            const uniData: CompanyUniverseItem[] = await uniRes.json();
+            setUniverse(uniData);
+            if (quarRes.ok) {
+                const qData = await quarRes.json();
+                setQuarantineMeta(qData);
+            }
         } catch (e: any) {
-            setError(e?.message || "Failed to load universe data");
+            setError(e?.message || "Failed to load quarantine data");
         } finally {
             setLoading(false);
         }
@@ -193,11 +167,44 @@ export default function QuarantinePage() {
 
     const rows: QuarantineRow[] = useMemo(() => {
         if (!universe) return [];
-        return universe
-            .map((item) => ({ item, reasons: classifyCompany(item) }))
-            .filter((r) => r.reasons.length > 0)
-            .sort((a, b) => (b.item.mc || 0) - (a.item.mc || 0));
-    }, [universe]);
+
+        // When backend quarantine response is loaded, it is the strict and sole source of truth
+        if (quarantineMeta) {
+            const list = quarantineMeta.quarantined_companies;
+            if (!Array.isArray(list) || list.length === 0) {
+                return []; // Clean empty state: 0 companies quarantined by engine
+            }
+
+            const uniMap = new Map<string, CompanyUniverseItem>();
+            universe.forEach(u => uniMap.set(u.sym, u));
+
+            return list.map((q: any) => {
+                const item: CompanyUniverseItem = uniMap.get(q.symbol) || {
+                    sym: q.symbol,
+                    n: q.name || "",
+                    sec: q.sector || "",
+                    px: q.price || 0,
+                    mc: q.market_cap || 0,
+                    fresh: false,
+                    bs_ok: q.balance_identity_valid ?? true,
+                    flags: q.flags || []
+                };
+
+                // 100% Structured reason codes directly from backend forensics engine
+                const reasons: QuarantineReason[] = (q.reasons_structured && Array.isArray(q.reasons_structured))
+                    ? q.reasons_structured.map((rs: any) => ({
+                        kind: (rs.kind as QuarantineReasonKind) || "other",
+                        label: rs.label || rs.code || "Unspecified quarantine condition"
+                    }))
+                    : [];
+
+                return { item, reasons };
+            }).sort((a: QuarantineRow, b: QuarantineRow) => (b.item.mc || 0) - (a.item.mc || 0));
+        }
+
+        // Only before backend metadata finishes loading: initial view
+        return [];
+    }, [universe, quarantineMeta]);
 
     const filteredRows = useMemo(() => {
         let list = rows;
@@ -244,24 +251,37 @@ export default function QuarantinePage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#0a0c10] text-[#e8edf4] pb-16">
+        <div className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] pb-16">
             {/* Header */}
-            <header className="px-6 md:px-9 pt-7 pb-4 border-b border-[#1e2836] bg-gradient-to-b from-[#0d1118] to-[#0a0c10]">
+            <header className="px-6 md:px-9 pt-7 pb-4 border-b border-[#E5E7EB] bg-white">
                 <div className="flex items-start gap-3">
-                    <div className="mt-1 shrink-0 rounded-lg bg-[#f43f5e]/10 border border-[#f43f5e]/30 p-2">
-                        <ShieldAlert size={22} color="#f43f5e" />
+                    <div className="mt-1 shrink-0 rounded-[4px] bg-[#FEF2F2] border border-[#FECACA] p-2">
+                        <ShieldAlert size={22} color="#DC2626" />
                     </div>
-                    <div>
-                        <h1 className="text-2xl font-extrabold tracking-tight">
-                            Quarantine{" "}
-                            <span className="text-[#63a5f0]">
-                                — the Too-Hard Pile, declared
-                            </span>
-                        </h1>
-                        <p className="mt-1 max-w-3xl text-[13px] leading-relaxed text-[#aab6c6]">
+                    <div className="flex-1">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <h1 className="text-2xl font-extrabold tracking-tight text-[#1A1A1A]">
+                                Quarantine{" "}
+                                <span className="text-[#8C3B32]">
+                                    — the Too-Hard Pile, declared
+                                </span>
+                            </h1>
+                            {quarantineMeta && (
+                                <div className="flex items-center gap-2">
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#F7F8FA] border border-[#E5E7EB] text-[11px] font-mono text-[#6B7280]">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-[#16A34A]" />
+                                        {quarantineMeta.source || "REBH Forensic Gate"}
+                                    </span>
+                                    <span className="px-2 py-0.5 rounded bg-[#FEF2F2] border border-[#FECACA] text-[11px] font-bold text-[#DC2626]">
+                                        {quarantineMeta.count ?? rows.length} Quarantined
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                        <p className="mt-1 max-w-3xl text-[13px] leading-relaxed text-[#6B7280]">
                             Munger&apos;s demand delivered: companies whose data cannot be
                             trusted are{" "}
-                            <b className="text-[#e8c464]">
+                            <b className="text-[#8C3B32]">
                                 publicly quarantined with the reason
                             </b>{" "}
                             — not silently shown with pretty ratios. The engine already
@@ -278,7 +298,7 @@ export default function QuarantinePage() {
                     <KpiCard
                         value={loading ? "…" : fmt(rows.length, 0)}
                         label={`In the pile (of ${totalUniverse || "—"})`}
-                        color="#f59e0b"
+                        color="#B45309"
                     />
                     <KpiCard
                         value={loading ? "…" : fmt(counts["no-filings"], 0)}
@@ -295,11 +315,11 @@ export default function QuarantinePage() {
                     <KpiCard
                         value={loading ? "…" : fmt(counts.corruption, 0)}
                         label="Severe corruption ⚑"
-                        color="#f43f5e"
+                        color="#DC2626"
                     />
                 </div>
 
-                <p className="text-[11px] text-[#5f6d80] mb-4 max-w-3xl leading-relaxed">
+                <p className="text-[11px] text-[#6B7280] mb-4 max-w-3xl leading-relaxed">
                     These companies still appear everywhere on the platform — but every
                     pricing, grade and aggregate the engine could not trust is
                     suppressed with its reason, not decorated. The pile is public
@@ -311,18 +331,19 @@ export default function QuarantinePage() {
                     <div className="relative flex-1 max-w-xs">
                         <Search
                             size={14}
-                            className="absolute left-3 top-1/2 -translate-y-1/2 text-[#5f6d80]"
+                            className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]"
                         />
                         <input
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             placeholder="Search symbol, name, sector…"
-                            className="w-full bg-[#0e141d] border border-[#1e2836] rounded-lg pl-8 pr-8 py-2 text-[13px] outline-none focus:border-[#3987e5] placeholder:text-[#5f6d80]"
+                            className={`${INPUT} w-full pl-8 pr-8 py-2`}
                         />
                         {query && (
                             <button
                                 onClick={() => setQuery("")}
-                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#5f6d80] hover:text-[#e85d5d]"
+                                aria-label="Clear search"
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#DC2626] transition"
                             >
                                 <X size={14} />
                             </button>
@@ -334,9 +355,9 @@ export default function QuarantinePage() {
                             <button
                                 key={f.key}
                                 onClick={() => setActiveFilter(f.key)}
-                                className={`px-3 py-1.5 rounded-lg text-[11.5px] font-semibold border transition-colors ${activeFilter === f.key
-                                    ? "bg-[#3987e5] border-[#3987e5] text-white"
-                                    : "bg-[#0e141d] border-[#1e2836] text-[#aab6c6] hover:border-[#3987e5]"
+                                className={`px-3 py-1.5 rounded-full text-[11.5px] font-semibold border transition-colors ${activeFilter === f.key
+                                    ? "border-[#8C3B32] text-[#8C3B32] bg-[#8C3B32]/5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+                                    : "bg-white border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] hover:text-[#1A1A1A]"
                                     }`}
                             >
                                 {f.label}
@@ -347,7 +368,7 @@ export default function QuarantinePage() {
                     <button
                         onClick={load}
                         disabled={loading}
-                        className="sm:ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11.5px] font-semibold border border-[#1e2836] text-[#aab6c6] hover:border-[#3987e5] hover:text-[#e8edf4] disabled:opacity-50"
+                        className="sm:mr-auto flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] text-[11.5px] font-semibold border border-[#E5E7EB] bg-white text-[#6B7280] hover:border-[#8C3B32] hover:text-[#8C3B32] disabled:opacity-50 transition"
                     >
                         <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
                         Refresh
@@ -356,29 +377,29 @@ export default function QuarantinePage() {
 
                 {/* Content states */}
                 {error && (
-                    <div className="rounded-xl border border-[#f43f5e]/40 bg-[#f43f5e]/10 p-4 text-[12.5px] text-[#f43f5e] mb-6 flex items-center gap-2">
+                    <div className="rounded-[4px] border border-[#FECACA] bg-[#FEF2F2] p-4 text-[12.5px] text-[#DC2626] mb-6 flex items-center gap-2">
                         <AlertTriangle size={15} />
                         {error} — check the API connection and try again.
                     </div>
                 )}
 
                 {loading && !error && (
-                    <div className="rounded-xl border border-[#1e2836] bg-[#121924] p-10 text-center text-[#5f6d80] text-[13px]">
+                    <div className={`${CARD} p-10 text-center text-[#6B7280] text-[13px]`}>
                         Loading universe…
                     </div>
                 )}
 
                 {!loading && !error && filteredRows.length === 0 && (
-                    <div className="rounded-xl border border-[#1e2836] bg-[#121924] p-10 text-center text-[#5f6d80] text-[13px] flex flex-col items-center gap-2">
-                        <CheckCircle2 size={20} className="text-[#2ecc71]" />
+                    <div className={`${CARD} p-10 text-center text-[#6B7280] text-[13px] flex flex-col items-center gap-2`}>
+                        <CheckCircle2 size={20} className="text-[#16A34A]" />
                         No companies match this filter.
                     </div>
                 )}
 
                 {!loading && !error && filteredRows.length > 0 && (
-                    <div className="rounded-2xl border border-[#1e2836] bg-[#121924] overflow-hidden">
+                    <div className={`${CARD} overflow-hidden`}>
                         {/* Table header (desktop) */}
-                        <div className="hidden md:grid grid-cols-[1.4fr_1fr_1fr_1fr_2.4fr_auto] gap-3 px-5 py-3 border-b border-[#1e2836] text-[10px] uppercase tracking-wider text-[#5f6d80] font-semibold">
+                        <div className="hidden md:grid grid-cols-[1.4fr_1fr_1fr_1fr_2.4fr_auto] gap-3 px-5 py-3 border-b border-[#E5E7EB] bg-[#F3F4F6] text-[10px] uppercase tracking-wider text-[#6B7280] font-semibold">
                             <span>Company</span>
                             <span className="text-right">Sector</span>
                             <span className="text-right">Mkt cap</span>
@@ -387,7 +408,7 @@ export default function QuarantinePage() {
                             <span></span>
                         </div>
 
-                        <div className="divide-y divide-[#1e2836]">
+                        <div className="divide-y divide-[#E5E7EB]">
                             {filteredRows.map((row) => (
                                 <QuarantineRowItem
                                     key={row.item.sym}
@@ -401,7 +422,7 @@ export default function QuarantinePage() {
                 )}
 
                 {!loading && !error && filteredRows.length > 0 && (
-                    <p className="text-[11px] text-[#5f6d80] mt-3">
+                    <p className="text-[11px] text-[#6B7280] mt-3">
                         Showing {filteredRows.length} of {rows.length} quarantined
                         companies{query || activeFilter !== "all" ? " (filtered)" : ""},
                         sorted by market cap.
@@ -409,8 +430,8 @@ export default function QuarantinePage() {
                 )}
 
                 {/* Exit doors */}
-                <div className="mt-6 rounded-xl border border-[#e8c464]/60 bg-gradient-to-r from-[#e8c464]/10 to-transparent p-4 text-[12px] text-[#aab6c6] leading-relaxed">
-                    <b className="text-[#e8c464]">The exit doors (Developer Brief P0):</b>{" "}
+                <div className={`mt-6 ${SUBCARD} border-[#8C3B32]/30 p-4 text-[12px] text-[#6B7280] leading-relaxed`}>
+                    <b className="text-[#8C3B32]">The exit doors (Developer Brief P0):</b>{" "}
                     IS tag-mapper fix releases the empty-statement class at once
                     (incl. Aramco — SABIC sits in the stale class); IFRS-17 parser
                     releases the 27 stale insurers; importer-roster fix adds the
@@ -436,14 +457,14 @@ function KpiCard({
     color?: string;
 }) {
     return (
-        <div className="rounded-xl border border-[#1e2836] bg-[#0e141d] px-3.5 py-2.5">
+        <div className={`${SUBCARD} px-3.5 py-2.5`}>
             <div
-                className="text-[19px] font-extrabold font-mono"
-                style={{ color: color || "#e8edf4" }}
+                className="text-[19px] font-extrabold tabular-nums"
+                style={{ color: color || "#1A1A1A" }}
             >
                 {value}
             </div>
-            <div className="text-[9.5px] uppercase tracking-wider text-[#5f6d80] mt-0.5">
+            <div className="text-[9.5px] uppercase tracking-wider text-[#6B7280] mt-0.5">
                 {label}
             </div>
         </div>
@@ -467,28 +488,30 @@ function QuarantineRowItem({
     const Icon = meta.icon;
 
     return (
-        <div className="px-5 py-3.5 hover:bg-white/[0.02] transition-colors">
+        <div className="px-5 py-3.5 hover:bg-[#F3F4F6] transition-colors">
             <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr_1fr_1fr_2.4fr_auto] gap-2 md:gap-3 items-center">
                 {/* Company */}
                 <div className="flex items-center gap-2">
                     <Icon size={14} style={{ color: meta.color }} className="shrink-0" />
                     <div>
-                        <span className="font-bold text-[#63a5f0]">{item.sym}</span>
-                        <span className="text-[#5f6d80] text-[10.5px] ml-1.5">
+                        <a href={`/rebh/company/${item.sym}`} className="font-bold text-[#8C3B32] hover:underline">
+                            {item.sym}
+                        </a>
+                        <span className="text-[#6B7280] text-[10.5px] ml-1.5">
                             {item.n || "—"}
                         </span>
                     </div>
                 </div>
 
-                <div className="text-[11px] text-[#5f6d80] md:text-right">
+                <div className="text-[11px] text-[#6B7280] md:text-right">
                     {item.sec || "—"}
                 </div>
 
-                <div className="font-mono text-[12.5px] md:text-right">
+                <div className="text-[12.5px] text-[#1A1A1A] tabular-nums md:text-right">
                     {fmt(item.mc, 0)}
                 </div>
 
-                <div className="font-mono text-[12.5px] md:text-right">
+                <div className="text-[12.5px] text-[#1A1A1A] tabular-nums md:text-right">
                     {item.px ? fmt(item.px, 2) : "—"}
                 </div>
 
@@ -502,8 +525,8 @@ function QuarantineRowItem({
                                 className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border"
                                 style={{
                                     color: m.color,
-                                    borderColor: `${m.color}55`,
-                                    background: `${m.color}14`,
+                                    borderColor: m.border,
+                                    background: m.bg,
                                 }}
                                 title={r.label}
                             >
@@ -514,7 +537,7 @@ function QuarantineRowItem({
                     {!isExpanded && reasons.length > 2 && (
                         <button
                             onClick={onToggle}
-                            className="text-[10px] text-[#5f6d80] hover:text-[#e8edf4] underline decoration-dotted"
+                            className="text-[10px] text-[#6B7280] hover:text-[#1A1A1A] underline decoration-dotted"
                         >
                             +{reasons.length - 2} more
                         </button>
@@ -524,7 +547,7 @@ function QuarantineRowItem({
                 <div className="flex justify-end">
                     <button
                         onClick={onToggle}
-                        className="text-[#5f6d80] hover:text-[#63a5f0] p-1"
+                        className="text-[#6B7280] hover:text-[#8C3B32] p-1 transition"
                         aria-label="Toggle details"
                     >
                         <ArrowUpRight
@@ -537,13 +560,13 @@ function QuarantineRowItem({
             </div>
 
             {isExpanded && (
-                <div className="mt-3 pl-6 border-l-2 border-[#1e2836] space-y-1.5">
+                <div className="mt-3 pl-6 border-l-2 border-[#E5E7EB] space-y-1.5">
                     {reasons.map((r, i) => {
                         const m = REASON_META[r.kind];
                         return (
                             <div
                                 key={i}
-                                className="text-[11.5px] text-[#aab6c6] flex items-start gap-2"
+                                className="text-[11.5px] text-[#6B7280] flex items-start gap-2"
                             >
                                 <span
                                     className="mt-1 h-1.5 w-1.5 rounded-full shrink-0"
@@ -554,7 +577,7 @@ function QuarantineRowItem({
                         );
                     })}
                     {!item.bs_ok && (
-                        <div className="text-[10.5px] text-[#5f6d80] pt-1">
+                        <div className="text-[10.5px] text-[#6B7280] pt-1">
                             Balance-sheet check: failed°
                         </div>
                     )}
@@ -563,3 +586,12 @@ function QuarantineRowItem({
         </div>
     );
 }
+
+/*
+UX note (not implemented, flagged for follow-up):
+- The reason-severity color mapping only has two tiers (amber for
+  no-filings/empty-statement/stale, red for corruption/other) even though
+  five distinct reasons exist — "no filings" and "severe corruption" read
+  as equally urgent in a quick scan of the amber group. Worth a third tone
+  if these need to be told apart at a glance.
+*/
