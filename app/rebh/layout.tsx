@@ -76,12 +76,13 @@ export default function RebhLayout({ children }: { children: React.ReactNode }) 
         router.push(`/rebh/analyst/${sym}`);
       } else if (cmd === "XRAY" || cmd === "STORY") {
         router.push(`/rebh/xray/${sym}`);
+      } else if (cmd === "PXRAY" || cmd === "PORTXRAY") {
+        // Portfolio X-Ray (tools tab) — distinct from Story X-Ray
+        router.push(`/rebh/tools?tab=portfolio_xray&sym=${sym}`);
       } else if (cmd === "COURSE" || cmd === "CREPORT") {
         router.push(`/rebh/course-reports?sym=${sym}`);
       } else if (cmd === "TOOLS" || cmd === "LAB" || cmd === "LABS") {
         router.push(`/rebh/tools?sym=${sym}`);
-      } else if (cmd === "XRAY") {
-        router.push(`/rebh/tools?tab=portfolio_xray&sym=${sym}`);
       } else if (cmd === "COUNCIL" || cmd === "CHECK") {
         router.push(`/rebh/council?sym=${sym}`);
       } else {

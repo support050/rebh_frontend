@@ -122,7 +122,8 @@ function StudioInner() {
   // ── Derive data slices ─────────────────────────────────────────────────────
   const isData = data?.income_statement || {};
   const cfData = data?.cf || {};
-  const bsData = data?.balance_sheet || {};
+  // Statements API exposes the standardized balance sheet under `bs`.
+  const bsData = data?.bs || data?.balance_sheet || {};
   const qData  = data?.quarters || {};
   const priceHistory: any[] = data?.price_history || [];
 
@@ -130,11 +131,14 @@ function StudioInner() {
     ? (isData.periods || [])
     : (qData.periods || []);
 
-  // YoY helper
-  function toYoY(arr: number[]): (number | null)[] {
+  // YoY helper — annual: compare to prior year (i-1).
+  // Quarterly: compare to same quarter prior year (i-4 = true YoY, not QoQ).
+  function toYoY(arr: number[], isQuarterly = false): (number | null)[] {
+    const step = isQuarterly ? 4 : 1;
     return arr.map((v, i) => {
-      if (i === 0 || arr[i - 1] === 0) return null;
-      return Math.round(((v - arr[i - 1]) / Math.abs(arr[i - 1])) * 1000) / 10;
+      const prev = arr[i - step];
+      if (i < step || prev === 0 || prev == null) return null;
+      return Math.round(((v - prev) / Math.abs(prev)) * 1000) / 10;
     });
   }
 
@@ -198,13 +202,14 @@ function StudioInner() {
       const net  = get("net",  qData);
       const npm  = rev.map((r, i) => r > 0 ? +((net[i] / r) * 100).toFixed(1) : 0);
       const gpm  = rev.map((r, i) => r > 0 ? +((gp[i]  / r) * 100).toFixed(1) : 0);
+      // True YoY for quarterly: compare Q vs same Q prior year (step=4)
       return [
-        { id:"rev",  name:"الإيرادات الربعية",        nameEn:"Quarterly Revenue",  group:"income", unit:"M SAR", color:"#2563EB", data:rev,  yoy: toYoY(rev)  },
-        { id:"gp",   name:"إجمالي الربح الربعي",      nameEn:"Quarterly GP",       group:"income", unit:"M SAR", color:"#16A34A", data:gp,   yoy: toYoY(gp)   },
-        { id:"op",   name:"الربح التشغيلي الربعي",    nameEn:"Quarterly EBIT",     group:"income", unit:"M SAR", color:"#8C3B32", data:op,   yoy: toYoY(op)   },
-        { id:"net",  name:"صافي الربح الربعي",        nameEn:"Quarterly Net",      group:"income", unit:"M SAR", color:"#DC2626", data:net,  yoy: toYoY(net)  },
-        { id:"npm",  name:"هامش الربح الربعي",        nameEn:"Quarterly Margin",   group:"margin", unit:"%",     color:"#7C3AED", data:npm,  yoy: toYoY(npm)  },
-        { id:"gpm",  name:"هامش إجمالي الربح الربعي", nameEn:"Quarterly GPM",      group:"margin", unit:"%",     color:"#10B981", data:gpm,  yoy: toYoY(gpm)  },
+        { id:"rev",  name:"الإيرادات الربعية (YoY)",        nameEn:"Quarterly Revenue",  group:"income", unit:"M SAR", color:"#2563EB", data:rev,  yoy: toYoY(rev,  true) },
+        { id:"gp",   name:"إجمالي الربح الربعي (YoY)",      nameEn:"Quarterly GP",       group:"income", unit:"M SAR", color:"#16A34A", data:gp,   yoy: toYoY(gp,   true) },
+        { id:"op",   name:"الربح التشغيلي الربعي (YoY)",    nameEn:"Quarterly EBIT",     group:"income", unit:"M SAR", color:"#8C3B32", data:op,   yoy: toYoY(op,   true) },
+        { id:"net",  name:"صافي الربح الربعي (YoY)",        nameEn:"Quarterly Net",      group:"income", unit:"M SAR", color:"#DC2626", data:net,  yoy: toYoY(net,  true) },
+        { id:"npm",  name:"هامش الربح الربعي (YoY)",        nameEn:"Quarterly Margin",   group:"margin", unit:"%",     color:"#7C3AED", data:npm,  yoy: toYoY(npm,  true) },
+        { id:"gpm",  name:"هامش إجمالي الربح الربعي (YoY)", nameEn:"Quarterly GPM",      group:"margin", unit:"%",     color:"#10B981", data:gpm,  yoy: toYoY(gpm,  true) },
       ];
     }
   }, [data, timeframe, isData, cfData, bsData, qData]);
@@ -216,9 +221,10 @@ function StudioInner() {
   const sma20 = useMemo(() => {
     const closes = priceHistory.map(p => p.close);
     return closes.map((_, i) => {
-      if (i < 4) return null;
-      const w = closes.slice(Math.max(0, i - 19), i + 1);
-      return +(w.reduce((a, b) => a + b, 0) / w.length).toFixed(2);
+      // Only show SMA-20 when we have a full 20-day window
+      if (i < 19) return null;
+      const w = closes.slice(i - 19, i + 1); // exactly 20 closes
+      return +(w.reduce((a, b) => a + b, 0) / 20).toFixed(2);
     });
   }, [priceHistory]);
 
@@ -235,8 +241,9 @@ function StudioInner() {
   const gX = (i: number, n: number) => scaleX(i, n);
   const pxY = (v: number) => scaleY(v, minPx, maxPx);
 
-  // ── Sector comparison stub — uses sector median from universe stats ─────────
-  // This will be enriched if backend exposes sector medians; for now we show ± vs self-average.
+  // ── Historical self-median (shown as reference line when sector data is unavailable) ──────
+  // NOTE: This is the company's own historical median, NOT the sector median.
+  // Sector median requires backend /api/rebh/sector-stats endpoint (not yet wired).
   const selfMedian = useMemo(() => {
     const d = primary?.data || [];
     if (!d.length) return null;
