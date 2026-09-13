@@ -427,11 +427,10 @@ export default function CourseLabsTab() {
             <button
               key={l.id}
               onClick={() => setActiveLabId(l.id)}
-              className={`px-3 py-1.5 rounded-[4px] text-xs font-bold transition whitespace-nowrap ${
-                activeLabId === l.id
-                  ? "bg-[#8C3B32] text-white shadow-sm"
-                  : "bg-[#F7F8FA] hover:bg-[#F3F4F6] text-[#6B7280]"
-              }`}
+              className={`px-3 py-1.5 rounded-[4px] text-xs font-bold transition whitespace-nowrap ${activeLabId === l.id
+                ? "bg-[#8C3B32] text-white shadow-sm"
+                : "bg-[#F7F8FA] hover:bg-[#F3F4F6] text-[#6B7280]"
+                }`}
             >
               Lab #{l.id}
             </button>
@@ -1048,11 +1047,10 @@ export default function CourseLabsTab() {
                       setL11Symbol(sym);
                       calcL11(sym);
                     }}
-                    className={`px-2 py-0.5 text-xs rounded border transition ${
-                      l11Symbol === sym
-                        ? "bg-[#8C3B32] text-white border-[#8C3B32]"
-                        : "bg-white text-[#1A1A1A] border-[#E5E7EB] hover:bg-gray-50"
-                    }`}
+                    className={`px-2 py-0.5 text-xs rounded border transition ${l11Symbol === sym
+                      ? "bg-[#8C3B32] text-white border-[#8C3B32]"
+                      : "bg-white text-[#1A1A1A] border-[#E5E7EB] hover:bg-gray-50"
+                      }`}
                   >
                     {sym}
                   </button>
@@ -1153,11 +1151,10 @@ export default function CourseLabsTab() {
                       {l11Result.result.flags_12.map((flg: string, fIdx: number) => (
                         <div
                           key={fIdx}
-                          className={`p-2 rounded text-xs border ${
-                            flg.startsWith("⚑")
-                              ? "bg-red-50 text-red-700 border-red-200 font-medium"
-                              : "bg-green-50 text-green-700 border-green-200"
-                          }`}
+                          className={`p-2 rounded text-xs border ${flg.startsWith("⚑")
+                            ? "bg-red-50 text-red-700 border-red-200 font-medium"
+                            : "bg-green-50 text-green-700 border-green-200"
+                            }`}
                         >
                           {flg}
                         </div>
@@ -1221,9 +1218,8 @@ export default function CourseLabsTab() {
                               </td>
                               <td className="p-2 text-center font-mono text-[#6B7280]">{g.threshold}</td>
                               <td className="p-2 text-center">
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                  g.verdict === 'Positive' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                                }`}>
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${g.verdict === 'Positive' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                  }`}>
                                   {g.verdict === 'Positive' ? 'إيجابي' : 'سلبي'}
                                 </span>
                               </td>

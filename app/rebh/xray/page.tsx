@@ -8,22 +8,22 @@ import {
 
 const QUICK_SYMBOLS = [
   { sym: "2222", name: "أرامكو السعودية", sec: "طاقة" },
-  { sym: "1120", name: "الراجحي",         sec: "بنوك" },
-  { sym: "2010", name: "سابك",            sec: "بتروكيماويات" },
-  { sym: "7010", name: "STC",             sec: "اتصالات" },
-  { sym: "1180", name: "الأهلي",          sec: "بنوك" },
-  { sym: "4030", name: "دار الأركان",     sec: "عقارات" },
-  { sym: "2380", name: "بترو رابغ",       sec: "طاقة" },
-  { sym: "4200", name: "الأندلس",         sec: "تجزئة" },
+  { sym: "1120", name: "الراجحي", sec: "بنوك" },
+  { sym: "2010", name: "سابك", sec: "بتروكيماويات" },
+  { sym: "7010", name: "STC", sec: "اتصالات" },
+  { sym: "1180", name: "الأهلي", sec: "بنوك" },
+  { sym: "4030", name: "دار الأركان", sec: "عقارات" },
+  { sym: "2380", name: "بترو رابغ", sec: "طاقة" },
+  { sym: "4200", name: "الأندلس", sec: "تجزئة" },
 ];
 
 const WHAT_INSIDE = [
-  { icon: <Droplets size={14} />, title: "قصة التدفق النقدي",      desc: "FCF · CFO/NI · مرحلة التوسع أو الانكماش" },
-  { icon: <Flame size={14} />,    title: "قصة الهوامش",            desc: "ضغط التسعير · انضغاط الإجمالي/التشغيلي/الصافي" },
-  { icon: <Anchor size={14} />,   title: "قصة الديون والرافعة",    desc: "D/E · تغطية الفائدة · جدول الاستحقاق" },
-  { icon: <Zap size={14} />,      title: "قصة جودة الأرباح",       desc: "Piotroski · Beneish · CFO/NI مقابل الأرباح" },
-  { icon: <Wind size={14} />,     title: "قصة التمويل والتوزيعات", desc: "CFF · إعادة الكاش للمساهمين · اقتراض جديد" },
-  { icon: <BarChart3 size={14} />,title: "لوحة البيانات المرئية",  desc: "نهر المال · تنفّس الميزانية · دورة التحويل النقدي" },
+  { icon: <Droplets size={14} />, title: "قصة التدفق النقدي", desc: "FCF · CFO/NI · مرحلة التوسع أو الانكماش" },
+  { icon: <Flame size={14} />, title: "قصة الهوامش", desc: "ضغط التسعير · انضغاط الإجمالي/التشغيلي/الصافي" },
+  { icon: <Anchor size={14} />, title: "قصة الديون والرافعة", desc: "D/E · تغطية الفائدة · جدول الاستحقاق" },
+  { icon: <Zap size={14} />, title: "قصة جودة الأرباح", desc: "Piotroski · Beneish · CFO/NI مقابل الأرباح" },
+  { icon: <Wind size={14} />, title: "قصة التمويل والتوزيعات", desc: "CFF · إعادة الكاش للمساهمين · اقتراض جديد" },
+  { icon: <BarChart3 size={14} />, title: "لوحة البيانات المرئية", desc: "نهر المال · تنفّس الميزانية · دورة التحويل النقدي" },
 ];
 
 export default function RebhXRayLandingPage() {
@@ -42,7 +42,7 @@ export default function RebhXRayLandingPage() {
     <div className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] pb-24">
       <header className="sticky top-0 z-40 bg-white border-b border-[#E5E7EB] px-6 py-3 flex items-center gap-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <span className="px-2.5 py-1 rounded bg-[#8C3B32] text-white font-mono font-black text-xs">X-RAY</span>
-        <h1 className="font-bold text-sm tracking-tight text-[#1A1A1A]">Story · X-Ray</h1>
+        <h1 className="font-bold text-sm tracking-tight text-[#1A1A1A]">قصة الشركة المالية · X-Ray</h1>
         <span className="hidden sm:inline-block text-xs text-[#9CA3AF]">|</span>
         <span className="hidden sm:inline-block text-xs text-[#6B7280]">
           القصة المالية مُشتقة آلياً من الأرقام — لا نصوص مكتوبة يدوياً

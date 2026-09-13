@@ -71,7 +71,7 @@ export default function RebhReportPage() {
   const handleSaveNotes = async () => {
     // 1. Fallback to localStorage
     localStorage.setItem(`rebh_note_${symbol}`, userNotes);
-    
+
     // 2. Persist to API per user
     try {
       await fetch(`${API_BASE_URL}/api/rebh/notes/${symbol}`, {
@@ -80,7 +80,7 @@ export default function RebhReportPage() {
         credentials: "include",
         body: JSON.stringify({ symbol, note: userNotes })
       });
-    } catch (_) {}
+    } catch (_) { }
 
     setSavedNotes(true);
     setTimeout(() => setSavedNotes(false), 2000);
@@ -135,12 +135,13 @@ export default function RebhReportPage() {
   const requiredReturnPct = buildUp?.required_return_r_pct ?? company.required_return ?? 8.0;
   const requiredR = requiredReturnPct / 100.0;
 
-  const eps = company.TTM?.eps ?? (company.pe && company.pe > 0 ? px / company.pe : null);
+  const eps = company.nine_box?.earnings?.x_value ?? company.TTM?.eps ?? (company.pe && company.pe > 0 ? px / company.pe : null);
   const pe = company.pe ?? (eps && eps > 0 ? px / eps : null);
+  const de = company.safety?.de ?? company.de ?? 0.0;
   const roe = company.safety?.roe ?? company.roe;
   const roa = company.safety?.roa ?? company.roa;
   const current = company.safety?.current_ratio ?? company.current;
-  const debtToAssetsPct = company.safety?.debt_to_assets ?? (company.de_assets != null ? company.de_assets : null);
+  const debtToAssetsPct = company.safety?.debt_to_assets ?? (company.de_assets != null ? company.de_assets : (company.shariah?.debt_to_market_cap_pct ?? null));
   const f_score = company.piotroski ?? company.f_score ?? 0;
 
   // Implied Growth from Engine
@@ -259,8 +260,8 @@ export default function RebhReportPage() {
               <tr>
                 <td className="p-2">نسبة الديون إلى حقوق الملكية (D/E)</td>
                 <td className="p-2 font-mono">معتدل &lt; 1.0x</td>
-                <td className="p-2 font-bold font-mono">{company.de != null ? `${company.de}x` : "—"}</td>
-                <td className="p-2 text-[#16A34A] font-bold">{company.de != null && company.de < 1.0 ? "سليم ✓" : "تنبيه ⚠"}</td>
+                <td className="p-2 font-bold font-mono">{de != null ? `${de}x` : "—"}</td>
+                <td className="p-2 text-[#16A34A] font-bold">{de != null && de < 1.0 ? "سليم ✓" : "تنبيه ⚠"}</td>
               </tr>
               <tr>
                 <td className="p-2">الديون بالنسبة للأصول (Debt / Assets)</td>
@@ -306,8 +307,8 @@ export default function RebhReportPage() {
               {isCyclical
                 ? " وبما أن الشركة تنتمي للقطاع الدوري، فإن القرار الاستثماري المنهجي يُشتق من مكررات القمة والقاع الدورية مع تجنب فخ انخفاض مكرر الأرباح عند الذروة."
                 : isBank
-                ? " وتخضع لمؤشرات التحليل المصرفي (NIM على متوسط الأصول المدرة، ونسبة CASA، وسلامة LDR)."
-                : " وتخضع الشركة لتقييم التدفقات والأرباح الدائمة مع هامش أمان متطلب لا يقل عن 15%."}
+                  ? " وتخضع لمؤشرات التحليل المصرفي (NIM على متوسط الأصول المدرة، ونسبة CASA، وسلامة LDR)."
+                  : " وتخضع الشركة لتقييم التدفقات والأرباح الدائمة مع هامش أمان متطلب لا يقل عن 15%."}
             </p>
           </div>
         </section>

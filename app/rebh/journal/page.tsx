@@ -286,7 +286,7 @@ export default function TradeJournalPage() {
                         trade_date: target.createdAt
                     })
                 });
-            } catch (_) {}
+            } catch (_) { }
         }
     }
 
@@ -298,7 +298,7 @@ export default function TradeJournalPage() {
                     method: "DELETE",
                     credentials: "include"
                 });
-            } catch (_) {}
+            } catch (_) { }
         }
     }
 
@@ -318,7 +318,7 @@ export default function TradeJournalPage() {
                 <div style={styles.headerTitleRow}>
                     <BookOpen size={26} color="#8C3B32" />
                     <h1 style={styles.h1}>
-                        REBH <span style={{ color: "#8C3B32" }}>TRADE JOURNAL</span>
+                        REBH <span style={{ color: "#8C3B32" }}>دفتر الصفقات</span>
                     </h1>
                 </div>
                 <p style={styles.sub}>

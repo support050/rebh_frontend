@@ -9,6 +9,22 @@ import {
   CandlestickChart, Activity, RefreshCw, Table2,
   CheckCircle2, XCircle, ChevronDown, Minus
 } from "lucide-react";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  ComposedChart,
+  LineChart,
+  Line,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ReferenceLine,
+  Customized,
+} from "recharts";
 import { API_BASE_URL } from "@/lib/api/config";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -26,6 +42,32 @@ interface MetricSeries {
 type ModeType = "fundamental" | "price_action";
 type ChartStyle = "bar" | "line" | "area";
 type Timeframe = "annual" | "quarterly";
+type PriceChartStyle = "line" | "candle";
+
+// ─── Saved Template ───────────────────────────────────────────────────────────
+interface SavedTemplate {
+  id: string;
+  name: string;
+  mode: ModeType;
+  tf: Timeframe;
+  primaryId: string;
+  secondaryId: string | null;
+  chartStyle: ChartStyle;
+  showYoY: boolean;
+  showSMA20: boolean;
+  showVolume: boolean;
+  savedAt: string;
+}
+
+const TEMPLATES_KEY = "rebh_studio_templates";
+function loadTemplates(): SavedTemplate[] {
+  if (typeof window === "undefined") return [];
+  try { return JSON.parse(localStorage.getItem(TEMPLATES_KEY) || "[]"); } catch { return []; }
+}
+function saveTemplates(tpls: SavedTemplate[]) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(TEMPLATES_KEY, JSON.stringify(tpls));
+}
 
 // ─── Presets ─────────────────────────────────────────────────────────────────
 const PRESETS: Record<string, { mode: ModeType; tf: Timeframe; primary: string; secondary: string | null; style: ChartStyle }> = {
@@ -57,6 +99,7 @@ function StudioInner() {
   const symbol = ((params?.symbol as string) || "2222").toUpperCase();
 
   const [data, setData] = useState<any | null>(null);
+  const [sectorStats, setSectorStats] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState("");
@@ -67,12 +110,19 @@ function StudioInner() {
   const [primaryId, setPrimaryId] = useState("rev");
   const [secondaryId, setSecondaryId] = useState<string | null>("net");
   const [chartStyle, setChartStyle] = useState<ChartStyle>("bar");
+  const [priceChartStyle, setPriceChartStyle] = useState<PriceChartStyle>("line");
   const [showYoY, setShowYoY] = useState(false);
   const [showSMA20, setShowSMA20] = useState(true);
   const [showVolume, setShowVolume] = useState(true);
   const [activePreset, setActivePreset] = useState<string | null>(null);
-  const [sectorCompare, setSectorCompare] = useState(false);
+  const [showHistoricalMedian, setShowHistoricalMedian] = useState(false);
+  const [showSectorMedian, setShowSectorMedian] = useState(true);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; label: string; v1: string; v2: string } | null>(null);
+  // ── Saved templates ───────────────────────────────────────────────────────
+  const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
+  const [showTemplatePanel, setShowTemplatePanel] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState("");
+  useEffect(() => { setSavedTemplates(loadTemplates()); }, []);
 
   // ── Apply URL preset on load ───────────────────────────────────────────────
   useEffect(() => {
@@ -94,7 +144,22 @@ function StudioInner() {
         const res = await fetch(`${API_BASE_URL}/api/rebh/statements/${symbol}`);
         if (!res.ok) throw new Error(`لم يُعثر على بيانات الرمز: ${symbol}`);
         const json = await res.json();
-        if (!cancelled) setData(json);
+        if (!cancelled) {
+          setData(json);
+          // Fetch real sector stats if sector is available
+          const sec = json?.sec;
+          if (sec) {
+            try {
+              const secRes = await fetch(`${API_BASE_URL}/api/rebh/sector-stats-full?sector=${encodeURIComponent(sec)}`);
+              if (secRes.ok) {
+                const secJson = await secRes.json();
+                if (!cancelled) setSectorStats(secJson);
+              }
+            } catch {
+              // Non-critical if sector stats fail
+            }
+          }
+        }
       } catch (e: any) {
         if (!cancelled) setError(e.message);
       } finally {
@@ -117,6 +182,35 @@ function StudioInner() {
     setMode(p.mode); setTimeframe(p.tf);
     setPrimaryId(p.primary); setSecondaryId(p.secondary);
     setChartStyle(p.style); setActivePreset(id);
+  };
+
+  // ── Template save / load / delete ─────────────────────────────────────────
+  const handleSaveTemplate = () => {
+    const name = newTemplateName.trim();
+    if (!name) return;
+    const tpl: SavedTemplate = {
+      id: `tpl_${Date.now()}`,
+      name,
+      mode, tf: timeframe, primaryId, secondaryId,
+      chartStyle, showYoY, showSMA20, showVolume,
+      savedAt: new Date().toISOString(),
+    };
+    const updated = [...savedTemplates, tpl];
+    setSavedTemplates(updated); saveTemplates(updated);
+    setNewTemplateName(""); setShowTemplatePanel(false);
+  };
+
+  const handleLoadTemplate = (tpl: SavedTemplate) => {
+    setMode(tpl.mode); setTimeframe(tpl.tf);
+    setPrimaryId(tpl.primaryId); setSecondaryId(tpl.secondaryId);
+    setChartStyle(tpl.chartStyle); setShowYoY(tpl.showYoY);
+    setShowSMA20(tpl.showSMA20); setShowVolume(tpl.showVolume);
+    setActivePreset(null); setShowTemplatePanel(false);
+  };
+
+  const handleDeleteTemplate = (id: string) => {
+    const updated = savedTemplates.filter(t => t.id !== id);
+    setSavedTemplates(updated); saveTemplates(updated);
   };
 
   // ── Derive data slices ─────────────────────────────────────────────────────
@@ -241,15 +335,38 @@ function StudioInner() {
   const gX = (i: number, n: number) => scaleX(i, n);
   const pxY = (v: number) => scaleY(v, minPx, maxPx);
 
-  // ── Historical self-median (shown as reference line when sector data is unavailable) ──────
-  // NOTE: This is the company's own historical median, NOT the sector median.
-  // Sector median requires backend /api/rebh/sector-stats endpoint (not yet wired).
+  // ── Historical company median (reference line on chart) ──────────────────────
   const selfMedian = useMemo(() => {
     const d = primary?.data || [];
     if (!d.length) return null;
     const sorted = [...d].sort((a, b) => a - b);
     return sorted[Math.floor(sorted.length / 2)];
   }, [primary]);
+
+  // ── Real sector median (from /api/rebh/sector-stats-full) ─────────────────────
+  const currentSectorMedian = useMemo(() => {
+    if (!sectorStats?.metrics || !primaryId) return null;
+    const metricMapping: Record<string, string> = {
+      rev: "revenue",
+      npm: "nm",
+      gpm: "gm",
+      opm: "opm",
+      roe: "roe",
+      nd: "de",
+    };
+    const key = metricMapping[primaryId] || primaryId;
+    const st = sectorStats.metrics[key];
+    if (st && st.median != null) {
+      return {
+        value: st.median,
+        unit: st.unit,
+        n: st.n,
+        n_sector: st.n_sector,
+        coverage: st.coverage,
+      };
+    }
+    return null;
+  }, [sectorStats, primaryId]);
 
   // ── Group labels for metric picker ─────────────────────────────────────────
   const GROUPS: Array<{ id: string; label: string; color: string }> = [
@@ -400,7 +517,7 @@ function StudioInner() {
       <section className="bg-[#F8FAFC] border-b border-[#E5E7EB] px-6 py-2">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center gap-2">
           <span className="text-[11px] font-bold text-[#475569] flex items-center gap-1 shrink-0">
-            <Sparkles size={12} className="text-[#8C3B32]" />قوالب:
+            <Sparkles size={12} className="text-[#8C3B32]" />قوالب مدمجة:
           </span>
           {Object.entries({
             profitability_divergence: "NI vs CFO",
@@ -419,6 +536,59 @@ function StudioInner() {
               {label}
             </button>
           ))}
+
+          {/* ── Saved Templates section ── */}
+          <span className="text-[#CBD5E1] text-xs">|</span>
+          <span className="text-[11px] font-bold text-[#475569] shrink-0">محفوظاتي:</span>
+          {savedTemplates.map(tpl => (
+            <span key={tpl.id} className="inline-flex items-center gap-1 rounded-[4px] border border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8] text-[11px] font-semibold overflow-hidden">
+              <button
+                onClick={() => handleLoadTemplate(tpl)}
+                className="px-2 py-0.5 hover:bg-[#DBEAFE] transition-colors"
+                title={`تحميل: ${tpl.mode} / ${tpl.primaryId}`}
+              >
+                {tpl.name}
+              </button>
+              <button
+                onClick={() => handleDeleteTemplate(tpl.id)}
+                className="px-1 py-0.5 hover:bg-[#FECACA] hover:text-[#DC2626] transition-colors text-[#93C5FD]"
+                title="حذف القالب"
+              >
+                ×
+              </button>
+            </span>
+          ))}
+
+          {/* Save current view */}
+          {showTemplatePanel ? (
+            <span className="inline-flex items-center gap-1">
+              <input
+                type="text"
+                value={newTemplateName}
+                onChange={e => setNewTemplateName(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") handleSaveTemplate(); if (e.key === "Escape") setShowTemplatePanel(false); }}
+                placeholder="اسم القالب…"
+                className="px-2 py-0.5 text-[11px] border border-[#8C3B32] rounded-[4px] outline-none w-28 bg-white"
+                autoFocus
+              />
+              <button
+                onClick={handleSaveTemplate}
+                className="px-2 py-0.5 bg-[#8C3B32] text-white text-[11px] font-bold rounded-[4px] hover:bg-[#752f28]"
+              >حفظ</button>
+              <button
+                onClick={() => setShowTemplatePanel(false)}
+                className="px-2 py-0.5 bg-[#F3F4F6] text-[#6B7280] text-[11px] font-bold rounded-[4px] hover:bg-[#E5E7EB]"
+              >إلغاء</button>
+            </span>
+          ) : (
+            <button
+              onClick={() => setShowTemplatePanel(true)}
+              className="px-2.5 py-0.5 rounded-[4px] border border-dashed border-[#8C3B32] text-[#8C3B32] text-[11px] font-semibold hover:bg-[#FFF1EF] transition-colors"
+              title="حفظ العرض الحالي كقالب محفوظ"
+            >
+              + حفظ العرض الحالي
+            </button>
+          )}
         </div>
       </section>
 
@@ -541,126 +711,159 @@ function StudioInner() {
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
-                  {sectorCompare && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {showHistoricalMedian && (
                     <span className="text-[11px] font-mono text-[#64748B] bg-[#F8FAFC] px-2 py-0.5 rounded border border-[#E2E8F0]">
-                      وسيط الشركة ذاتها: {selfMedian?.toLocaleString(undefined, { maximumFractionDigits: 1 })} {primary.unit}
+                      وسيط الشركة: {selfMedian?.toLocaleString(undefined, { maximumFractionDigits: 1 })} {primary.unit}
+                    </span>
+                  )}
+                  {showSectorMedian && currentSectorMedian && (
+                    <span className="text-[11px] font-mono text-[#166534] bg-[#F0FDF4] px-2 py-0.5 rounded border border-[#BBF7D0]">
+                      وسيط القطاع ({currentSectorMedian.n} شركة): {currentSectorMedian.value.toLocaleString(undefined, { maximumFractionDigits: 1 })} {currentSectorMedian.unit}
                     </span>
                   )}
                   <button
-                    onClick={() => setSectorCompare(!sectorCompare)}
-                    className={`text-[11px] px-2.5 py-0.5 rounded border font-semibold transition-colors ${sectorCompare ? "bg-[#8C3B32] text-white border-[#8C3B32]" : "bg-white text-[#374151] border-[#D1D5DB] hover:bg-[#F3F4F6]"}`}
+                    onClick={() => setShowSectorMedian(!showSectorMedian)}
+                    className={`text-[11px] px-2.5 py-0.5 rounded border font-semibold transition-colors ${showSectorMedian ? "bg-[#16A34A] text-white border-[#16A34A]" : "bg-white text-[#374151] border-[#D1D5DB] hover:bg-[#F3F4F6]"}`}
+                    title="عرض خط وسيط القطاع الفعلي المستخرج من شركات القطاع"
                   >
-                    مقارنة الوسيط
+                    وسيط القطاع
+                  </button>
+                  <button
+                    onClick={() => setShowHistoricalMedian(!showHistoricalMedian)}
+                    className={`text-[11px] px-2.5 py-0.5 rounded border font-semibold transition-colors ${showHistoricalMedian ? "bg-[#8C3B32] text-white border-[#8C3B32]" : "bg-white text-[#374151] border-[#D1D5DB] hover:bg-[#F3F4F6]"}`}
+                    title="عرض خط الوسيط التاريخي الخاص بالشركة نفسها"
+                  >
+                    وسيط الشركة
                   </button>
                 </div>
               </div>
 
-              {/* SVG */}
-              <div className="w-full overflow-x-auto">
-                <div className="min-w-[600px]">
-                  <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto overflow-visible select-none">
-
-                    {/* Grid lines */}
-                    {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => {
-                      const y = PY + pct * UH;
-                      const v = maxVal - pct * (maxVal - minVal);
-                      return (
-                        <g key={i}>
-                          <line x1={PX} y1={y} x2={W - PX} y2={y} stroke="#F1F5F9" strokeWidth="1" strokeDasharray="3,3" />
-                          <text x={PX - 6} y={y + 3} fill="#94A3B8" fontSize="10" fontFamily="monospace" textAnchor="end">
-                            {Math.round(v).toLocaleString()}
-                          </text>
-                        </g>
-                      );
-                    })}
-
-                    {/* Zero line */}
-                    {minVal < 0 && maxVal > 0 && (
-                      <line x1={PX} y1={gY(0)} x2={W - PX} y2={gY(0)} stroke="#CBD5E1" strokeWidth="1.5" />
-                    )}
-
-                    {/* Self-median line */}
-                    {sectorCompare && selfMedian != null && (
-                      <line x1={PX} y1={gY(selfMedian)} x2={W - PX} y2={gY(selfMedian)}
-                        stroke="#D97706" strokeWidth="1.5" strokeDasharray="5,3" />
-                    )}
-
-                    {/* BAR chart */}
-                    {chartStyle === "bar" && periods.map((_: string, i: number) => {
-                      const v1 = primaryVals[i] ?? 0;
-                      const v2 = secondary ? (secondaryVals[i] ?? 0) : null;
-                      const x  = gX(i, periods.length);
-                      const bw = secondary ? 16 : 24;
-                      const y0 = gY(0);
-                      const y1 = gY(v1);
-                      const h1 = Math.abs(y1 - y0);
-                      return (
-                        <g key={i}
-                          onMouseEnter={() => setTooltip({ x, y: y1 - 12, label: periods[i], v1: v1.toLocaleString(undefined, {maximumFractionDigits:1}), v2: v2 != null ? v2.toLocaleString(undefined, {maximumFractionDigits:1}) : "" })}
-                          onMouseLeave={() => setTooltip(null)}
-                        >
-                          <rect x={secondary ? x - bw - 1 : x - bw / 2} y={v1 >= 0 ? y1 : y0} width={bw} height={Math.max(2, h1)}
-                            fill={primary.color} rx="2" opacity="0.9" className="hover:opacity-70 cursor-pointer" />
-                          {v2 != null && (() => {
-                            const y2 = gY(v2); const h2 = Math.abs(y2 - y0);
-                            return <rect x={x + 1} y={v2 >= 0 ? y2 : y0} width={bw} height={Math.max(2, h2)}
-                              fill={secondary!.color} rx="2" opacity="0.8" className="hover:opacity-70 cursor-pointer" />;
-                          })()}
-                        </g>
-                      );
-                    })}
-
-                    {/* LINE / AREA chart */}
-                    {(chartStyle === "line" || chartStyle === "area") && (() => {
-                      const pts1 = primaryVals.map((v, i) => `${gX(i, periods.length)},${gY(v)}`).join(" ");
-                      const pts2 = secondary ? secondaryVals.map((v, i) => `${gX(i, periods.length)},${gY(v)}`).join(" ") : null;
-                      const areaPath = `M${gX(0, periods.length)},${gY(0)} ` +
-                        primaryVals.map((v, i) => `L${gX(i, periods.length)},${gY(v)}`).join(" ") +
-                        ` L${gX(periods.length - 1, periods.length)},${gY(0)} Z`;
-                      return (
-                        <>
-                          {chartStyle === "area" && (
-                            <path d={areaPath} fill={primary.color} opacity="0.12" />
-                          )}
-                          <polyline points={pts1} fill="none" stroke={primary.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                          {primaryVals.map((v, i) => (
-                            <circle key={i} cx={gX(i, periods.length)} cy={gY(v)} r="4" fill="#fff" stroke={primary.color} strokeWidth="2"
-                              onMouseEnter={() => setTooltip({ x: gX(i, periods.length), y: gY(v) - 12, label: periods[i], v1: v.toLocaleString(undefined,{maximumFractionDigits:1}), v2: secondary ? (secondaryVals[i] ?? 0).toLocaleString(undefined,{maximumFractionDigits:1}) : "" })}
-                              onMouseLeave={() => setTooltip(null)}
-                              className="cursor-pointer"
-                            />
-                          ))}
-                          {pts2 && (
-                            <polyline points={pts2} fill="none" stroke={secondary!.color} strokeWidth="2" strokeDasharray="4,3" strokeLinecap="round" strokeLinejoin="round" />
-                          )}
-                          {secondary && secondaryVals.map((v, i) => (
-                            <circle key={i} cx={gX(i, periods.length)} cy={gY(v)} r="3.5" fill="#fff" stroke={secondary.color} strokeWidth="2" className="cursor-pointer" />
-                          ))}
-                        </>
-                      );
-                    })()}
-
-                    {/* X-axis labels */}
-                    {periods.map((p: string, i: number) => (
-                      <text key={i} x={gX(i, periods.length)} y={H - 6} fill="#64748B" fontSize="10" fontFamily="monospace" textAnchor="middle" fontWeight="600">
-                        {p}
-                      </text>
-                    ))}
-
-                    {/* Tooltip */}
-                    {tooltip && (
-                      <g>
-                        <rect x={tooltip.x - 55} y={tooltip.y - 22} width={110} height={tooltip.v2 ? 42 : 24} rx="4" fill="#1E293B" opacity="0.9" />
-                        <text x={tooltip.x} y={tooltip.y - 6} fill="#F8FAFC" fontSize="10" fontFamily="monospace" textAnchor="middle" fontWeight="bold">{tooltip.label}</text>
-                        <text x={tooltip.x} y={tooltip.y + 6} fill={primary.color} fontSize="10" fontFamily="monospace" textAnchor="middle">{tooltip.v1} {primary.unit}</text>
-                        {tooltip.v2 && secondary && (
-                          <text x={tooltip.x} y={tooltip.y + 18} fill={secondary.color} fontSize="10" fontFamily="monospace" textAnchor="middle">{tooltip.v2} {secondary.unit}</text>
-                        )}
-                      </g>
-                    )}
-                  </svg>
-                </div>
+              {/* Recharts Dynamic Chart Container */}
+              <div className="w-full h-[320px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  {chartStyle === "bar" ? (
+                    <BarChart data={periods.map((p: string, i: number) => ({
+                      period: p,
+                      [primary.id]: primaryVals[i] ?? 0,
+                      ...(secondary ? { [secondary.id]: secondaryVals[i] ?? 0 } : {})
+                    }))} margin={{ top: 15, right: 20, left: 10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+                      <XAxis dataKey="period" tick={{ fill: "#64748B", fontSize: 11, fontFamily: "monospace" }} />
+                      <YAxis tick={{ fill: "#64748B", fontSize: 11, fontFamily: "monospace" }} />
+                      <RechartsTooltip
+                        content={({ active, payload, label }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-[#1E293B] text-white text-xs px-3 py-2 rounded shadow-lg font-mono space-y-1">
+                                <div className="font-bold text-[#F8FAFC]">{label}</div>
+                                <div style={{ color: primary.color }}>
+                                  {primary.name}: {Number(payload[0]?.value).toLocaleString(undefined, { maximumFractionDigits: 1 })} {primary.unit}
+                                </div>
+                                {secondary && payload[1] && (
+                                  <div style={{ color: secondary.color }}>
+                                    {secondary.name}: {Number(payload[1]?.value).toLocaleString(undefined, { maximumFractionDigits: 1 })} {secondary.unit}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      {showHistoricalMedian && selfMedian != null && (
+                        <ReferenceLine y={selfMedian} stroke="#D97706" strokeDasharray="4 3" label={{ value: `وسيط الشركة: ${selfMedian}`, fill: "#D97706", fontSize: 10 }} />
+                      )}
+                      {showSectorMedian && currentSectorMedian != null && (
+                        <ReferenceLine y={currentSectorMedian.value} stroke="#16A34A" strokeDasharray="4 2" label={{ value: `وسيط القطاع: ${currentSectorMedian.value}`, fill: "#16A34A", fontSize: 10 }} />
+                      )}
+                      <Bar dataKey={primary.id} fill={primary.color} radius={[3, 3, 0, 0]} isAnimationActive={true} />
+                      {secondary && (
+                        <Bar dataKey={secondary.id} fill={secondary.color} radius={[3, 3, 0, 0]} isAnimationActive={true} />
+                      )}
+                    </BarChart>
+                  ) : chartStyle === "area" ? (
+                    <AreaChart data={periods.map((p: string, i: number) => ({
+                      period: p,
+                      [primary.id]: primaryVals[i] ?? 0,
+                      ...(secondary ? { [secondary.id]: secondaryVals[i] ?? 0 } : {})
+                    }))} margin={{ top: 15, right: 20, left: 10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+                      <XAxis dataKey="period" tick={{ fill: "#64748B", fontSize: 11, fontFamily: "monospace" }} />
+                      <YAxis tick={{ fill: "#64748B", fontSize: 11, fontFamily: "monospace" }} />
+                      <RechartsTooltip
+                        content={({ active, payload, label }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-[#1E293B] text-white text-xs px-3 py-2 rounded shadow-lg font-mono space-y-1">
+                                <div className="font-bold text-[#F8FAFC]">{label}</div>
+                                <div style={{ color: primary.color }}>
+                                  {primary.name}: {Number(payload[0]?.value).toLocaleString(undefined, { maximumFractionDigits: 1 })} {primary.unit}
+                                </div>
+                                {secondary && payload[1] && (
+                                  <div style={{ color: secondary.color }}>
+                                    {secondary.name}: {Number(payload[1]?.value).toLocaleString(undefined, { maximumFractionDigits: 1 })} {secondary.unit}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      {showHistoricalMedian && selfMedian != null && (
+                        <ReferenceLine y={selfMedian} stroke="#D97706" strokeDasharray="4 3" />
+                      )}
+                      {showSectorMedian && currentSectorMedian != null && (
+                        <ReferenceLine y={currentSectorMedian.value} stroke="#16A34A" strokeDasharray="4 2" />
+                      )}
+                      <Area type="monotone" dataKey={primary.id} stroke={primary.color} fill={primary.color} fillOpacity={0.2} strokeWidth={2.5} isAnimationActive={true} />
+                      {secondary && (
+                        <Area type="monotone" dataKey={secondary.id} stroke={secondary.color} fill={secondary.color} fillOpacity={0.15} strokeWidth={2} strokeDasharray="4 3" isAnimationActive={true} />
+                      )}
+                    </AreaChart>
+                  ) : (
+                    <LineChart data={periods.map((p: string, i: number) => ({
+                      period: p,
+                      [primary.id]: primaryVals[i] ?? 0,
+                      ...(secondary ? { [secondary.id]: secondaryVals[i] ?? 0 } : {})
+                    }))} margin={{ top: 15, right: 20, left: 10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+                      <XAxis dataKey="period" tick={{ fill: "#64748B", fontSize: 11, fontFamily: "monospace" }} />
+                      <YAxis tick={{ fill: "#64748B", fontSize: 11, fontFamily: "monospace" }} />
+                      <RechartsTooltip
+                        content={({ active, payload, label }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-[#1E293B] text-white text-xs px-3 py-2 rounded shadow-lg font-mono space-y-1">
+                                <div className="font-bold text-[#F8FAFC]">{label}</div>
+                                <div style={{ color: primary.color }}>
+                                  {primary.name}: {Number(payload[0]?.value).toLocaleString(undefined, { maximumFractionDigits: 1 })} {primary.unit}
+                                </div>
+                                {secondary && payload[1] && (
+                                  <div style={{ color: secondary.color }}>
+                                    {secondary.name}: {Number(payload[1]?.value).toLocaleString(undefined, { maximumFractionDigits: 1 })} {secondary.unit}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      {showHistoricalMedian && selfMedian != null && (
+                        <ReferenceLine y={selfMedian} stroke="#D97706" strokeDasharray="4 3" />
+                      )}
+                      {showSectorMedian && currentSectorMedian != null && (
+                        <ReferenceLine y={currentSectorMedian.value} stroke="#16A34A" strokeDasharray="4 2" />
+                      )}
+                      <Line type="monotone" dataKey={primary.id} stroke={primary.color} strokeWidth={2.5} dot={{ r: 4, fill: "#fff", stroke: primary.color, strokeWidth: 2 }} activeDot={{ r: 6 }} isAnimationActive={true} />
+                      {secondary && (
+                        <Line type="monotone" dataKey={secondary.id} stroke={secondary.color} strokeWidth={2} strokeDasharray="4 3" dot={{ r: 3.5, fill: "#fff", stroke: secondary.color, strokeWidth: 2 }} isAnimationActive={true} />
+                      )}
+                    </LineChart>
+                  )}
+                </ResponsiveContainer>
               </div>
             </div>
 
@@ -741,8 +944,19 @@ function StudioInner() {
                   <TrendingUp size={14} className="text-[#8C3B32]" />
                   <span className="text-xs font-bold text-[#1A1A1A]">مسار السعر اليومي ({priceHistory.length} يوم)</span>
                 </div>
-                <div className="flex items-center gap-3 text-xs">
-                  {([["showSMA20", showSMA20, setShowSMA20, "SMA-20 (أزرق)"], ["showVol", showVolume, setShowVolume, "أحجام التداول"]] as any[]).map(([key, val, setter, label]: any) => (
+                <div className="flex items-center gap-3 text-xs flex-wrap">
+                  {/* Chart type toggle */}
+                  <div className="flex items-center bg-[#F3F4F6] p-0.5 rounded border border-[#E5E7EB] text-[11px] font-semibold">
+                    {(["line", "candle"] as PriceChartStyle[]).map(s => (
+                      <button key={s}
+                        onClick={() => setPriceChartStyle(s)}
+                        className={`px-3 py-1 rounded transition-colors ${priceChartStyle === s ? "bg-white text-[#8C3B32] shadow-sm" : "text-[#6B7280]"}`}
+                      >
+                        {s === "line" ? "خطي" : "شموع OHLC"}
+                      </button>
+                    ))}
+                  </div>
+                  {([["showSMA20", showSMA20, setShowSMA20, "SMA-20"], ["showVol", showVolume, setShowVolume, "أحجام"]] as any[]).map(([key, val, setter, label]: any) => (
                     <label key={key} className="flex items-center gap-1.5 cursor-pointer font-semibold text-[#374151]">
                       <input type="checkbox" checked={val} onChange={e => setter(e.target.checked)} className="rounded" />
                       {label}
@@ -768,57 +982,187 @@ function StudioInner() {
                     ))}
                   </div>
 
-                  <div className="w-full overflow-x-auto">
-                    <div className="min-w-[600px]">
-                      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto overflow-visible select-none">
-                        {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => {
-                          const y = PY + pct * UH;
-                          const v = maxPx - pct * (maxPx - minPx);
-                          return (
-                            <g key={i}>
-                              <line x1={PX} y1={y} x2={W - PX} y2={y} stroke="#F1F5F9" strokeWidth="1" strokeDasharray="3,3" />
-                              <text x={PX - 6} y={y + 3} fill="#94A3B8" fontSize="10" fontFamily="monospace" textAnchor="end">{v.toFixed(1)}</text>
-                            </g>
-                          );
+                  {/* Recharts Dynamic Price Action Chart */}
+                  <div className="w-full h-[340px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart
+                        data={priceHistory.map((p, i) => {
+                          const open = p.open ?? p.close ?? 0;
+                          const close = p.close ?? 0;
+                          const high = p.high ?? Math.max(open, close);
+                          const low = p.low ?? Math.min(open, close);
+                          return {
+                            date: p.date,
+                            close,
+                            open,
+                            high,
+                            low,
+                            volume: p.volume ?? 0,
+                            sma20: sma20[i] ?? null,
+                            isBull: close >= open,
+                            // Recharts Bar range for candlestick body: [min, max]
+                            candleBody: [Math.min(open, close), Math.max(open, close)],
+                          };
                         })}
-
-                        {/* Volume bars */}
-                        {showVolume && (() => {
-                          const maxV = Math.max(...priceHistory.map(p => p.volume || 1), 1);
-                          return priceHistory.map((p, i) => {
-                            const vh = ((p.volume || 0) / maxV) * 50;
-                            return <rect key={i} x={gX(i, priceHistory.length) - 1.5} y={H - PY - vh} width="3" height={Math.max(1, vh)} fill="#CBD5E1" opacity="0.5" />;
-                          });
-                        })()}
-
-                        {/* Price line */}
-                        <polyline
-                          points={priceHistory.map((p, i) => `${gX(i, priceHistory.length)},${pxY(p.close)}`).join(" ")}
-                          fill="none" stroke="#8C3B32" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                        margin={{ top: 15, right: 20, left: 10, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fill: "#64748B", fontSize: 10, fontFamily: "monospace" }}
+                          interval={Math.max(1, Math.floor(priceHistory.length / 8))}
+                        />
+                        <YAxis
+                          yAxisId="price"
+                          domain={['auto', 'auto']}
+                          tick={{ fill: "#64748B", fontSize: 11, fontFamily: "monospace" }}
+                          orientation="right"
+                        />
+                        {showVolume && (
+                          <YAxis
+                            yAxisId="vol"
+                            orientation="left"
+                            domain={[0, (dataMax: number) => (dataMax || 1) * 3.5]}
+                            hide={true}
+                          />
+                        )}
+                        <RechartsTooltip
+                          content={({ active, payload, label }) => {
+                            if (active && payload && payload.length) {
+                              const d = payload[0].payload;
+                              return (
+                                <div className="bg-[#1E293B] text-white text-xs px-3 py-2.5 rounded shadow-xl font-mono space-y-1">
+                                  <div className="font-bold text-[#F8FAFC] border-b border-[#334155] pb-1 flex justify-between gap-4">
+                                    <span>{label}</span>
+                                    <span className={d.isBull ? "text-[#4ADE80]" : "text-[#F87171]"}>
+                                      {d.isBull ? "▲ صاعد" : "▼ هابط"}
+                                    </span>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px] pt-1">
+                                    <div>افتتاح: <span className="text-white font-bold">{d.open?.toFixed(2)}</span></div>
+                                    <div>إغلاق: <span className="text-[#93C5FD] font-bold">{d.close?.toFixed(2)}</span></div>
+                                    <div>أعلى: <span className="text-[#4ADE80] font-bold">{d.high?.toFixed(2)}</span></div>
+                                    <div>أدنى: <span className="text-[#F87171] font-bold">{d.low?.toFixed(2)}</span></div>
+                                  </div>
+                                  {d.sma20 != null && showSMA20 && (
+                                    <div className="text-[11px] text-[#60A5FA] pt-1 border-t border-[#334155]">
+                                      SMA-20: <span className="font-bold">{d.sma20.toFixed(2)}</span>
+                                    </div>
+                                  )}
+                                  {showVolume && (
+                                    <div className="text-[10px] text-[#94A3B8]">
+                                      الحجم: {Number(d.volume).toLocaleString()}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
                         />
 
-                        {/* SMA-20 */}
-                        {showSMA20 && sma20.length > 0 && (
-                          <polyline
-                            points={sma20.filter((v): v is number => v != null).map((v, i) => {
-                              const actualIdx = sma20.indexOf(v, i === 0 ? 0 : sma20.indexOf(sma20.filter(x => x != null)[i - 1] as number) + 1);
-                              return `${gX(actualIdx, priceHistory.length)},${pxY(v)}`;
-                            }).join(" ")}
-                            fill="none" stroke="#2563EB" strokeWidth="1.8" strokeDasharray="3,2"
+                        {/* Volume Bars (Optional) */}
+                        {showVolume && (
+                          <Bar
+                            yAxisId="vol"
+                            dataKey="volume"
+                            fill="#E2E8F0"
+                            opacity={0.65}
+                            isAnimationActive={false}
                           />
                         )}
 
-                        {/* X-axis dates */}
-                        {priceHistory.filter((_, i) => i % Math.max(1, Math.floor(priceHistory.length / 7)) === 0).map((p, idx) => {
-                          const oi = priceHistory.indexOf(p);
-                          return (
-                            <text key={idx} x={gX(oi, priceHistory.length)} y={H - 6} fill="#64748B" fontSize="10" fontFamily="monospace" textAnchor="middle">
-                              {p.date}
-                            </text>
-                          );
-                        })}
-                      </svg>
-                    </div>
+                        {/* Hidden reference series for OHLC scale domain calculation */}
+                        <Line yAxisId="price" dataKey="high" stroke="transparent" strokeWidth={0} dot={false} isAnimationActive={false} activeDot={false} />
+                        <Line yAxisId="price" dataKey="low" stroke="transparent" strokeWidth={0} dot={false} isAnimationActive={false} activeDot={false} />
+
+                        {/* OHLC Candlesticks Mode: Recharts native floating bar for the body, with wicks */}
+                        {priceChartStyle === "candle" ? (
+                          <Bar
+                            yAxisId="price"
+                            dataKey="candleBody"
+                            isAnimationActive={false}
+                            shape={(props: any) => {
+                              const { x, y, width, height, payload } = props;
+                              if (!payload) return null;
+                              const { high, low, open, close, isBull } = payload;
+                              const color = isBull ? "#16A34A" : "#DC2626";
+                              
+                              // Calculate wick coordinates relative to body
+                              // The body height represents |close - open|
+                              const bodyDiff = Math.max(Math.abs(close - open), 0.001);
+                              const pricePerPixel = (height && height > 0) ? (bodyDiff / height) : 0;
+                              
+                              const candleWidth = Math.max(3, Math.min(10, width * 0.75));
+                              const centerX = x + width / 2;
+                              const xLeft = centerX - candleWidth / 2;
+                              const bodyTop = y;
+                              const bodyHeight = Math.max(height || 2, 2);
+
+                              // Upper and lower wick offsets
+                              const maxOC = Math.max(open, close);
+                              const minOC = Math.min(open, close);
+                              const upperWickHeight = pricePerPixel > 0 ? (high - maxOC) / pricePerPixel : 0;
+                              const lowerWickHeight = pricePerPixel > 0 ? (minOC - low) / pricePerPixel : 0;
+
+                              const yHigh = bodyTop - upperWickHeight;
+                              const yLow = bodyTop + bodyHeight + lowerWickHeight;
+
+                              return (
+                                <g>
+                                  {/* Upper & Lower Wick Line */}
+                                  <line
+                                    x1={centerX}
+                                    y1={yHigh}
+                                    x2={centerX}
+                                    y2={yLow}
+                                    stroke={color}
+                                    strokeWidth={1.5}
+                                  />
+                                  {/* Candle Body */}
+                                  <rect
+                                    x={xLeft}
+                                    y={bodyTop}
+                                    width={candleWidth}
+                                    height={bodyHeight}
+                                    fill={color}
+                                    stroke={color}
+                                    strokeWidth={1}
+                                    rx={1}
+                                  />
+                                </g>
+                              );
+                            }}
+                          />
+                        ) : (
+                          /* Standard Line Mode */
+                          <Line
+                            yAxisId="price"
+                            type="monotone"
+                            dataKey="close"
+                            stroke="#8C3B32"
+                            strokeWidth={2.2}
+                            dot={false}
+                            activeDot={{ r: 5, fill: "#8C3B32", stroke: "#fff", strokeWidth: 2 }}
+                            isAnimationActive={true}
+                          />
+                        )}
+
+                        {/* SMA-20 Overlay Line */}
+                        {showSMA20 && (
+                          <Line
+                            yAxisId="price"
+                            type="monotone"
+                            dataKey="sma20"
+                            stroke="#2563EB"
+                            strokeWidth={1.8}
+                            strokeDasharray="3 3"
+                            dot={false}
+                            isAnimationActive={true}
+                          />
+                        )}
+                      </ComposedChart>
+                    </ResponsiveContainer>
                   </div>
                 </>
               ) : (
@@ -826,15 +1170,18 @@ function StudioInner() {
                   لا تتوفر بيانات أسعار تاريخية مسجلة لهذا الرمز.
                 </div>
               )}
+              {/* Product honesty note for Technical Charting */}
+              <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-[4px] px-3 py-2 text-[11px] text-[#64748B] flex items-center justify-between">
+                <span>مسار السعر يعرض بيانات التداول اليومية (OHLC + الحجم + SMA-20). أدوات التحليل الفني المتقدمة والمؤشرات الإضافية (60+) قيد التوسعة المرحلية.</span>
+                <span className="font-mono text-[10px] text-[#8C3B32] font-semibold">Tadawul Real Data</span>
+              </div>
             </div>
           </div>
         )}
 
-        {/* ── SECTOR COMPARISON NOTICE ───────────────────────────────────── */}
-        {mode === "fundamental" && sectorCompare && (
-          <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-[6px] p-4 text-xs text-[#92400E]">
-            <strong>ملاحظة مقارنة الوسيط:</strong> تُعرض القيمة الوسيطة لأداء الشركة ذاتها عبر الفترات كخط مرجعي ذهبي على الرسم.
-            مقارنة وسيط القطاع الحقيقية ستكون متاحة عند ربط نقطة نهاية sector-stats بالمنصة.
+        {mode === "fundamental" && showHistoricalMedian && (
+          <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-[6px] p-4 text-xs text-[#475569]">
+            <strong>مرجع الوسيط التاريخي:</strong> تُعرض القيمة الوسيطة لأداء الشركة ذاتها عبر الفترات المعروضة كخط مرجعي على الرسم — وليست وسيط القطاع.
           </div>
         )}
 

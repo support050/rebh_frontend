@@ -100,7 +100,7 @@ export default function RebhCompanyOfficialPage() {
         body: JSON.stringify(classForm)
       });
       if (res.ok) {
-        setClassData((prev: any) => ({ ...prev, ...classForm, is_override: true, source: "Owner-Edited Custom Override" }));
+        setClassData((prev: any) => ({ ...prev, ...classForm, is_override: true, source: "تعديل مخصص من المالك" }));
         setIsClassModalOpen(false);
       }
     } catch (err) {
@@ -580,7 +580,7 @@ export default function RebhCompanyOfficialPage() {
                   type="text"
                   value={classForm.industry_class}
                   onChange={(e) => setClassForm({ ...classForm, industry_class: e.target.value })}
-                  placeholder="مثال: Cyclical (دورية) / Growing (متنامية) / Defensive"
+                  placeholder="مثال: Cyclical (دورية) / Growing (متنامية) / Defensive (دفاعية)"
                   className="w-full rounded border border-[#D1D5DB] px-3 py-1.5 text-xs outline-none focus:border-[#8C3B32]"
                 />
               </div>
@@ -591,7 +591,7 @@ export default function RebhCompanyOfficialPage() {
                   type="text"
                   value={classForm.market_form}
                   onChange={(e) => setClassForm({ ...classForm, market_form: e.target.value })}
-                  placeholder="مثال: Oligopoly (احتكار قلة) / Monopoly / Monopolistic Competition"
+                  placeholder="مثال: Oligopoly (احتكار قلة) / Monopoly (احتكار تام) / Monopolistic Competition (منافسة احتكارية)"
                   className="w-full rounded border border-[#D1D5DB] px-3 py-1.5 text-xs outline-none focus:border-[#8C3B32]"
                 />
               </div>
@@ -603,7 +603,7 @@ export default function RebhCompanyOfficialPage() {
                     type="text"
                     value={classForm.price_elasticity}
                     onChange={(e) => setClassForm({ ...classForm, price_elasticity: e.target.value })}
-                    placeholder="مثال: Inelastic / Elastic"
+                    placeholder="مثال: Inelastic (غير مرنة) / Elastic (مرنة)"
                     className="w-full rounded border border-[#D1D5DB] px-3 py-1.5 text-xs outline-none focus:border-[#8C3B32]"
                   />
                 </div>
@@ -613,7 +613,7 @@ export default function RebhCompanyOfficialPage() {
                     type="text"
                     value={classForm.bcg_position}
                     onChange={(e) => setClassForm({ ...classForm, bcg_position: e.target.value })}
-                    placeholder="مثال: Cash Cows / Stars / Question Marks"
+                    placeholder="مثال: Cash Cows (بقرة حلوب) / Stars (نجوم) / Question Marks (علامات استفهام)"
                     className="w-full rounded border border-[#D1D5DB] px-3 py-1.5 text-xs outline-none focus:border-[#8C3B32]"
                   />
                 </div>
@@ -626,7 +626,7 @@ export default function RebhCompanyOfficialPage() {
                     type="text"
                     value={classForm.dominance}
                     onChange={(e) => setClassForm({ ...classForm, dominance: e.target.value })}
-                    placeholder="مثال: Market Leader / Strong Challenger"
+                    placeholder="مثال: Market Leader (رائد السوق) / Strong Challenger (منافس قوي)"
                     className="w-full rounded border border-[#D1D5DB] px-3 py-1.5 text-xs outline-none focus:border-[#8C3B32]"
                   />
                 </div>
@@ -636,7 +636,7 @@ export default function RebhCompanyOfficialPage() {
                     type="text"
                     value={classForm.retail_path}
                     onChange={(e) => setClassForm({ ...classForm, retail_path: e.target.value })}
-                    placeholder="مثال: Retail Brand Power / B2B Contractual"
+                    placeholder="مثال: Retail Brand Power (قوة العلامة في التجزئة) / B2B Contractual (تعاقدي بين الشركات)"
                     className="w-full rounded border border-[#D1D5DB] px-3 py-1.5 text-xs outline-none focus:border-[#8C3B32]"
                   />
                 </div>

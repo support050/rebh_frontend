@@ -48,10 +48,10 @@ export default function RebhHealthPage() {
           </div>
           <div>
             <div className="text-[11px] font-mono font-bold tracking-wider text-[#16A34A] uppercase mb-1">
-              REBH FORENSIC AUDIT · الرقابة والتدقيق المحاسبي الحي
+              REBH · الرقابة والتدقيق المحاسبي الحي
             </div>
             <h1 className="text-2xl md:text-3xl font-black text-[#1A1A1A] tracking-tight">
-              Data Health <span className="text-[#8C3B32] font-normal">— المنصة تدقق بياناتها علناً</span>
+              صحة البيانات <span className="text-[#8C3B32] font-normal">— المنصة تدقق بياناتها علناً</span>
             </h1>
             <p className="text-xs md:text-sm text-[#6B7280] mt-1 max-w-3xl leading-relaxed">
               الصفحة التي لا تملكها أي منصة مالية أخرى: نعلن عن كل رقم تحققنا منه، وكل فجوة في البيانات مع سببها والحل البرمجي المخصص لها. لا نخفي نقصاً ولا نزيّف نسبة.
@@ -69,7 +69,7 @@ export default function RebhHealthPage() {
               <ShieldCheck className="w-4 h-4 text-[#16A34A]" />
             </div>
             <div className="text-2xl font-mono font-black text-[#16A34A]">
-              {loading ? <span className="animate-pulse bg-[#F3F4F6] rounded-[4px] w-16 h-7 inline-block" /> : `${stats?.balance_sheets_passed ?? 0} Pass`}
+              {loading ? <span className="animate-pulse bg-[#F3F4F6] rounded-[4px] w-16 h-7 inline-block" /> : `${stats?.balance_sheets_passed ?? 0} مطابقة`}
             </div>
             <div className="text-[11px] text-[#6B7280] mt-1">مطابقة تامة بنسبة {loading ? '—' : `${stats?.identity_pass_pct ?? 0}%`} لكل القوائم المفحوصة</div>
           </div>
@@ -105,7 +105,7 @@ export default function RebhHealthPage() {
         <div className="bg-white border border-[#E5E7EB] rounded-[4px] p-5 mb-8 shadow-[0_1px_3px_rgba(0,0,0,0.06)] border-r-4 border-r-[#2563EB]">
           <div className="flex items-center gap-2 text-[#2563EB] font-bold text-xs uppercase font-mono mb-2">
             <Database className="w-4 h-4" />
-            اكتشاف وحل مشكلة التكرار المحاسبي (The Double-Count Discovery)
+            اكتشاف وحل مشكلة التكرار المحاسبي (Double-Count Discovery)
           </div>
           <p className="text-xs md:text-sm text-[#374151] leading-relaxed">
             عند سحب بعض القوائم القياسية من تداول، تم رصد جمع الأصول غير المتداولة مع الإجمالي بشكل مكرر لدى 165 شركة. بدلاً من عرض أرقام مضللة، قام محرك المنصة باشتقاق صيغة الاسترداد الدقيقة المعتمدة <span className="font-mono text-[#8C3B32] bg-[#F3F4F6] px-2 py-0.5 rounded-[4px] border border-[#E5E7EB]">TA_true = (TA_std + CA) / 2</span> ومطابقتها حتى آخر هللة مع الإفصاحات الرسمية (مثل دار الأركان 40,435 مليون ر.س وإسمنت السعودية 3,203 مليون ر.س).
@@ -116,19 +116,19 @@ export default function RebhHealthPage() {
         <div className="bg-white border border-[#E5E7EB] rounded-[4px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)] mb-8">
           <div className="px-5 py-4 border-b border-[#E5E7EB] bg-[#F3F4F6] flex justify-between items-center">
             <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-[#6B7280]">
-              حالة وجاهزية خطوط استيراد البيانات (Data Importers & Scheduler Readiness)
+              حالة وجاهزية خطوط استيراد البيانات (Data Importers &amp; Scheduler Readiness)
             </h3>
             <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-[#F0FDF4] text-[#16A34A] border border-[#BBF7D0] rounded">
-              Phase 12 Live Wired
+              المرحلة 12 — مفعّلة
             </span>
           </div>
           <div className="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="border border-[#E5E7EB] rounded p-3 bg-[#FAFAFA]">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-bold text-[#1A1A1A]">تحديث الأسعار والمؤشرات</span>
-                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#F0FDF4] text-[#16A34A]">OK</span>
+                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#F0FDF4] text-[#16A34A]">سليم</span>
               </div>
-              <p className="text-[11px] text-[#6B7280]">Daily Market Update · TASI Prices & RS</p>
+              <p className="text-[11px] text-[#6B7280]">تحديث السوق اليومي · أسعار تاسي والمؤشر</p>
               <div className="text-[10px] font-mono text-[#8C3B32] mt-2">مجدول يومياً (أيام التداول 18:30)</div>
             </div>
 
@@ -137,7 +137,7 @@ export default function RebhHealthPage() {
                 <span className="text-xs font-bold text-[#1A1A1A]">مستورد الصكوك وأدوات الدين</span>
                 <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#F0FDF4] text-[#16A34A]">63 صك</span>
               </div>
-              <p className="text-[11px] text-[#6B7280]">Sukuk & Bonds Importer · YTM & Coupons</p>
+              <p className="text-[11px] text-[#6B7280]">مستورد الصكوك والسندات · العائد حتى الاستحقاق والكوبونات</p>
               <div className="text-[10px] font-mono text-[#8C3B32] mt-2">مجدول أسبوعياً (الأحد 19:00)</div>
             </div>
 
@@ -146,8 +146,8 @@ export default function RebhHealthPage() {
                 <span className="text-xs font-bold text-[#1A1A1A]">مستورد الاقتصاد الكلي (SAMA)</span>
                 <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#F0FDF4] text-[#16A34A]">6 مؤشرات</span>
               </div>
-              <p className="text-[11px] text-[#6B7280]">SAMA & GaStat · SAIBOR / Repo / GDP</p>
-              <div className="text-[10px] font-mono text-[#8C3B32] mt-2">مجدول شهرياً (1st of Month 03:00)</div>
+              <p className="text-[11px] text-[#6B7280]">ساما والهيئة العامة للإحصاء · سايبور / الريبو / الناتج المحلي</p>
+              <div className="text-[10px] font-mono text-[#8C3B32] mt-2">مجدول شهرياً (أول كل شهر 03:00)</div>
             </div>
 
             <div className="border border-[#E5E7EB] rounded p-3 bg-[#FAFAFA]">
@@ -155,7 +155,7 @@ export default function RebhHealthPage() {
                 <span className="text-xs font-bold text-[#1A1A1A]">مدقق بنود البنوك وهوامش NIM</span>
                 <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#F0FDF4] text-[#16A34A]">10 بنوك</span>
               </div>
-              <p className="text-[11px] text-[#6B7280]">Bank Lines Analyzer · NIM / Provisions</p>
+              <p className="text-[11px] text-[#6B7280]">محلل بنود البنوك · هامش الفائدة الصافي / المخصصات</p>
               <div className="text-[10px] font-mono text-[#8C3B32] mt-2">فحص ربع سنوي مؤتمت ومطابق</div>
             </div>
 
@@ -164,16 +164,16 @@ export default function RebhHealthPage() {
                 <span className="text-xs font-bold text-[#1A1A1A]">مستودع الإفصاحات الرسمية</span>
                 <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#F0FDF4] text-[#16A34A]">21,424 ملف</span>
               </div>
-              <p className="text-[11px] text-[#6B7280]">Official Filings & Reports Repository</p>
+              <p className="text-[11px] text-[#6B7280]">مستودع الإفصاحات والتقارير الرسمية</p>
               <div className="text-[10px] font-mono text-[#8C3B32] mt-2">مزامنة تداول مستمرة وتخزين آمن</div>
             </div>
 
             <div className="border border-[#E5E7EB] rounded p-3 bg-[#FAFAFA]">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-bold text-[#1A1A1A]">لقطات المحرك التاريخية (Vintages)</span>
-                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#F0FDF4] text-[#16A34A]">Active</span>
+                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#F0FDF4] text-[#16A34A]">نشط</span>
               </div>
-              <p className="text-[11px] text-[#6B7280]">REBH Unified Engine Snapshot Service</p>
+              <p className="text-[11px] text-[#6B7280]">خدمة لقطات محرك REBH الموحد</p>
               <div className="text-[10px] font-mono text-[#8C3B32] mt-2">أرشفة يومية لنقاط التقييم المحاسبي</div>
             </div>
           </div>
@@ -185,7 +185,7 @@ export default function RebhHealthPage() {
             <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-[#6B7280]">
               سجل التدقيق المحاسبي والفجوات المعلنة (Audit Matrix)
             </h3>
-            <span className="text-[10px] font-mono text-[#9CA3AF]">Live API Verified</span>
+            <span className="text-[10px] font-mono text-[#9CA3AF]">موثّق حياً عبر API</span>
           </div>
 
           <div className="divide-y divide-[#E5E7EB]">

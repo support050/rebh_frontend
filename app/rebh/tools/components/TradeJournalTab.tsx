@@ -172,7 +172,7 @@ export default function TradeJournalTab() {
         method: "DELETE",
         credentials: "include"
       });
-    } catch (_) {}
+    } catch (_) { }
   };
 
   const clearJournal = () => {
@@ -180,7 +180,7 @@ export default function TradeJournalTab() {
       setTrades([]);
       try {
         localStorage.removeItem(STORAGE_KEY);
-      } catch (_) {}
+      } catch (_) { }
     }
   };
 

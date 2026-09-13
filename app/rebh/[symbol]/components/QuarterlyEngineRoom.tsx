@@ -8,28 +8,42 @@ interface Props {
   symbol: string;
 }
 
-// Sparkline SVG component exactly matching universal_template.html line 149-154
-function Sparkline({ vals, w = 110, h = 24, color = "#8C3B32" }: { vals: (number | null)[]; w?: number; h?: number; color?: string }) {
+import { ResponsiveContainer, LineChart, Line, Tooltip } from "recharts";
+
+// Dynamic Recharts Sparkline component
+function Sparkline({ vals, w = 110, h = 26, color = "#8C3B32" }: { vals: (number | null)[]; w?: number; h?: number; color?: string }) {
   const vs = vals.filter((v): v is number => v != null);
   if (vs.length < 2) return <span className="text-[#9CA3AF] font-mono text-[10px]">—</span>;
 
-  const mn = Math.min(...vs, 0);
-  const mx = Math.max(...vs, 0);
-  const X = (i: number) => 2 + (i / (vals.length - 1)) * (w - 4);
-  const Y = (v: number) => 2 + (1 - (v - mn) / ((mx - mn) || 1)) * (h - 4);
-
-  const pts = vals
-    .map((v, i) => (v == null ? null : `${X(i).toFixed(1)},${Y(v).toFixed(1)}`))
-    .filter(Boolean)
-    .join(" ");
+  const chartData = vals.map((v, i) => ({ i, v }));
 
   return (
-    <svg width={w} height={h} className="inline-block align-middle overflow-visible">
-      {mn < 0 && (
-        <line x1="2" x2={w - 2} y1={Y(0)} y2={Y(0)} stroke="#E5E7EB" strokeWidth="1" strokeDasharray="2,2" />
-      )}
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <div style={{ width: w, height: h }} className="inline-block align-middle">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={chartData} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
+          <Line
+            type="monotone"
+            dataKey="v"
+            stroke={color}
+            strokeWidth={1.8}
+            dot={false}
+            isAnimationActive={true}
+          />
+          <Tooltip
+            content={({ active, payload }) => {
+              if (active && payload && payload.length && payload[0].value != null) {
+                return (
+                  <div className="bg-[#1E293B] text-white text-[10px] px-1.5 py-0.5 rounded shadow font-mono">
+                    {Number(payload[0].value).toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                  </div>
+                );
+              }
+              return null;
+            }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
 

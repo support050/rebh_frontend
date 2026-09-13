@@ -9,22 +9,22 @@ import {
 
 const QUICK_SYMBOLS = [
   { sym: "2222", name: "أرامكو السعودية", sec: "طاقة" },
-  { sym: "1120", name: "الراجحي",         sec: "بنوك" },
-  { sym: "2010", name: "سابك",            sec: "بتروكيماويات" },
-  { sym: "7010", name: "STC",             sec: "اتصالات" },
-  { sym: "1180", name: "الأهلي",          sec: "بنوك" },
-  { sym: "4030", name: "دار الأركان",     sec: "عقارات" },
-  { sym: "4200", name: "الأندلس",         sec: "تجزئة" },
-  { sym: "2350", name: "سافكو",           sec: "بتروكيماويات" },
+  { sym: "1120", name: "الراجحي", sec: "بنوك" },
+  { sym: "2010", name: "سابك", sec: "بتروكيماويات" },
+  { sym: "7010", name: "STC", sec: "اتصالات" },
+  { sym: "1180", name: "الأهلي", sec: "بنوك" },
+  { sym: "4030", name: "دار الأركان", sec: "عقارات" },
+  { sym: "4200", name: "الأندلس", sec: "تجزئة" },
+  { sym: "2350", name: "سافكو", sec: "بتروكيماويات" },
 ];
 
 const GUIDES = [
-  { icon: <TrendingUp size={14} />,    title: "قائمة الدخل",             desc: "الإيرادات · الهوامش الثلاثة · EPS · TTM" },
-  { icon: <Layers size={14} />,        title: "الميزانية العمومية",       desc: "الأصول · الالتزامات · حقوق الملكية · فحص A=L+E" },
-  { icon: <Activity size={14} />,      title: "التدفقات النقدية",         desc: "CFO · CFI · CFF · FCF · نسبة تحويل الأرباح" },
-  { icon: <BarChart3 size={14} />,     title: "النسب المالية",            desc: "ROE · هوامش · P/E · P/B · رافعة · سيولة" },
-  { icon: <ShieldCheck size={14} />,   title: "حكم مزدوج",               desc: "آمن/مخاطرة (ملاءة) + جيد/ضعيف (جودة)" },
-  { icon: <BookOpen size={14} />,      title: "الصيغ والمصادر",           desc: "مشتق من XBRL — كل نسبة مع صيغتها ومصدرها" },
+  { icon: <TrendingUp size={14} />, title: "قائمة الدخل", desc: "الإيرادات · الهوامش الثلاثة · EPS · TTM" },
+  { icon: <Layers size={14} />, title: "الميزانية العمومية", desc: "الأصول · الالتزامات · حقوق الملكية · فحص A=L+E" },
+  { icon: <Activity size={14} />, title: "التدفقات النقدية", desc: "CFO · CFI · CFF · FCF · نسبة تحويل الأرباح" },
+  { icon: <BarChart3 size={14} />, title: "النسب المالية", desc: "ROE · هوامش · P/E · P/B · رافعة · سيولة" },
+  { icon: <ShieldCheck size={14} />, title: "حكم مزدوج", desc: "آمن/مخاطرة (ملاءة) + جيد/ضعيف (جودة)" },
+  { icon: <BookOpen size={14} />, title: "الصيغ والمصادر", desc: "مشتق من XBRL — كل نسبة مع صيغتها ومصدرها" },
 ];
 
 export default function RebhAnalystLandingPage() {

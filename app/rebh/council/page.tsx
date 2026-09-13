@@ -85,18 +85,18 @@ interface BankFlagItem {
 }
 
 const BANK_FLAGS: BankFlagItem[] = [
-    { id: "b1", label: "Investments whose risk can't be measured, or that contradict the business model", labelAr: "استثمارات لا يمكن قياس مخاطرها أو تتعارض مع نموذج العمل", note: "Lehman 2007 10-K language" },
-    { id: "b2", label: "The bank's CDS spread diverging from peers", labelAr: "انحراف سبريد مقايضة التخلف عن السداد (CDS) عن نظرائه", note: "Credit Suisse left the pack from mid-2021" },
+    { id: "b1", label: "Investments whose risk can't be measured, or that contradict the business model", labelAr: "استثمارات لا يمكن قياس مخاطرها أو تتعارض مع نموذج العمل", note: "من إفصاح ليمان براذرز السنوي 2007" },
+    { id: "b2", label: "The bank's CDS spread diverging from peers", labelAr: "انحراف سبريد مقايضة التخلف عن السداد (CDS) عن نظرائه", note: "كريدي سويس انفصل عن نظرائه منتصف 2021" },
     { id: "b3", label: "Sudden change in the funding mix (shift to equity/bond/sukuk issuance)", labelAr: "تغيّر مفاجئ في مزيج التمويل", note: "" },
-    { id: "b4", label: "Any change in an accounting line's presentation without clear explanation", labelAr: "تغيّر في عرض بند محاسبي دون تفسير واضح", note: "CS merged right-of-use into write-offs, 2019" },
-    { id: "b5", label: "A sharp change in collateral", labelAr: "تغيّر حاد في الضمانات", note: "CS bank guarantees 41 → ~a third" },
-    { id: "b6", label: "Profits improving only via provision reversals", labelAr: "تحسّن الأرباح فقط عبر عكس المخصصات", note: "Credit Suisse — profit swinging on provisions, not sales" },
-    { id: "b7", label: "Financials and share price worse than the sector over the long run", labelAr: "أداء مالي وسعري أضعف من القطاع على المدى الطويل", note: "Stability is the bank's product" },
-    { id: "b8", label: "Non-earning assets ÷ NII rising", labelAr: "ارتفاع نسبة الأصول غير المدرّة ÷ صافي دخل الفوائد", note: "CS: parity by 2019, NIM falling" },
-    { id: "b9", label: "Repeat laundering / fraud / corruption cases", labelAr: "قضايا غسيل أموال / احتيال / فساد متكررة", note: "Buffett: never just one cockroach in the kitchen" },
+    { id: "b4", label: "Any change in an accounting line's presentation without clear explanation", labelAr: "تغيّر في عرض بند محاسبي دون تفسير واضح", note: "كريدي سويس دمج بند حق الاستخدام ضمن الشطب عام 2019" },
+    { id: "b5", label: "A sharp change in collateral", labelAr: "تغيّر حاد في الضمانات", note: "ضمانات كريدي سويس البنكية تراجعت من 41 إلى نحو الثلث" },
+    { id: "b6", label: "Profits improving only via provision reversals", labelAr: "تحسّن الأرباح فقط عبر عكس المخصصات", note: "كريدي سويس — تقلّب الأرباح بسبب المخصصات لا المبيعات" },
+    { id: "b7", label: "Financials and share price worse than the sector over the long run", labelAr: "أداء مالي وسعري أضعف من القطاع على المدى الطويل", note: "الاستقرار هو المنتج الأساسي للبنك" },
+    { id: "b8", label: "Non-earning assets ÷ NII rising", labelAr: "ارتفاع نسبة الأصول غير المدرّة ÷ صافي دخل الفوائد", note: "كريدي سويس: تعادل بحلول 2019 مع تراجع هامش الفائدة الصافي" },
+    { id: "b9", label: "Repeat laundering / fraud / corruption cases", labelAr: "قضايا غسيل أموال / احتيال / فساد متكررة", note: "بافيت: لا توجد صرصورة واحدة فقط في المطبخ" },
     { id: "b10", label: "Open conflict between executives and the board", labelAr: "نزاع علني بين التنفيذيين ومجلس الإدارة", note: "" },
-    { id: "b11", label: "Salaries÷loans / salaries÷revenue deteriorating, or 20–30% credit concentration in one sector", labelAr: "تدهور الرواتب÷القروض أو تركّز ائتماني 20-30% بقطاع واحد", note: "Saudi contracting 2015-16 case" },
-    { id: "b12", label: "A complicated risk-appetite statement", labelAr: "بيان شهية مخاطر معقّد", note: "\"If it's complicated — avoid it\"" },
+    { id: "b11", label: "Salaries÷loans / salaries÷revenue deteriorating, or 20–30% credit concentration in one sector", labelAr: "تدهور الرواتب÷القروض أو تركّز ائتماني 20-30% بقطاع واحد", note: "حالة قطاع المقاولات السعودي 2015-2016" },
+    { id: "b12", label: "A complicated risk-appetite statement", labelAr: "بيان شهية مخاطر معقّد", note: "\"إن كان الأمر معقداً — تجنّبه\"" },
 ];
 
 const uid = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
@@ -136,6 +136,47 @@ export default function CouncilAuditStation() {
     /* ---------------- Bank flags state ---------------- */
     const [bankChecked, setBankChecked] = useState<Set<string>>(new Set());
 
+    /* ---------------- Auto-populated flags (from engine signals) ---------------- */
+    const [autoFlags, setAutoFlags] = useState<Set<string>>(new Set());
+
+    // سيجنالات المحرك تُعين تلقائياً على flags حسب هذا المابينج
+    const SIGNAL_TO_FLAGS: Record<string, string[]> = {
+        // OCF / CFO deterioration
+        "cfo_decline": ["ocf_decline"],
+        "ocf": ["ocf_decline"],
+        "cfo": ["ocf_decline"],
+        // Receivables rising faster than sales
+        "receivable": ["receivables"],
+        "receivables": ["receivables"],
+        "ذمم": ["receivables"],
+        // Recurring restructuring
+        "restructur": ["restructuring"],
+        "هيكلة": ["restructuring"],
+        // Rights issue / dilutive
+        "rights_issue": ["rights_issue"],
+        "capital_increase": ["rights_issue"],
+        "زيادة رأس مال": ["rights_issue"],
+        // Vanishing CF / inventory
+        "inventory": ["vanishing_cf"],
+        "مخزون": ["vanishing_cf"],
+        // Accrued expenses
+        "accrued": ["accrued"],
+        "مستحقة": ["accrued"],
+    };
+
+    function mapSignalsToFlags(signals: string[]): string[] {
+        const flagIds = new Set<string>();
+        signals.forEach(sig => {
+            const sigLower = sig.toLowerCase();
+            Object.entries(SIGNAL_TO_FLAGS).forEach(([keyword, ids]) => {
+                if (sigLower.includes(keyword.toLowerCase())) {
+                    ids.forEach(id => flagIds.add(id));
+                }
+            });
+        });
+        return Array.from(flagIds);
+    }
+
     // Fetch company automated audit & saved checklist
     useEffect(() => {
         let isMounted = true;
@@ -148,6 +189,19 @@ export default function CouncilAuditStation() {
                     const data = await res.json();
                     if (!isMounted) return;
                     setCompanyData(data);
+
+                    // توليد الإشارات الآلية: استخراج flags من engine signals
+                    const engineSignals: string[] = data?.automated_audit?.signals || [];
+                    if (engineSignals.length > 0) {
+                        const autoFlagIds = mapSignalsToFlags(engineSignals);
+                        if (autoFlagIds.length > 0) {
+                            setAutoFlags(new Set(autoFlagIds));
+                            // Only pre-tick if user hasn't saved any checklist yet
+                            if (!data.saved_checklist?.danger_flags?.length) {
+                                setDangerChecked(prev => new Set([...Array.from(prev), ...autoFlagIds]));
+                            }
+                        }
+                    }
 
                     // Restore saved scores if available
                     if (data.saved_checklist) {
@@ -227,10 +281,10 @@ export default function CouncilAuditStation() {
                             <ShieldCheck size={24} className="text-[#8C3B32]" />
                             <div>
                                 <h1 className="text-xl font-bold tracking-tight">
-                                    REBH <span className="text-[#8C3B32]">Council &amp; 31-Checklist Audit</span>
+                                    REBH <span className="text-[#8C3B32]">مجلس التدقيق — القائمة الشاملة (31 بنداً)</span>
                                 </h1>
                                 <p className="mt-1 text-[13px] text-[#6B7280]">
-                                    محطة مجلس التدقيق الشامل وقوائم فيشر وأعلام الخطر المحاسبية المرتبطة بالشركة
+                                    محطة مجلس التدقيق الشامل — قوائم فيشر وأعلام الخطر يُدخلها المستخدم؛ الإشارات الآلية من المحرك تظهر أدناه
                                 </p>
                             </div>
                         </div>
@@ -339,8 +393,8 @@ export default function CouncilAuditStation() {
                             suffix="/ 15"
                             ok={fisherResult.total >= 12 && !fisherResult.integrityFail}
                             disqualified={fisherResult.integrityFail}
-                            okLabel="Fisher Grade — مؤهل للاستثمار النوعي"
-                            failLabel="Disqualified — النزاهة غير متحققة (بند 15)"
+                            okLabel="مؤهل للاستثمار النوعي (معيار فيشر)"
+                            failLabel="غير مؤهل — النزاهة غير متحققة (بند 15)"
                             midLabel="دون الحد المطلوب (12/15)"
                         />
 
@@ -355,7 +409,7 @@ export default function CouncilAuditStation() {
                         {/* Score legend: header row explains what 0 / 0.5 / 1 mean once,
                             instead of repeating that context in every one of the 15 rows. */}
                         <div className="mt-5 hidden grid-cols-[1fr_150px] gap-3.5 border-b border-[#E5E7EB] pb-2 text-[11px] font-medium uppercase tracking-wide text-[#9CA3AF] sm:grid">
-                            <span>Point</span>
+                            <span>البند</span>
                             <span className="flex justify-end gap-4 pr-1">
                                 <span className="w-6 text-center">0</span>
                                 <span className="w-6 text-center">0.5</span>
@@ -375,9 +429,9 @@ export default function CouncilAuditStation() {
                                             {f.mandatory ? " ⚑" : ""}
                                         </span>
                                         <div>
-                                            <div className="text-[13px] text-[#1A1A1A]">{f.q}</div>
-                                            <div className="mt-0.5 text-[12px] text-[#6B7280]" dir="rtl">
-                                                {f.qAr}
+                                            <div className="text-[13px] text-[#1A1A1A]">{f.qAr}</div>
+                                            <div className="mt-0.5 text-[12px] text-[#6B7280]">
+                                                {f.q}
                                             </div>
                                         </div>
                                     </div>
@@ -405,9 +459,9 @@ export default function CouncilAuditStation() {
                         </div>
 
                         <Footnote>
-                            Fisher tolerance: a company can fail 1–2 ordinary points and still
-                            qualify. Point 15 (integrity) repairs — or disqualifies — all the
-                            others.
+                            هامش تحمل معيار فيشر: يمكن أن تخفق الشركة في بند أو بندين عاديين
+                            وتظل مؤهلة. البند 15 (النزاهة) وحده يُنقذ التقييم بالكامل أو
+                            يُسقطه.
                         </Footnote>
                     </section>
                 )}
@@ -421,11 +475,19 @@ export default function CouncilAuditStation() {
                             ok={totalFlagsTicked === 0}
                             disqualified={totalFlagsTicked >= 2}
                             okLabel="نظيفة — لا إشارات خطر"
-                            failLabel="2 danger signs together = Walk Away — انسحب"
+                            failLabel="إشارتان معاً = انسحب فوراً"
                             midLabel="إشارة واحدة — راقب عن قرب"
                         />
 
                         <GroupTitle>الست إشارات الخطر (Lecture 15)</GroupTitle>
+                        {autoFlags.size > 0 && (
+                            <div className="mb-2 flex items-center gap-1.5 rounded-[4px] bg-[#FFFBEB] border border-[#FDE68A] px-3 py-2 text-[11.5px] text-[#92400E]">
+                                <span className="font-bold">•</span>
+                                <span>تم تفعيل <strong>{autoFlags.size}</strong> إشارة/إشارات تلقائياً من إشارات المحرك — يمكنك تعديلها يدوياً
+                                    <span className="mr-1 inline-flex items-center rounded-full bg-[#FDE68A] px-2 py-0.5 text-[10px] font-bold">آلي</span>
+                                </span>
+                            </div>
+                        )}
                         <div className="divide-y divide-[#E5E7EB]">
                             {DANGER_SIGNS.map((f) => (
                                 <FlagCheckbox
@@ -433,6 +495,7 @@ export default function CouncilAuditStation() {
                                     item={f}
                                     checked={dangerChecked.has(f.id)}
                                     onToggle={() => toggleFlag(dangerChecked, setDangerChecked, f.id)}
+                                    isAuto={autoFlags.has(f.id)}
                                 />
                             ))}
                         </div>
@@ -457,9 +520,9 @@ export default function CouncilAuditStation() {
                         )}
 
                         <Footnote>
-                            The capital-increase rule is absolute: any rights issue is
-                            negative by default — &quot;give me a reason to stop seeing it as
-                            negative,&quot; never the reverse.
+                            قاعدة زيادة رأس المال مطلقة: أي طرح حقوق أولوية يُعد سلبياً
+                            بشكل افتراضي — الأصل أن تُقدَّم أسباباً لعدم اعتباره سلبياً، لا
+                            العكس.
                         </Footnote>
                     </section>
                 )}
@@ -473,7 +536,7 @@ export default function CouncilAuditStation() {
                             ok={bankChecked.size === 0}
                             disqualified={bankChecked.size >= 3}
                             okLabel="لا إشارات خطر بنكية"
-                            failLabel="≥3 flags — Buffett: never just one cockroach"
+                            failLabel="3 إشارات فأكثر — تحذير جدي (لا توجد صرصورة واحدة في المطبخ)"
                             midLabel="راقب — أقل من 3 إشارات"
                         />
 
@@ -488,9 +551,9 @@ export default function CouncilAuditStation() {
                                         className="mt-0.5 h-4 w-4 accent-[#8C3B32]"
                                     />
                                     <div>
-                                        <div className="text-[13px] text-[#1A1A1A]">{f.label}</div>
-                                        <div className="mt-0.5 text-[12px] text-[#6B7280]" dir="rtl">
-                                            {f.labelAr}
+                                        <div className="text-[13px] text-[#1A1A1A]">{f.labelAr}</div>
+                                        <div className="mt-0.5 text-[12px] text-[#6B7280]">
+                                            {f.label}
                                         </div>
                                         {f.note && (
                                             <div className="mt-1 text-[11px] italic text-[#9CA3AF]">{f.note}</div>
@@ -501,10 +564,8 @@ export default function CouncilAuditStation() {
                         </div>
 
                         <Footnote>
-                            Applies to banking-sector stocks only — a bank is a money
-                            broker, not a factory: the standard industrial safety elements
-                            do not apply to it. Data source:{" "}
-                            <code className="text-[#8C3B32]">{API_BASE_URL}</code>
+                            تنطبق على أسهم القطاع البنكي فقط — فالبنك وسيط مالي وليس
+                            مصنعاً، لذا عناصر السلامة الصناعية المعتادة لا تنطبق عليه.
                         </Footnote>
                     </section>
                 )}
@@ -642,10 +703,12 @@ function FlagCheckbox({
     item,
     checked,
     onToggle,
+    isAuto = false,
 }: {
     item: FlagItem;
     checked: boolean;
     onToggle: () => void;
+    isAuto?: boolean;
 }) {
     return (
         <label className="flex cursor-pointer items-start gap-2.5 py-2.5">
@@ -655,10 +718,17 @@ function FlagCheckbox({
                 onChange={onToggle}
                 className="mt-0.5 h-4 w-4 accent-[#8C3B32]"
             />
-            <div>
-                <div className="text-[13px] text-[#1A1A1A]">{item.label}</div>
-                <div className="mt-0.5 text-[12px] text-[#6B7280]" dir="rtl">
-                    {item.labelAr}
+            <div className="flex-1">
+                <div className="flex items-center gap-2">
+                    <span className="text-[13px] text-[#1A1A1A]">{item.labelAr}</span>
+                    {isAuto && (
+                        <span className="inline-flex items-center rounded-full bg-[#FDE68A] border border-[#F59E0B] px-2 py-0.5 text-[10px] font-bold text-[#92400E]">
+                            • آلي
+                        </span>
+                    )}
+                </div>
+                <div className="mt-0.5 text-[12px] text-[#6B7280]">
+                    {item.label}
                 </div>
             </div>
         </label>

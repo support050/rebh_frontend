@@ -30,6 +30,9 @@ interface CompanyItem {
   ncav?: number;
   pncav?: number;
   peg?: number;
+  period?: string;
+  end?: string;
+  period_end?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -52,6 +55,10 @@ export default function RebhToolsPage() {
   const [universe, setUniverse] = useState<CompanyItem[]>([]);
   const [loadingUniverse, setLoadingUniverse] = useState(false);
 
+  // Real Tadawul Corporate Actions & Dividends Feed
+  const [corporateActions, setCorporateActions] = useState<any[]>([]);
+  const [calendarSubTab, setCalendarSubTab] = useState<"cma_deadlines" | "corporate_actions">("corporate_actions");
+
   useEffect(() => {
     async function loadUniverse() {
       try {
@@ -69,7 +76,21 @@ export default function RebhToolsPage() {
         setLoadingUniverse(false);
       }
     }
+    async function loadCorporateActions() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/rebh/corporate-actions?limit=50`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.actions)) {
+            setCorporateActions(data.actions);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load corporate actions:", err);
+      }
+    }
     loadUniverse();
+    loadCorporateActions();
   }, []);
 
   // FV Lab State
@@ -233,36 +254,50 @@ export default function RebhToolsPage() {
   // Calendar State: Strict Regulatory Rule: Expected Filing Date = Actual Period End + 45 days (or 90 days for annual)
   const calendarItems = React.useMemo(() => {
     if (universe.length === 0) return [];
-    
+
     const today = new Date();
 
     return universe
       .filter(c => c.fresh)
-      .slice(0, 40)
+      .slice(0, 50)
       .map((c) => {
-        // Derive company's actual period and period end date
-        const actualPeriodStr = (c as any).end || (c as any).as_of || (c as any).period || "2024-Q3";
-        const isAnnual = actualPeriodStr.includes("FY") || actualPeriodStr.includes("Q4") || actualPeriodStr.includes("12-31");
-        
-        // Parse actual period end date
+        // Derive company's actual period from contract data (c.period / c.end)
+        const actualPeriodStr = c.period || c.end || "2024-Q3";
+
+        // Derive exact period end date from contract (c.end / c.period_end or dynamic parse)
         let pEndDate: Date;
-        if (actualPeriodStr.includes("Q1") || actualPeriodStr.includes("-03-")) {
-          pEndDate = new Date("2024-03-31");
-        } else if (actualPeriodStr.includes("Q2") || actualPeriodStr.includes("-06-")) {
-          pEndDate = new Date("2024-06-30");
-        } else if (actualPeriodStr.includes("Q3") || actualPeriodStr.includes("-09-")) {
-          pEndDate = new Date("2024-09-30");
+        if (c.end && /^\d{4}-\d{2}-\d{2}$/.test(c.end)) {
+          pEndDate = new Date(c.end);
+        } else if (c.period_end && /^\d{4}-\d{2}-\d{2}$/.test(c.period_end)) {
+          pEndDate = new Date(c.period_end);
         } else {
-          pEndDate = new Date("2024-12-31");
+          // Dynamic fallback based on period label if not already formatted
+          const up = actualPeriodStr.toUpperCase();
+          const yMatch = actualPeriodStr.match(/(20\d{2})/);
+          const y = yMatch ? parseInt(yMatch[1], 10) : 2024;
+          if (up.includes("Q1") || actualPeriodStr.includes("-03")) {
+            pEndDate = new Date(`${y}-03-31`);
+          } else if (up.includes("Q2") || actualPeriodStr.includes("-06")) {
+            pEndDate = new Date(`${y}-06-30`);
+          } else if (up.includes("Q3") || actualPeriodStr.includes("-09")) {
+            pEndDate = new Date(`${y}-09-30`);
+          } else {
+            pEndDate = new Date(`${y}-12-31`);
+          }
         }
 
-        // Statutory deadline: Period End + 45 days (90 days for annual FY)
+        // Determine if annual statement
+        const isAnnual = actualPeriodStr.includes("FY") ||
+          actualPeriodStr.includes("Q4") ||
+          (pEndDate.getMonth() === 11 && pEndDate.getDate() === 31);
+
+        // Statutory deadline: Period End + 45 calendar days (90 days for annual FY)
         const deadlineDays = isAnnual ? 90 : 45;
         const filingDeadline = new Date(pEndDate.getTime() + deadlineDays * 24 * 60 * 60 * 1000);
-        
+
         const isOverdue = today > filingDeadline;
         const diffDays = Math.round((filingDeadline.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
-        
+
         let status = "في الإطار النظامي";
         let statusColor = "bg-[#F0FDF4] text-[#16A34A] border-[#BBF7D0]";
         if (isOverdue) {
@@ -280,6 +315,7 @@ export default function RebhToolsPage() {
           period: actualPeriodStr,
           periodEnd: pEndDate.toISOString().slice(0, 10),
           expectedDate: filingDeadline.toISOString().slice(0, 10),
+          deadlineDays,
           lastEps: c.pe && c.pe > 0 ? (c.px / c.pe).toFixed(2) : "—",
           status,
           statusColor,
@@ -305,7 +341,7 @@ export default function RebhToolsPage() {
         <div className="flex items-center gap-6">
           <Link href="/rebh" className="flex items-center gap-2 text-[#8C3B32] font-black tracking-wide text-base">
             <Cpu className="w-5 h-5 text-[#8C3B32]" />
-            REBH TOOLS &amp; WORKBENCH
+            REBH — أدوات ومنصة العمل
           </Link>
           <span className="text-xs text-[#6B7280] hidden sm:inline">أدوات التقييم، فحص المحفظة، المنبهات، وسجل الصفقات</span>
         </div>
@@ -640,57 +676,124 @@ export default function RebhToolsPage() {
           </div>
         )}
 
-        {/* Tab 4: Earnings Calendar */}
+        {/* Tab 4: Earnings & Corporate Actions Calendar */}
         {activeTab === "calendar" && (
           <div className="py-6 space-y-6">
             <div className={`${CARD} p-6`}>
-              <div className="max-w-2xl mb-6">
-                <h2 className="text-base font-bold text-[#1A1A1A] mb-1">رزنامة إعلانات الأرباح المتوقعة (Earnings Calendar)</h2>
-                <p className="text-xs text-[#6B7280]">
-                  حساب نافذة الـ 45 يوماً النظامية لإعلان القوائم المالية بناءً على نهاية الفترات المحاسبية السابقة.
-                </p>
+              <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
+                <div>
+                  <h2 className="text-base font-bold text-[#1A1A1A] mb-1">رزنامة السوق: التوزيعات وإجراءات الشركات والمهل النظامية</h2>
+                  <p className="text-xs text-[#6B7280]">
+                    بيانات إعلانات تداول المباشرة: التوزيعات النقدية، زيادة وتخفيض رأس المال، ومواعيد الاستحقاق، إلى جانب المهل النظامية (CMA 45/90 يوم).
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 bg-[#F7F8FA] p-1 border border-[#E5E7EB] rounded-[4px]">
+                  <button
+                    onClick={() => setCalendarSubTab("corporate_actions")}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-[4px] transition ${calendarSubTab === "corporate_actions" ? "bg-[#8C3B32] text-white" : "text-[#6B7280] hover:text-[#1A1A1A]"}`}
+                  >
+                    إجراءات وتوزيعات الشركات ({corporateActions.length})
+                  </button>
+                  <button
+                    onClick={() => setCalendarSubTab("cma_deadlines")}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-[4px] transition ${calendarSubTab === "cma_deadlines" ? "bg-[#8C3B32] text-white" : "text-[#6B7280] hover:text-[#1A1A1A]"}`}
+                  >
+                    مهل إعلانات النتائج (CMA)
+                  </button>
+                </div>
               </div>
 
-              <div className={`${SUBCARD} overflow-x-auto`}>
-                <table className="w-full text-xs text-right border-collapse">
-                  <thead>
-                    <tr className="text-[#6B7280] bg-[#F3F4F6] border-b border-[#E5E7EB]">
-                      <th className="p-3 font-semibold">الرمز والشركة</th>
-                      <th className="p-3 font-semibold">القطاع</th>
-                      <th className="p-3 font-semibold">الفترة المعلنة</th>
-                      <th className="p-3 font-semibold">نهاية الفترة المحاسبية</th>
-                      <th className="p-3 font-semibold">الموعد الأقصى النظامي (نهاية + 45 يوم)</th>
-                      <th className="p-3 font-semibold">ربحية السهم السابقة EPS</th>
-                      <th className="p-3 font-semibold">الحالة والمهلة</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {calendarItems.map(item => (
-                      <tr key={item.sym} className="border-t border-[#E5E7EB] hover:bg-[#F3F4F6]">
-                        <td className="p-3 font-bold text-[#1A1A1A]">
-                          <Link href={`/rebh/${item.sym}`} className="text-[#8C3B32] hover:underline ml-1.5">{item.sym}</Link>
-                          <span>{item.name}</span>
-                        </td>
-                        <td className="p-3 text-[#6B7280]">{item.sec}</td>
-                        <td className="p-3 text-[#1A1A1A]">{item.period}</td>
-                        <td className="p-3 text-[#6B7280] tabular-nums">{item.periodEnd}</td>
-                        <td className="p-3 font-bold text-[#8C3B32] tabular-nums">{item.expectedDate}</td>
-                        <td className="p-3 text-[#1A1A1A] tabular-nums">{item.lastEps} ر.س</td>
-                        <td className="p-3">
-                          <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${item.statusColor}`}>
-                            {item.status} ({item.daysLeft > 0 ? `متبقي ${item.daysLeft} يوم` : `انتهت المهلة منذ ${Math.abs(item.daysLeft)} يوم`})
-                          </span>
-                        </td>
+              {/* Sub-tab 1: Real Corporate Actions from Tadawul */}
+              {calendarSubTab === "corporate_actions" && (
+                <div className={`${SUBCARD} overflow-x-auto`}>
+                  <table className="w-full text-xs text-right border-collapse">
+                    <thead>
+                      <tr className="text-[#6B7280] bg-[#F3F4F6] border-b border-[#E5E7EB]">
+                        <th className="p-3 font-semibold">الرمز والشركة</th>
+                        <th className="p-3 font-semibold">نوع الإجراء / التوزيع</th>
+                        <th className="p-3 font-semibold">تاريخ الاستحقاق (Eligibility)</th>
+                        <th className="p-3 font-semibold">تاريخ الإعلان والتوصية</th>
+                        <th className="p-3 font-semibold">رأس المال السابق</th>
+                        <th className="p-3 font-semibold">رأس المال الجديد</th>
+                        <th className="p-3 font-semibold">التصنيف المحاسبي</th>
                       </tr>
-                    ))}
-                    {calendarItems.length === 0 && (
-                      <tr>
-                        <td colSpan={6} className="p-6 text-center text-[#6B7280]">لا توجد بيانات كافية لعرض الرزنامة حالياً.</td>
+                    </thead>
+                    <tbody>
+                      {corporateActions.map((act) => (
+                        <tr key={act.id} className="border-t border-[#E5E7EB] hover:bg-[#F3F4F6]">
+                          <td className="p-3 font-bold text-[#1A1A1A]">
+                            <Link href={`/rebh/${act.symbol}`} className="text-[#8C3B32] hover:underline ml-1.5">{act.symbol}</Link>
+                            <span>{act.company_name}</span>
+                          </td>
+                          <td className="p-3 font-bold text-[#1A1A1A]">
+                            <span className={`px-2 py-0.5 rounded-[4px] text-[11px] ${act.issue_type?.includes("Bonus") || act.issue_type?.includes("منحة") ? "bg-[#F0FDF4] text-[#16A34A] border border-[#BBF7D0]" : act.issue_type?.includes("Reduction") || act.issue_type?.includes("تخفيض") ? "bg-[#FFFBEB] text-[#B45309] border border-[#FDE68A]" : "bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE]"}`}>
+                              {act.issue_type}
+                            </span>
+                          </td>
+                          <td className="p-3 font-bold text-[#8C3B32] font-mono tabular-nums">{act.eligibility_date || "—"}</td>
+                          <td className="p-3 text-[#6B7280] font-mono tabular-nums">{act.announcement_date || "—"}</td>
+                          <td className="p-3 text-[#6B7280] font-mono tabular-nums">{act.previous_capital ? `${(act.previous_capital / 1_000_000).toLocaleString()}M` : "—"}</td>
+                          <td className="p-3 text-[#1A1A1A] font-bold font-mono tabular-nums">{act.new_capital ? `${(act.new_capital / 1_000_000).toLocaleString()}M` : "—"}</td>
+                          <td className="p-3">
+                            <span className="text-[10px] text-[#6B7280] font-mono px-2 py-0.5 bg-white border border-[#E5E7EB] rounded">
+                              {act.classification}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                      {corporateActions.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="p-6 text-center text-[#6B7280]">جاري جلب سجل إجراءات الشركات من قاعدة البيانات...</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Sub-tab 2: Statutory CMA Deadlines */}
+              {calendarSubTab === "cma_deadlines" && (
+                <div className={`${SUBCARD} overflow-x-auto`}>
+                  <table className="w-full text-xs text-right border-collapse">
+                    <thead>
+                      <tr className="text-[#6B7280] bg-[#F3F4F6] border-b border-[#E5E7EB]">
+                        <th className="p-3 font-semibold">الرمز والشركة</th>
+                        <th className="p-3 font-semibold">القطاع</th>
+                        <th className="p-3 font-semibold">الفترة المعلنة</th>
+                        <th className="p-3 font-semibold">نهاية الفترة الفعلية</th>
+                        <th className="p-3 font-semibold">الموعد الأقصى النظامي (نهاية + 45/90 يوم)</th>
+                        <th className="p-3 font-semibold">ربحية السهم السابقة EPS</th>
+                        <th className="p-3 font-semibold">الحالة والمهلة</th>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {calendarItems.map(item => (
+                        <tr key={item.sym} className="border-t border-[#E5E7EB] hover:bg-[#F3F4F6]">
+                          <td className="p-3 font-bold text-[#1A1A1A]">
+                            <Link href={`/rebh/${item.sym}`} className="text-[#8C3B32] hover:underline ml-1.5">{item.sym}</Link>
+                            <span>{item.name}</span>
+                          </td>
+                          <td className="p-3 text-[#6B7280]">{item.sec}</td>
+                          <td className="p-3 text-[#1A1A1A]">{item.period}</td>
+                          <td className="p-3 text-[#6B7280] tabular-nums">{item.periodEnd}</td>
+                          <td className="p-3 font-bold text-[#8C3B32] tabular-nums">{item.expectedDate}</td>
+                          <td className="p-3 text-[#1A1A1A] tabular-nums">{item.lastEps} ر.س</td>
+                          <td className="p-3">
+                            <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${item.statusColor}`}>
+                              {item.status} ({item.daysLeft > 0 ? `متبقي ${item.daysLeft} يوم` : `انتهت المهلة منذ ${Math.abs(item.daysLeft)} يوم`})
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                      {calendarItems.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="p-6 text-center text-[#6B7280]">لا توجد بيانات كافية لعرض الرزنامة حالياً.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}

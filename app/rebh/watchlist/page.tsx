@@ -82,25 +82,25 @@ const mcf = (v: number | undefined | null) => {
 // ---------------------------------------------------------------------------
 
 const SCREENS: { id: ScreenId; label: string; test: (c: CompanyUniverseItem) => boolean }[] = [
-    { id: "all", label: "All", test: () => true },
+    { id: "all", label: "الكل", test: () => true },
     {
         id: "value",
-        label: "Value",
+        label: "القيمة",
         test: (c) => (c.pe ?? Infinity) < 12 && (c.pb ?? Infinity) < 1.5,
     },
     {
         id: "quality",
-        label: "Quality",
+        label: "الجودة",
         test: (c) => (c.roe ?? -Infinity) > 15 && (c.f_score ?? 0) >= 6,
     },
     {
         id: "growth",
-        label: "Growth",
+        label: "النمو",
         test: (c) => (c.peg ?? Infinity) < 1 && (c.g_net ?? -Infinity) > 0,
     },
     {
         id: "netnet",
-        label: "Net-net",
+        label: "الأصول الصافية (Net-Net)",
         test: (c) => (c.pncav ?? Infinity) < 0.66 && (c.pncav ?? 0) > 0,
     },
 ];
@@ -127,14 +127,14 @@ interface ColumnDef {
 }
 
 const COLUMNS: ColumnDef[] = [
-    { key: "px", label: "Price", render: (c) => nf(c.px, 2) },
-    { key: "mc", label: "Mkt Cap", render: (c) => mcf(c.mc) },
+    { key: "px", label: "السعر", render: (c) => nf(c.px, 2) },
+    { key: "mc", label: "القيمة السوقية", render: (c) => mcf(c.mc) },
     { key: "pe", label: "P/E", render: (c) => nf(c.pe) },
     { key: "pb", label: "P/B", render: (c) => nf(c.pb, 2) },
     { key: "roe", label: "ROE", render: (c) => pctf(c.roe) },
     {
         key: "g_net",
-        label: "Net Growth",
+        label: "نمو الأرباح",
         render: (c) =>
             c.g_net === undefined || c.g_net === null ? (
                 "—"
@@ -209,7 +209,7 @@ export default function RebhWatchlistPage() {
     const [error, setError] = useState<string | null>(null);
 
     const [query, setQuery] = useState("");
-    const [sector, setSector] = useState<string>("All sectors");
+    const [sector, setSector] = useState<string>("كل القطاعات");
     const [screen, setScreen] = useState<ScreenId>("all");
     const [sortKey, setSortKey] = useState<SortKey>("mc");
     const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -227,12 +227,12 @@ export default function RebhWatchlistPage() {
         setError(null);
         try {
             const res = await fetch(`${API_BASE_URL}/api/rebh/universe`);
-            if (!res.ok) throw new Error(`Request failed (${res.status})`);
+            if (!res.ok) throw new Error(`فشل الطلب (${res.status})`);
             const data = await res.json();
             const list: CompanyUniverseItem[] = Array.isArray(data) ? data : data.companies ?? [];
             setUniverse(list);
         } catch (e) {
-            setError(e instanceof Error ? e.message : "Could not load the universe.");
+            setError(e instanceof Error ? e.message : "تعذر تحميل بيانات الشركات.");
         } finally {
             setLoading(false);
         }
@@ -296,13 +296,13 @@ export default function RebhWatchlistPage() {
                 credentials: "include",
                 body: JSON.stringify({ symbol: sym })
             });
-        } catch (_) {}
+        } catch (_) { }
     };
 
     const sectors = useMemo(() => {
         const s = new Set<string>();
         universe.forEach((c) => c.sec && s.add(c.sec));
-        return ["All sectors", ...Array.from(s).sort()];
+        return ["كل القطاعات", ...Array.from(s).sort()];
     }, [universe]);
 
     function sortBy(key: SortKey) {
@@ -318,7 +318,7 @@ export default function RebhWatchlistPage() {
         const q = query.trim().toUpperCase();
         const activeScreen = SCREENS.find((s) => s.id === screen) ?? SCREENS[0];
         let rows = universe.filter((c) => {
-            if (sector !== "All sectors" && c.sec !== sector) return false;
+            if (sector !== "كل القطاعات" && c.sec !== sector) return false;
             if (onlyFresh && !c.fresh) return false;
             if (watchOnly && !watchlist.has(c.sym)) return false;
             if (!activeScreen.test(c)) return false;
@@ -363,11 +363,10 @@ export default function RebhWatchlistPage() {
             <header className="border-b border-[#E5E7EB] bg-white px-5 py-6 sm:px-8">
                 <div className="mx-auto flex max-w-[1400px] flex-col gap-1">
                     <h1 className="text-2xl font-semibold tracking-tight text-[#1A1A1A]">
-                        Watchlist &amp; screener
+                        قائمة المتابعة والفحص
                     </h1>
                     <p className="max-w-2xl text-sm text-[#6B7280]">
-                        Every TASI-listed company the platform covers, in one sortable table. Screen by
-                        preset, filter by sector, star what you want to track.
+                        كل الشركات المدرجة في السوق المالي السعودي (تداول) التي تغطيها المنصة، في جدول واحد قابل للفرز. فرّز حسب القوالب الجاهزة، رشّح حسب القطاع، وأضف بالنجمة ما تريد متابعته.
                     </p>
                 </div>
             </header>
@@ -384,14 +383,14 @@ export default function RebhWatchlistPage() {
                                     value={query}
                                     onChange={(e) => setQuery(e.target.value)}
                                     onKeyDown={handleSearchKeyDown}
-                                    placeholder="Search symbol or company name…"
+                                    placeholder="ابحث برمز السهم أو اسم الشركة…"
                                     className="w-full rounded-[4px] border border-[#E5E7EB] bg-[#F7F8FA] py-2 pl-9 pr-9 text-sm text-[#1A1A1A] outline-none transition-colors placeholder:text-[#9CA3AF] focus:border-[#8C3B32] focus:ring-2 focus:ring-[#8C3B32]/15"
                                 />
                                 {query && (
                                     <button
                                         onClick={() => setQuery("")}
                                         className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280]"
-                                        aria-label="Clear search"
+                                        aria-label="مسح البحث"
                                     >
                                         <X className="h-4 w-4" />
                                     </button>
@@ -418,7 +417,7 @@ export default function RebhWatchlistPage() {
                                     }`}
                             >
                                 <SlidersHorizontal className="h-3.5 w-3.5" />
-                                Filters
+                                الفلاتر
                             </button>
 
                             <button
@@ -427,7 +426,7 @@ export default function RebhWatchlistPage() {
                                 className="flex items-center gap-1.5 rounded-[4px] border border-[#E5E7EB] bg-white px-3 py-2 text-sm text-[#6B7280] transition-colors hover:border-[#8C3B32]/40 hover:text-[#1A1A1A] disabled:opacity-50"
                             >
                                 <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-                                Refresh
+                                تحديث
                             </button>
                         </div>
 
@@ -454,7 +453,7 @@ export default function RebhWatchlistPage() {
                                     }`}
                             >
                                 <Star className={`h-3 w-3 ${watchOnly ? "fill-[#8C3B32] text-[#8C3B32]" : ""}`} />
-                                My watchlist ({watchlist.size})
+                                قائمتي ({watchlist.size})
                             </button>
                         </div>
 
@@ -468,10 +467,10 @@ export default function RebhWatchlistPage() {
                                         onChange={(e) => setOnlyFresh(e.target.checked)}
                                         className="accent-[#8C3B32]"
                                     />
-                                    Fresh statements only
+                                    القوائم المالية المحدثة فقط
                                 </label>
                                 <span className="text-xs text-[#6B7280]">
-                                    {filtered.length} of {universe.length} companies match
+                                    {filtered.length} من {universe.length} شركة مطابقة
                                 </span>
                             </div>
                         )}
@@ -490,7 +489,7 @@ export default function RebhWatchlistPage() {
                                         className="sticky left-0 z-10 cursor-pointer whitespace-nowrap bg-[#F3F4F6] px-3 py-2.5 text-left text-xs font-semibold text-[#6B7280] hover:text-[#1A1A1A]"
                                     >
                                         <span className="inline-flex items-center gap-1">
-                                            Company <SortIcon col="sym" />
+                                            الشركة <SortIcon col="sym" />
                                         </span>
                                     </th>
                                     {COLUMNS.map((col) => (
@@ -505,7 +504,7 @@ export default function RebhWatchlistPage() {
                                         </th>
                                     ))}
                                     <th className="px-3 py-2.5 text-right text-xs font-semibold text-[#6B7280]">
-                                        Grade
+                                        التصنيف
                                     </th>
                                 </tr>
                             </thead>
@@ -514,7 +513,7 @@ export default function RebhWatchlistPage() {
                                     <tr>
                                         <td colSpan={COLUMNS.length + 3} className="px-4 py-16 text-center text-[#6B7280]">
                                             <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin text-[#8C3B32]" />
-                                            Loading the universe…
+                                            جاري تحميل بيانات الشركات…
                                         </td>
                                     </tr>
                                 )}
@@ -525,14 +524,14 @@ export default function RebhWatchlistPage() {
                                             <div className="mx-auto flex max-w-sm flex-col items-center gap-2 rounded-[4px] border border-[#FECACA] bg-[#FEF2F2] px-4 py-4 text-center">
                                                 <AlertTriangle className="h-5 w-5 text-[#DC2626]" />
                                                 <div className="text-sm font-medium text-[#DC2626]">
-                                                    Couldn't load the universe
+                                                    تعذر تحميل بيانات الشركات
                                                 </div>
                                                 <div className="text-xs text-[#DC2626]/80">{error}</div>
                                                 <button
                                                     onClick={loadUniverse}
                                                     className="mt-1 rounded-[4px] border border-[#DC2626]/30 bg-white px-3 py-1.5 text-xs font-medium text-[#DC2626] hover:bg-[#FEF2F2]"
                                                 >
-                                                    Try again
+                                                    إعادة المحاولة
                                                 </button>
                                             </div>
                                         </td>
@@ -542,7 +541,7 @@ export default function RebhWatchlistPage() {
                                 {!loading && !error && filtered.length === 0 && (
                                     <tr>
                                         <td colSpan={COLUMNS.length + 3} className="px-4 py-16 text-center text-[#6B7280]">
-                                            No companies match these filters. Try clearing the search or switching sectors.
+                                            لا توجد شركات مطابقة لهذه الفلاتر. جرّب مسح البحث أو تغيير القطاع.
                                         </td>
                                     </tr>
                                 )}
@@ -558,7 +557,7 @@ export default function RebhWatchlistPage() {
                                             <td className="px-3 py-2.5">
                                                 <button
                                                     onClick={() => toggleWatch(c.sym)}
-                                                    aria-label={watchlist.has(c.sym) ? "Remove from watchlist" : "Add to watchlist"}
+                                                    aria-label={watchlist.has(c.sym) ? "إزالة من قائمة المتابعة" : "إضافة إلى قائمة المتابعة"}
                                                     className="text-[#9CA3AF] hover:text-[#8C3B32]"
                                                 >
                                                     <Star
@@ -577,12 +576,12 @@ export default function RebhWatchlistPage() {
                                                     </span>
                                                     {!c.fresh && (
                                                         <span className="rounded-full border border-[#B45309]/30 bg-[#B45309]/10 px-1.5 py-0.5 text-[10px] font-medium text-[#B45309]" title="قوائم غير محدثة — مستبعدة من التسعير">
-                                                            Stale ⚑
+                                                            غير محدث ⚑
                                                         </span>
                                                     )}
                                                     {(c.pe == null && c.roe == null && c.fresh) && (
                                                         <span className="rounded-full border border-[#DC2626]/30 bg-[#DC2626]/10 px-1.5 py-0.5 text-[10px] font-medium text-[#DC2626]" title="في سلة مونجر (قائمة دخل فارغة)">
-                                                            Quarantine
+                                                            معزول
                                                         </span>
                                                     )}
                                                 </div>
@@ -617,8 +616,7 @@ export default function RebhWatchlistPage() {
 
                 {!loading && !error && (
                     <div className="mt-3 text-xs text-[#9CA3AF]">
-                        Showing {filtered.length} of {universe.length} companies · analysis, never a
-                        recommendation.
+                        يعرض {filtered.length} من أصل {universe.length} شركة · تحليل وليس توصية استثمارية.
                     </div>
                 )}
             </main>

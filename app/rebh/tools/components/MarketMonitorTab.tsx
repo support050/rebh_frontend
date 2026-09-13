@@ -3,6 +3,17 @@
 import React, { useMemo } from "react";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ReferenceLine,
+  Cell,
+} from "recharts";
 import { API_BASE_URL } from "@/lib/api/config";
 
 interface CompanyItem {
@@ -53,7 +64,17 @@ export default function MarketMonitorTab({ universe }: MarketMonitorTabProps) {
 
   // Histogram Bins for P/E (16 bins, 0..80x)
   const bins = useMemo(() => {
-    const b = Array.from({ length: 16 }, (_, i) => ({ lo: i * 5, count: 0 }));
+    const b = Array.from({ length: 16 }, (_, i) => {
+      const lo = i * 5;
+      const hi = (i + 1) * 5;
+      return {
+        lo,
+        hi,
+        range: `${lo}–${hi}x`,
+        label: `${lo}x`,
+        count: 0,
+      };
+    });
     pes.forEach(p => {
       const idx = Math.min(15, Math.floor(p / 5));
       b[idx].count++;
@@ -356,35 +377,79 @@ export default function MarketMonitorTab({ universe }: MarketMonitorTabProps) {
 
       {/* P/E Distribution Histogram */}
       <div className={`${CARD} p-5`}>
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xs font-bold text-[#6B7280] uppercase tracking-wide">
-            توزيع مكررات الأرباح في السوق — P/E DISTRIBUTION (0–80×)
-          </h3>
-          <span className="text-[10px] text-[#6B7280]">{pes.length} شركة في العينة الحية</span>
+        <div className="flex justify-between items-center mb-3">
+          <div className="flex items-center gap-2">
+            <h3 className="text-xs font-bold text-[#6B7280] uppercase tracking-wide">
+              توزيع مكررات الأرباح في السوق — P/E DISTRIBUTION (0–80×)
+            </h3>
+            <span className="text-[10px] bg-[#F1F5F9] text-[#475569] font-mono px-2 py-0.5 rounded border border-[#E2E8F0]">
+              وسيط السوق: {medPe.toFixed(1)}x
+            </span>
+          </div>
+          <span className="text-[10px] text-[#6B7280] font-mono">{pes.length} شركة في العينة الحية</span>
         </div>
 
-        {/* Histogram Bars */}
-        <div className="h-28 flex items-end gap-1.5 border-b border-[#E5E7EB] pb-1">
-          {bins.map((b, idx) => {
-            const heightPct = Math.max((b.count / maxBinCount) * 100, 4);
-            return (
-              <div key={idx} className="flex-1 flex flex-col items-center group relative">
-                <span className="text-[9px] text-[#6B7280] mb-1 group-hover:text-[#1A1A1A] transition">
-                  {b.count > 0 ? b.count : ""}
-                </span>
-                <div
-                  className="w-full bg-[#8C3B32]/70 hover:bg-[#8C3B32] rounded-t transition-all"
-                  style={{ height: `${heightPct}%` }}
-                />
-              </div>
-            );
-          })}
-        </div>
-        {/* Histogram X Axis */}
-        <div className="flex justify-between text-[9px] text-[#6B7280] pt-1">
-          {bins.map((b, idx) => (
-            <span key={idx} className="flex-1 text-center">{b.lo}x</span>
-          ))}
+        {/* Dynamic Recharts BarChart Histogram */}
+        <div className="w-full h-44">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={bins}
+              margin={{ top: 12, right: 10, left: -25, bottom: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+              <XAxis
+                dataKey="label"
+                tick={{ fill: "#64748B", fontSize: 10, fontFamily: "monospace" }}
+                interval={1}
+              />
+              <YAxis
+                tick={{ fill: "#64748B", fontSize: 10, fontFamily: "monospace" }}
+                allowDecimals={false}
+              />
+              <RechartsTooltip
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    const d = payload[0].payload;
+                    const pct = pes.length > 0 ? ((d.count / pes.length) * 100).toFixed(1) : "0";
+                    return (
+                      <div className="bg-[#1E293B] text-white text-xs px-3 py-2 rounded shadow-xl font-mono space-y-1">
+                        <div className="font-bold text-[#93C5FD] border-b border-[#334155] pb-1">
+                          نطاق المكرر: {d.range}
+                        </div>
+                        <div className="flex justify-between gap-4 text-[11px] pt-0.5">
+                          <span className="text-[#94A3B8]">عدد الشركات:</span>
+                          <span className="font-bold text-white">{d.count} شركة</span>
+                        </div>
+                        <div className="flex justify-between gap-4 text-[10px] text-[#CBD5E1]">
+                          <span>النسبة من العينة:</span>
+                          <span className="font-bold text-[#38BDF8]">{pct}%</span>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
+              <Bar
+                dataKey="count"
+                radius={[3, 3, 0, 0]}
+                isAnimationActive={true}
+              >
+                {bins.map((entry, index) => {
+                  // Highlight the bin containing the market median
+                  const isMedianBin = medPe >= entry.lo && medPe < entry.hi;
+                  return (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={isMedianBin ? "#8C3B32" : "#94A3B8"}
+                      fillOpacity={isMedianBin ? 0.95 : 0.65}
+                      className="hover:fill-[#8C3B32] transition-colors"
+                    />
+                  );
+                })}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 

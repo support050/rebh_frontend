@@ -81,44 +81,44 @@ const REASON_META: Record<
         color: "#B45309",
         bg: "#FFFBEB",
         border: "#FDE68A",
-        chip: "No filings",
+        chip: "لا توجد إفصاحات",
     },
     "empty-statement": {
         icon: AlertTriangle,
         color: "#B45309",
         bg: "#FFFBEB",
         border: "#FDE68A",
-        chip: "Empty income stmt°",
+        chip: "قائمة دخل فارغة°",
     },
     stale: {
         icon: RefreshCw,
         color: "#B45309",
         bg: "#FFFBEB",
         border: "#FDE68A",
-        chip: "Stale",
+        chip: "بيانات قديمة",
     },
     corruption: {
         icon: ShieldAlert,
         color: "#DC2626",
         bg: "#FEF2F2",
         border: "#FECACA",
-        chip: "Corruption ⚑",
+        chip: "تلاعب في البيانات ⚑",
     },
     other: {
         icon: AlertTriangle,
         color: "#DC2626",
         bg: "#FEF2F2",
         border: "#FECACA",
-        chip: "Flag",
+        chip: "تنبيه",
     },
 };
 
 const FILTERS: { key: QuarantineReasonKind | "all"; label: string }[] = [
-    { key: "all", label: "All" },
-    { key: "no-filings", label: "No filings" },
-    { key: "empty-statement", label: "Empty income stmt" },
-    { key: "stale", label: "Stale" },
-    { key: "corruption", label: "Corruption" },
+    { key: "all", label: "الكل" },
+    { key: "no-filings", label: "لا توجد إفصاحات" },
+    { key: "empty-statement", label: "قائمة دخل فارغة" },
+    { key: "stale", label: "بيانات قديمة" },
+    { key: "corruption", label: "تلاعب في البيانات" },
 ];
 
 /* ---------------------------------------------------------------------- */
@@ -261,32 +261,30 @@ export default function QuarantinePage() {
                     <div className="flex-1">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                             <h1 className="text-2xl font-extrabold tracking-tight text-[#1A1A1A]">
-                                Quarantine{" "}
+                                الحجر الصحي{" "}
                                 <span className="text-[#8C3B32]">
-                                    — the Too-Hard Pile, declared
+                                    — كومة الحالات المستعصية، مُعلنة صراحة
                                 </span>
                             </h1>
                             {quarantineMeta && (
                                 <div className="flex items-center gap-2">
                                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#F7F8FA] border border-[#E5E7EB] text-[11px] font-mono text-[#6B7280]">
                                         <span className="w-1.5 h-1.5 rounded-full bg-[#16A34A]" />
-                                        {quarantineMeta.source || "REBH Forensic Gate"}
+                                        {quarantineMeta.source || "بوابة REBH للتحليل الجنائي"}
                                     </span>
                                     <span className="px-2 py-0.5 rounded bg-[#FEF2F2] border border-[#FECACA] text-[11px] font-bold text-[#DC2626]">
-                                        {quarantineMeta.count ?? rows.length} Quarantined
+                                        {quarantineMeta.count ?? rows.length} شركة محجورة
                                     </span>
                                 </div>
                             )}
                         </div>
                         <p className="mt-1 max-w-3xl text-[13px] leading-relaxed text-[#6B7280]">
-                            Munger&apos;s demand delivered: companies whose data cannot be
-                            trusted are{" "}
+                            تطبيقاً لمبدأ مانجر: الشركات التي لا يمكن الوثوق ببياناتها{" "}
                             <b className="text-[#8C3B32]">
-                                publicly quarantined with the reason
+                                يُعلن حجرها صراحة مع ذكر السبب
                             </b>{" "}
-                            — not silently shown with pretty ratios. The engine already
-                            excludes them from pricing and screens; this page says so out
-                            loud.
+                            — لا تُعرض بصمت بنسب مالية مزيّنة. المحرك يستبعدها بالفعل من
+                            التسعير والفرز؛ وهذه الصفحة تعلن ذلك صراحة.
                         </p>
                     </div>
                 </div>
@@ -297,33 +295,31 @@ export default function QuarantinePage() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
                     <KpiCard
                         value={loading ? "…" : fmt(rows.length, 0)}
-                        label={`In the pile (of ${totalUniverse || "—"})`}
+                        label={`في الحجر (من أصل ${totalUniverse || "—"})`}
                         color="#B45309"
                     />
                     <KpiCard
                         value={loading ? "…" : fmt(counts["no-filings"], 0)}
-                        label="No filings at source"
+                        label="لا توجد إفصاحات من المصدر"
                     />
                     <KpiCard
                         value={loading ? "…" : fmt(counts["empty-statement"], 0)}
-                        label="Empty income stmt°"
+                        label="قائمة دخل فارغة°"
                     />
                     <KpiCard
                         value={loading ? "…" : fmt(counts.stale, 0)}
-                        label="Stale — never priced"
+                        label="بيانات قديمة — لم تُسعَّر بعد"
                     />
                     <KpiCard
                         value={loading ? "…" : fmt(counts.corruption, 0)}
-                        label="Severe corruption ⚑"
+                        label="تلاعب جسيم في البيانات ⚑"
                         color="#DC2626"
                     />
                 </div>
 
                 <p className="text-[11px] text-[#6B7280] mb-4 max-w-3xl leading-relaxed">
-                    These companies still appear everywhere on the platform — but every
-                    pricing, grade and aggregate the engine could not trust is
-                    suppressed with its reason, not decorated. The pile is public
-                    because the exit door for every class is a named developer fix.
+                    هذه الشركات تظهر في المنصة مع إخفاء أي تسعير أو درجة لا يثق بها المحرك،
+                    مع ذكر السبب علناً — لا نعرض نسباً مزيّنة على بيانات غير موثوقة.
                 </p>
 
                 {/* Controls */}
@@ -336,13 +332,13 @@ export default function QuarantinePage() {
                         <input
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
-                            placeholder="Search symbol, name, sector…"
+                            placeholder="بحث بالرمز أو الاسم أو القطاع…"
                             className={`${INPUT} w-full pl-8 pr-8 py-2`}
                         />
                         {query && (
                             <button
                                 onClick={() => setQuery("")}
-                                aria-label="Clear search"
+                                aria-label="مسح البحث"
                                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#DC2626] transition"
                             >
                                 <X size={14} />
@@ -371,7 +367,7 @@ export default function QuarantinePage() {
                         className="sm:mr-auto flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] text-[11.5px] font-semibold border border-[#E5E7EB] bg-white text-[#6B7280] hover:border-[#8C3B32] hover:text-[#8C3B32] disabled:opacity-50 transition"
                     >
                         <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
-                        Refresh
+                        تحديث
                     </button>
                 </div>
 
@@ -379,20 +375,20 @@ export default function QuarantinePage() {
                 {error && (
                     <div className="rounded-[4px] border border-[#FECACA] bg-[#FEF2F2] p-4 text-[12.5px] text-[#DC2626] mb-6 flex items-center gap-2">
                         <AlertTriangle size={15} />
-                        {error} — check the API connection and try again.
+                        {error} — يرجى التحقق من اتصال واجهة البرمجة (API) والمحاولة مرة أخرى.
                     </div>
                 )}
 
                 {loading && !error && (
                     <div className={`${CARD} p-10 text-center text-[#6B7280] text-[13px]`}>
-                        Loading universe…
+                        جارٍ تحميل قاعدة الشركات…
                     </div>
                 )}
 
                 {!loading && !error && filteredRows.length === 0 && (
                     <div className={`${CARD} p-10 text-center text-[#6B7280] text-[13px] flex flex-col items-center gap-2`}>
                         <CheckCircle2 size={20} className="text-[#16A34A]" />
-                        No companies match this filter.
+                        لا توجد شركات مطابقة لهذا الفلتر.
                     </div>
                 )}
 
@@ -400,11 +396,11 @@ export default function QuarantinePage() {
                     <div className={`${CARD} overflow-hidden`}>
                         {/* Table header (desktop) */}
                         <div className="hidden md:grid grid-cols-[1.4fr_1fr_1fr_1fr_2.4fr_auto] gap-3 px-5 py-3 border-b border-[#E5E7EB] bg-[#F3F4F6] text-[10px] uppercase tracking-wider text-[#6B7280] font-semibold">
-                            <span>Company</span>
-                            <span className="text-right">Sector</span>
-                            <span className="text-right">Mkt cap</span>
-                            <span className="text-right">Price</span>
-                            <span>Why it&apos;s in the pile</span>
+                            <span>الشركة</span>
+                            <span className="text-right">القطاع</span>
+                            <span className="text-right">القيمة السوقية</span>
+                            <span className="text-right">السعر</span>
+                            <span>سبب الحجر</span>
                             <span></span>
                         </div>
 
@@ -423,20 +419,20 @@ export default function QuarantinePage() {
 
                 {!loading && !error && filteredRows.length > 0 && (
                     <p className="text-[11px] text-[#6B7280] mt-3">
-                        Showing {filteredRows.length} of {rows.length} quarantined
-                        companies{query || activeFilter !== "all" ? " (filtered)" : ""},
-                        sorted by market cap.
+                        عرض {filteredRows.length} من أصل {rows.length} شركة محجورة
+                        {query || activeFilter !== "all" ? " (بعد التصفية)" : ""}،
+                        مرتبة حسب القيمة السوقية.
                     </p>
                 )}
 
                 {/* Exit doors */}
                 <div className={`mt-6 ${SUBCARD} border-[#8C3B32]/30 p-4 text-[12px] text-[#6B7280] leading-relaxed`}>
-                    <b className="text-[#8C3B32]">The exit doors (Developer Brief P0):</b>{" "}
-                    IS tag-mapper fix releases the empty-statement class at once
-                    (incl. Aramco — SABIC sits in the stale class); IFRS-17 parser
-                    releases the 27 stale insurers; importer-roster fix adds the
-                    absent symbols; mandatory scale-at-import ends the corruption
-                    class.
+                    <b className="text-[#8C3B32]">مسارات الخروج (ملخص المطورين P0):</b>{" "}
+                    إصلاح رابط بيانات قائمة الدخل يُخرج فئة "قائمة الدخل الفارغة" فوراً
+                    (بما فيها أرامكو — سابك ضمن فئة البيانات القديمة)؛ محلل IFRS-17
+                    يُخرج 27 شركة تأمين من فئة البيانات القديمة؛ إصلاح قائمة المستوردين
+                    يضيف الرموز الغائبة؛ إلزامية ضبط المقياس عند الاستيراد تُنهي فئة
+                    التلاعب في البيانات.
                 </div>
             </main>
         </div>
@@ -539,7 +535,7 @@ function QuarantineRowItem({
                             onClick={onToggle}
                             className="text-[10px] text-[#6B7280] hover:text-[#1A1A1A] underline decoration-dotted"
                         >
-                            +{reasons.length - 2} more
+                            +{reasons.length - 2} إضافية
                         </button>
                     )}
                 </div>
@@ -548,7 +544,7 @@ function QuarantineRowItem({
                     <button
                         onClick={onToggle}
                         className="text-[#6B7280] hover:text-[#8C3B32] p-1 transition"
-                        aria-label="Toggle details"
+                        aria-label="عرض التفاصيل"
                     >
                         <ArrowUpRight
                             size={15}
@@ -578,7 +574,7 @@ function QuarantineRowItem({
                     })}
                     {!item.bs_ok && (
                         <div className="text-[10.5px] text-[#6B7280] pt-1">
-                            Balance-sheet check: failed°
+                            فحص هوية الميزانية: فشل°
                         </div>
                     )}
                 </div>

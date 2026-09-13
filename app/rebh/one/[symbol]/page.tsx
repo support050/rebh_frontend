@@ -206,7 +206,7 @@ export default function RebhOneDeepDivePage() {
   const prevIdx = periods.length - 2;
   const yoyIdx = periods.length - 5;
 
-  const currentQName = lastIdx >= 0 ? periods[lastIdx] : "Q_latest";
+  const currentQName = lastIdx >= 0 ? periods[lastIdx] : "الربع الأخير";
   const currentQNet = lastIdx >= 0 && netProfits[lastIdx] != null ? netProfits[lastIdx] : null;
   const prevQNet = prevIdx >= 0 && netProfits[prevIdx] != null ? netProfits[prevIdx] : null;
   const yoyQNet = yoyIdx >= 0 && netProfits[yoyIdx] != null ? netProfits[yoyIdx] : null;
@@ -311,7 +311,7 @@ export default function RebhOneDeepDivePage() {
               </span>
               {isQuarantined ? (
                 <span className="px-2 py-0.5 rounded bg-[#FEF2F2] text-[#DC2626] font-bold border border-[#FECACA]">
-                  Quarantine ⚑ سلة العزل
+                  الحجر الصحي ⚑ سلة العزل
                 </span>
               ) : (
                 <span className="px-2 py-0.5 rounded bg-[#F0FDF4] text-[#16A34A] font-bold border border-[#BBF7D0]">
@@ -739,7 +739,7 @@ export default function RebhOneDeepDivePage() {
                   type="text"
                   value={classForm.industry_class}
                   onChange={(e) => setClassForm({ ...classForm, industry_class: e.target.value })}
-                  placeholder="Cyclical / Defensive / Fast Growing"
+                  placeholder="دوري / دفاعي / سريع النمو"
                   className="w-full rounded border border-[#D1D5DB] px-3 py-1.5 text-xs outline-none focus:border-[#8C3B32]"
                 />
               </div>
@@ -750,7 +750,7 @@ export default function RebhOneDeepDivePage() {
                   type="text"
                   value={classForm.market_form}
                   onChange={(e) => setClassForm({ ...classForm, market_form: e.target.value })}
-                  placeholder="Oligopoly / Monopoly / Monopolistic Competition"
+                  placeholder="احتكار القلة / احتكار تام / منافسة احتكارية"
                   className="w-full rounded border border-[#D1D5DB] px-3 py-1.5 text-xs outline-none focus:border-[#8C3B32]"
                 />
               </div>
@@ -762,7 +762,7 @@ export default function RebhOneDeepDivePage() {
                     type="text"
                     value={classForm.price_elasticity}
                     onChange={(e) => setClassForm({ ...classForm, price_elasticity: e.target.value })}
-                    placeholder="Inelastic / Elastic"
+                    placeholder="غير مرن / مرن"
                     className="w-full rounded border border-[#D1D5DB] px-3 py-1.5 text-xs outline-none focus:border-[#8C3B32]"
                   />
                 </div>
@@ -772,7 +772,7 @@ export default function RebhOneDeepDivePage() {
                     type="text"
                     value={classForm.bcg_position}
                     onChange={(e) => setClassForm({ ...classForm, bcg_position: e.target.value })}
-                    placeholder="Cash Cows / Stars / Dogs"
+                    placeholder="بقرات نقدية / نجوم / كلاب"
                     className="w-full rounded border border-[#D1D5DB] px-3 py-1.5 text-xs outline-none focus:border-[#8C3B32]"
                   />
                 </div>
@@ -785,7 +785,7 @@ export default function RebhOneDeepDivePage() {
                     type="text"
                     value={classForm.dominance}
                     onChange={(e) => setClassForm({ ...classForm, dominance: e.target.value })}
-                    placeholder="Market Leader / Strong Challenger"
+                    placeholder="رائد السوق / منافس قوي"
                     className="w-full rounded border border-[#D1D5DB] px-3 py-1.5 text-xs outline-none focus:border-[#8C3B32]"
                   />
                 </div>
@@ -795,7 +795,7 @@ export default function RebhOneDeepDivePage() {
                     type="text"
                     value={classForm.retail_path}
                     onChange={(e) => setClassForm({ ...classForm, retail_path: e.target.value })}
-                    placeholder="Retail Brand Power / B2B"
+                    placeholder="قوة العلامة التجزئية / بيع بين الشركات B2B"
                     className="w-full rounded border border-[#D1D5DB] px-3 py-1.5 text-xs outline-none focus:border-[#8C3B32]"
                   />
                 </div>

@@ -2,6 +2,16 @@
 
 import React, { useMemo } from "react";
 
+import {
+  ResponsiveContainer,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar,
+  Tooltip,
+} from "recharts";
+
 interface GradeItem {
   g: string;
   p: number;
@@ -48,30 +58,15 @@ export default function RebhRadarScore({
   const calculatedScore = Math.round(40 + comp * 0.6);
   const score = scoreOverride != null ? scoreOverride : calculatedScore;
 
-  // SVG Radar Geometry (cx=70, cy=70, R=55)
-  const cx = 70;
-  const cy = 70;
-  const R = 55;
-
-  const pt = (i: number, r: number) => {
-    const a = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
-    return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`;
-  };
-
-  const ringPoints = (factor: number) => dims.map((_, i) => pt(i, R * factor)).join(" ");
-  const polyPoints = ps.map((p, i) => pt(i, R * (Math.max(p ?? 40, 5) / 100))).join(" ");
-
-  const labels = dims.map((d, i) => {
-    const a = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
-    const x = cx + (R + 13) * Math.cos(a);
-    const y = cy + (R + 13) * Math.sin(a);
-    return {
-      text: dimsAr[d] || d,
-      x: Number(x.toFixed(0)),
-      y: Number(y.toFixed(0)),
-      val: grades[d]?.p ?? "—",
-    };
-  });
+  // Dynamic Recharts Radar Data (Five Pillars)
+  const radarData = useMemo(() => {
+    return dims.map(d => ({
+      subject: dimsAr[d] || d,
+      score: grades[d]?.p ?? 40,
+      fullMark: 100,
+      grade: grades[d]?.g ?? "—",
+    }));
+  }, [grades]);
 
   const statusLabel = score >= 70 ? "قوة استثمارية مرتفعة" : score >= 50 ? "أداء مالي متزن" : "تحت المراقبة";
 
@@ -90,32 +85,46 @@ export default function RebhRadarScore({
       </div>
 
       <div className="flex flex-col sm:flex-row items-center gap-8">
-        {/* Radar SVG */}
-        <div className="shrink-0 relative">
-          <svg width="170" height="165" viewBox="0 0 140 140" className="overflow-visible">
-            {/* Background Polygon Rings */}
-            <polygon points={ringPoints(1)} fill="none" stroke="#E5E7EB" strokeWidth="1" />
-            <polygon points={ringPoints(2 / 3)} fill="none" stroke="#E5E7EB" strokeWidth="1" strokeDasharray="2,2" />
-            <polygon points={ringPoints(1 / 3)} fill="none" stroke="#E5E7EB" strokeWidth="1" strokeDasharray="2,2" />
-
-            {/* Value Area */}
-            <polygon points={polyPoints} fill="rgba(140,59,50,0.12)" stroke="#8C3B32" strokeWidth="2" />
-
-            {/* Axis Labels */}
-            {labels.map((lbl, i) => (
-              <text
-                key={i}
-                x={lbl.x}
-                y={lbl.y}
-                fontSize="7.5"
-                fill="#6B7280"
-                textAnchor="middle"
-                className="font-sans font-semibold"
-              >
-                {lbl.text} ({lbl.val}%)
-              </text>
-            ))}
-          </svg>
+        {/* Dynamic Recharts Pentagon Radar Chart */}
+        <div className="shrink-0 w-[240px] h-[210px] relative">
+          <ResponsiveContainer width="100%" height="100%">
+            <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
+              <PolarGrid stroke="#E5E7EB" strokeDasharray="3 3" />
+              <PolarAngleAxis
+                dataKey="subject"
+                tick={{ fill: "#4B5563", fontSize: 11, fontWeight: 600 }}
+              />
+              <PolarRadiusAxis
+                angle={90}
+                domain={[0, 100]}
+                tick={false}
+                axisLine={false}
+              />
+              <Radar
+                name="REBH Pillar Score"
+                dataKey="score"
+                stroke="#8C3B32"
+                strokeWidth={2}
+                fill="#8C3B32"
+                fillOpacity={0.25}
+                isAnimationActive={true}
+              />
+              <Tooltip
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    const d = payload[0].payload;
+                    return (
+                      <div className="bg-[#1E293B] text-white text-[11px] px-2.5 py-1.5 rounded shadow-lg font-mono">
+                        <div className="font-bold text-[#F8FAFC]">{d.subject}</div>
+                        <div className="text-[#93C5FD]">الدرجة: {d.score}%</div>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
+            </RadarChart>
+          </ResponsiveContainer>
         </div>
 
         {/* Score & Ranking Details */}

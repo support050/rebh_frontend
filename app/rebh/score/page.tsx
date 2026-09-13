@@ -319,12 +319,12 @@ const ADVISORS: AdvisorRow[] = [
 ];
 
 const SCHOOL_META: Record<School, { label: string; labelEn: string; color: string; bg: string; border: string }> = {
-  fundamental: { label: "المدرسة الأساسية",  labelEn: "Fundamental School",  color: "text-[#1D4ED8]", bg: "bg-[#EFF6FF]", border: "border-[#BFDBFE]" },
-  macro:       { label: "المدرسة الكلية",     labelEn: "Macro School",        color: "text-[#7C3AED]", bg: "bg-[#F5F3FF]", border: "border-[#DDD6FE]" },
-  quant:       { label: "المدرسة الكمية",     labelEn: "Quant School",        color: "text-[#0D9488]", bg: "bg-[#F0FDFA]", border: "border-[#99F6E4]" },
-  technical:   { label: "التحليل الفني",      labelEn: "Technical School",    color: "text-[#B45309]", bg: "bg-[#FFFBEB]", border: "border-[#FDE68A]" },
-  method:      { label: "أساتذة المنهجية",    labelEn: "Method Masters",      color: "text-[#9D174D]", bg: "bg-[#FDF2F8]", border: "border-[#FBCFE8]" },
-  platform:    { label: "معيار المنصة",       labelEn: "Platform Benchmark",  color: "text-[#166534]", bg: "bg-[#F0FDF4]", border: "border-[#BBF7D0]" },
+  fundamental: { label: "المدرسة الأساسية", labelEn: "Fundamental School", color: "text-[#1D4ED8]", bg: "bg-[#EFF6FF]", border: "border-[#BFDBFE]" },
+  macro: { label: "المدرسة الكلية", labelEn: "Macro School", color: "text-[#7C3AED]", bg: "bg-[#F5F3FF]", border: "border-[#DDD6FE]" },
+  quant: { label: "المدرسة الكمية", labelEn: "Quant School", color: "text-[#0D9488]", bg: "bg-[#F0FDFA]", border: "border-[#99F6E4]" },
+  technical: { label: "التحليل الفني", labelEn: "Technical School", color: "text-[#B45309]", bg: "bg-[#FFFBEB]", border: "border-[#FDE68A]" },
+  method: { label: "أساتذة المنهجية", labelEn: "Method Masters", color: "text-[#9D174D]", bg: "bg-[#FDF2F8]", border: "border-[#FBCFE8]" },
+  platform: { label: "معيار المنصة", labelEn: "Platform Benchmark", color: "text-[#166534]", bg: "bg-[#F0FDF4]", border: "border-[#BBF7D0]" },
 };
 
 // ─── Evidence map labels ──────────────────────────────────────────────────────
@@ -338,10 +338,10 @@ const EVIDENCE_LABEL: Record<string, string> = {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function RebhCouncilScorecardPage() {
   const [liveData, setLiveData] = useState<any | null>(null);
-  const [loading,  setLoading]  = useState(true);
-  const [copied,   setCopied]   = useState(false);
-  const [filter,   setFilter]   = useState<School | "all">("all");
-  const [search,   setSearch]   = useState("");
+  const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
+  const [filter, setFilter] = useState<School | "all">("all");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     async function fetchScorecard() {
@@ -372,7 +372,7 @@ export default function RebhCouncilScorecardPage() {
     const lines = ADVISORS.map(a =>
       `[${a.id}] ${a.advisor} (${a.advisorEn}) | ${a.demand} | ${a.platformAnswer} | ${a.score}/10`
     );
-    navigator.clipboard.writeText(["REBH Council Scorecard — 35 Advisors · 35/35 × 10/10", ...lines].join("\n"));
+    navigator.clipboard.writeText(["بطاقة تغطية منصة REBH — 35 متطلباً", ...lines].join("\n"));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -383,7 +383,7 @@ export default function RebhCouncilScorecardPage() {
       acc[k] = ADVISORS.filter(a => a.school === k).length;
       return acc;
     }, {} as Record<string, number>)
-  , []);
+    , []);
 
   return (
     <div className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] pb-28 print:bg-white">
@@ -392,7 +392,7 @@ export default function RebhCouncilScorecardPage() {
       <header className="sticky top-0 z-40 bg-white border-b border-[#E5E7EB] px-5 py-2.5 flex items-center justify-between flex-wrap gap-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] print:hidden">
         <div className="flex items-center gap-3">
           <span className="px-2.5 py-1 rounded bg-[#8C3B32] text-white font-mono font-black text-xs">SCORECARD</span>
-          <h1 className="font-bold text-sm text-[#1A1A1A] tracking-tight">Council Scorecard · 35/35 × 10/10</h1>
+          <h1 className="font-bold text-sm text-[#1A1A1A] tracking-tight">بطاقة تغطية المنصة · 35 متطلباً</h1>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={handleCopy} className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-[#F9FAFB] border border-[#D1D5DB] rounded-[4px] text-xs font-semibold text-[#374151]">
@@ -411,27 +411,27 @@ export default function RebhCouncilScorecardPage() {
           <div className="space-y-3 max-w-3xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#16A34A]/20 border border-[#16A34A]/30 text-[#4ADE80] text-xs font-bold font-mono">
               <ShieldCheck size={14} />
-              OFFICIAL COUNCIL VERDICT · 35 ADVISORS · UNANIMOUS 10/10
+              مصفوفة تغطية المنصة · 35 متطلب استشاري
             </div>
             <h2 className="text-3xl font-black tracking-tight">
-              بطاقة أداء المنصة — Council Scorecard
+              بطاقة تغطية المنصة — Platform Coverage Scorecard
             </h2>
             <p className="text-sm text-[#94A3B8] leading-relaxed">
               35 مستشاراً ومعياراً استثمارياً ومؤسسياً · كل واحد له مطلب محدد ·
-              المنصة تُجيب عنه بآلية موثّقة · النتيجة: <strong className="text-white">35 × 10/10</strong>
+              المنصة تُوثّق كيف تُجيب عنه — <strong className="text-white">مصفوفة تغطية توثيقية</strong> وليست درجات محسوبة مستقلة لكل مستشار
             </p>
             <p className="text-[11px] font-mono text-[#64748B] border border-[#334155] rounded-[4px] px-3 py-1.5 inline-block">
-              ⚠ هذا Scorecard يُقيِّم المنصة لا السهم — النتيجة 10/10 تعني أن المنصة توفر الأدوات، لا أن كل سهم مناسب للشراء
+              ⚠ هذا Scorecard يُقيِّم تغطية المنصة لا السهم — score: 10 يعني أن الأداة متوفرة، لا أن كل سهم مناسب للشراء
             </p>
           </div>
 
           {/* Grand score display */}
           <div className="shrink-0 text-center bg-white/5 border border-white/10 rounded-[8px] px-8 py-6 space-y-2">
-            <span className="block text-[11px] font-mono text-[#94A3B8]">النتيجة الإجمالية</span>
+            <span className="block text-[11px] font-mono text-[#94A3B8]">متطلبات موثّقة</span>
             <div className="text-5xl font-black font-mono text-[#4ADE80]">35</div>
-            <div className="text-base font-bold text-white">مستشار × 10/10</div>
+            <div className="text-base font-bold text-white">مطلب × تغطية موثّقة</div>
             <div className="text-[11px] font-mono text-[#4ADE80] mt-1">
-              مُتفق عليه بالإجماع ✓
+              مصفوفة تغطية المنصة ✓
             </div>
           </div>
         </div>
@@ -444,11 +444,11 @@ export default function RebhCouncilScorecardPage() {
             <p className="text-[11px] font-bold text-[#94A3B8] mb-3 font-mono">أرقام حية من قاعدة البيانات (محسوبة في: {liveData.computed_at ?? "—"})</p>
             <div className="flex flex-wrap gap-3">
               {[
-                { label: "كون الشركات",         val: liveData.total_coverage,    unit: "شركة" },
-                { label: "مجتازة الاختبار",      val: liveData.pass_count,        unit: "شركة" },
-                { label: "محجورة (Too-Hard)",   val: liveData.stale_quarantined, unit: "شركة" },
-                { label: "أسعار سوقية حية",      val: liveData.live_price_symbols,unit: "رمز"  },
-                { label: "قطاعات فريدة",         val: liveData.sectors_unique,    unit: "قطاع"  },
+                { label: "كون الشركات", val: liveData.total_coverage, unit: "شركة" },
+                { label: "مجتازة الاختبار", val: liveData.pass_count, unit: "شركة" },
+                { label: "محجورة (Too-Hard)", val: liveData.stale_quarantined, unit: "شركة" },
+                { label: "أسعار سوقية حية", val: liveData.live_price_symbols, unit: "رمز" },
+                { label: "قطاعات فريدة", val: liveData.sectors_unique, unit: "قطاع" },
               ].map((s, i) => (
                 <div key={i} className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-[4px] px-3 py-1.5 flex items-center gap-2">
                   <span className="text-[10px] text-[#64748B]">{s.label}</span>
@@ -664,9 +664,9 @@ export default function RebhCouncilScorecardPage() {
           </div>
           <div className="flex items-center gap-2 flex-wrap shrink-0">
             {[
-              { href: "/rebh/analyst/2222", label: "Analyst" },
-              { href: "/rebh/xray/2222",   label: "X-Ray" },
-              { href: "/rebh/studio/2222", label: "Studio" },
+              { href: "/rebh/analyst/2222", label: "المحلل" },
+              { href: "/rebh/xray/2222", label: "الأشعة (X-Ray)" },
+              { href: "/rebh/studio/2222", label: "الاستوديو" },
               { href: "/rebh/company/2222", label: "شركة كاملة", primary: true },
             ].map(l => (
               <Link key={l.href} href={l.href}
@@ -679,7 +679,7 @@ export default function RebhCouncilScorecardPage() {
       </main>
 
       <footer className="text-center text-[11px] text-[#9CA3AF] pt-6 border-t border-[#E5E7EB] print:mt-8">
-        <p>منصة REBH — Council Scorecard · 35 مستشار × 10/10 = 350/350</p>
+        <p>منصة REBH — بطاقة تغطية المنصة · 35 متطلب توثيقي</p>
         <p className="mt-0.5">هذه النتيجة تُقيِّم المنصة كأداة تحليلية · لا تمثل توصية استثمارية لأي سهم</p>
       </footer>
     </div>
