@@ -42,9 +42,14 @@ export default function SectorPeersTable({ currentSymbol, sector }: SectorPeersT
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data)) {
-            // Filter peers by same sector and sort by market cap desc
+            // Clean sector prefix for robust matching across sub-industry or main sector
+            const cleanTarget = sector.split("|")[0].trim().toLowerCase();
             const matched = data
-              .filter((c: any) => c.sec === sector)
+              .filter((c: any) => {
+                if (!c.sec) return false;
+                const secClean = c.sec.split("|")[0].trim().toLowerCase();
+                return c.sec === sector || secClean === cleanTarget;
+              })
               .sort((a: any, b: any) => (b.mc || 0) - (a.mc || 0));
             setPeers(matched);
           }
@@ -55,8 +60,10 @@ export default function SectorPeersTable({ currentSymbol, sector }: SectorPeersT
         setLoading(false);
       }
     }
-    if (sector) {
+    if (sector && sector !== "—") {
       loadPeers();
+    } else {
+      setLoading(false);
     }
   }, [sector]);
 
@@ -76,8 +83,12 @@ export default function SectorPeersTable({ currentSymbol, sector }: SectorPeersT
     );
   }
 
-  if (peers.length <= 1) {
-    return null;
+  if (peers.length === 0) {
+    return (
+      <div className="bg-white border border-[#E5E7EB] rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-6 text-center text-xs text-[#6B7280] font-mono">
+        لا توجد شركات نظيرة أخرى مسجلة حالياً في قطاع ({sector}).
+      </div>
+    );
   }
 
   return (

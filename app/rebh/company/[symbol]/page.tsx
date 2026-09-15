@@ -264,16 +264,17 @@ export default function RebhCompanyOfficialPage() {
         </div>
       </div>
 
-      {/* 7-Pillars Classification Strip */}
+      {/* Real Sector & Business Dynamics Strip */}
       {classData && (
         <div className="bg-[#F8FAFC] border-b border-[#E2E8F0] px-6 py-2.5 text-[11.5px] text-[#475569] flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-4">
             <span className="font-bold text-[#1E293B]">تصنيف ركائز العمل:</span>
-            <span>هيكل السوق: <strong className="text-[#0F172A]">{classData.market_form || "—"}</strong></span>
+            <span>القطاع: <strong className="text-[#8C3B32]">{classData.sector || sec}</strong></span>
+            <span>هيكل السوق: <strong className="text-[#0F172A]">{classData.market_form || "منافسة قطاعية"}</strong></span>
             <span>المرونة السعرية: <strong className="text-[#0F172A]">{classData.price_elasticity || "—"}</strong></span>
             <span>مصفوفة BCG: <strong className="text-[#0F172A]">{classData.bcg_position || "—"}</strong></span>
             <span>الهيمنة: <strong className="text-[#0F172A]">{classData.dominance || "—"}</strong></span>
-            <span>مسار التجزئة: <strong className="text-[#0F172A]">{classData.retail_path || "—"}</strong></span>
+            <span>مسار التجزئة: <strong className="text-[#0F172A]">{classData.retail_path || "Mixed Commercial"}</strong></span>
           </div>
           <div className="font-mono text-[10.5px] text-[#64748B]">
             {classData.source}
@@ -545,7 +546,7 @@ export default function RebhCompanyOfficialPage() {
         <QuarterlyEngineRoom symbol={symbol} />
 
         {/* Sector Peers Comparison Table */}
-        <SectorPeersTable currentSymbol={symbol} sector={sec} />
+        <SectorPeersTable currentSymbol={symbol} sector={classData?.sector || sec} />
 
         {/* Disclaimer Footer */}
         <footer className="text-center text-[11px] text-[#9CA3AF] pt-6 border-t border-[#E5E7EB] space-y-1">
