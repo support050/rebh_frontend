@@ -24,8 +24,7 @@ const NAV_ITEMS: { group: string; items: NavItem[] }[] = [
     group: "المنصة والتحليل",
     items: [
       { name: "الرئيسية (Overview)", nameEn: "Home Hub", path: "/rebh", icon: Home },
-      { name: "فحص الشركات (One ∞)", nameEn: "Company Page", path: "/rebh/company/2222", icon: Building2 },
-      { name: "الفحص العميق (Deep-Dive · ONE)", nameEn: "Deep Dive", path: "/rebh/one/2222", icon: Layers, tag: "14 Mod", tagColor: "text-[#8C3B32] bg-[#FBEAE8] border-[#F0CFC9]" },
+      { name: "فحص وتحليل الشركات (ONE ∞)", nameEn: "Company Analysis", path: "/rebh/company/2222", icon: Building2, tag: "ONE", tagColor: "text-[#8C3B32] bg-[#FBEAE8] border-[#F0CFC9]" },
       { name: "استوديو الرسوم (Chart Studio)", nameEn: "Chart Studio", path: "/rebh/studio/2222", icon: LineChart, tag: "Studio", tagColor: "text-[#2563EB] bg-[#EFF6FF] border-[#BFDBFE]" },
       { name: "القوائم المالية (Statements · Analyst)", nameEn: "Analyst", path: "/rebh/analyst/2222", icon: FileSpreadsheet, tag: "XBRL", tagColor: "text-[#2563EB] bg-[#EFF6FF] border-[#BFDBFE]" },
       { name: "تشريح السردية (Story · X-Ray)", nameEn: "Story X-Ray", path: "/rebh/xray/2222", icon: Film, tag: "River", tagColor: "text-[#B45309] bg-[#FFFBEB] border-[#FDE68A]" },
@@ -68,8 +67,8 @@ export default function RebhLayout({ children }: { children: React.ReactNode }) 
     if (/^\d{4}$/.test(sym)) {
       if (cmd === "REPORT" || cmd === "THE_REPORT") {
         router.push(`/rebh/report/${sym}`);
-      } else if (cmd === "ONE" || cmd === "DEEP") {
-        router.push(`/rebh/one/${sym}`);
+      } else if (cmd === "ONE" || cmd === "DEEP" || cmd === "COMPANY") {
+        router.push(`/rebh/company/${sym}`);
       } else if (cmd === "STUDIO" || cmd === "CHART") {
         router.push(`/rebh/studio/${sym}`);
       } else if (cmd === "ANALYST" || cmd === "STMT" || cmd === "FS") {

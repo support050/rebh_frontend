@@ -28,6 +28,7 @@ interface RebhRadarScoreProps {
   sectorRank?: number | null;
   scoreOverride?: number | null;
   isStaleOrFallback?: boolean;
+  predictabilityStars?: number | null;
 }
 
 export default function RebhRadarScore({
@@ -40,6 +41,7 @@ export default function RebhRadarScore({
   sectorRank,
   scoreOverride,
   isStaleOrFallback = false,
+  predictabilityStars = null,
 }: RebhRadarScoreProps) {
   const dims = ["Valuation", "Growth", "Profitability", "Balance", "Cash"];
   const dimsAr: Record<string, string> = {
@@ -147,6 +149,20 @@ export default function RebhRadarScore({
               )}
               <span>المئين القطاعي: <b className="text-[#1A1A1A] font-mono">{comp.toFixed(0)}%</b></span>
             </div>
+
+            {predictabilityStars != null && (
+              <div className="flex items-center gap-2 pt-1">
+                <span className="text-xs text-[#4B5563] font-medium">استقرار مسار الأرباح (Predictability°):</span>
+                <span className="text-[#F59E0B] tracking-widest text-sm">
+                  {"★".repeat(Math.max(1, Math.min(5, predictabilityStars)))}
+                  {"☆".repeat(Math.max(0, 5 - Math.max(1, Math.min(5, predictabilityStars))))}
+                </span>
+                <span className="text-[10px] text-[#9CA3AF] font-mono">
+                  (GF Stars · نافذة 9 أرباع)
+                </span>
+              </div>
+            )}
+
             <p className="text-[11px] text-[#9CA3AF]">
               توليد مركب من العوامل الخمسة: التقييم ومعدلات النمو والربحية والرافعة المالية والتدفق النقدي الحر.
             </p>

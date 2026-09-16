@@ -13,6 +13,14 @@ import { API_BASE_URL } from "@/lib/api/config";
 import RebhRadarScore from "../../[symbol]/components/RebhRadarScore";
 import SectorPeersTable from "../../[symbol]/components/SectorPeersTable";
 import QuarterlyEngineRoom from "../../[symbol]/components/QuarterlyEngineRoom";
+import InvestmentThesisBuyGate from "../../[symbol]/components/InvestmentThesisBuyGate";
+import StatementDiagnosticsDiff from "../../[symbol]/components/StatementDiagnosticsDiff";
+import ExemplarDeepDivePortals from "../../[symbol]/components/ExemplarDeepDivePortals";
+import FactorScoreboard from "../../[symbol]/components/FactorScoreboard";
+import ValuationBandsAndMos from "../../[symbol]/components/ValuationBandsAndMos";
+import CapitalStructureCard from "../../[symbol]/components/CapitalStructureCard";
+import CompanyAnalystNotes from "../../[symbol]/components/CompanyAnalystNotes";
+
 
 export default function RebhCompanyOfficialPage() {
   const params = useParams();
@@ -24,19 +32,8 @@ export default function RebhCompanyOfficialPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // 7-Pillar Classification Modal State
-  const [isClassModalOpen, setIsClassModalOpen] = useState(false);
+  // 7-Pillar Classification Dynamic Data
   const [classData, setClassData] = useState<any>(null);
-  const [classForm, setClassForm] = useState({
-    industry_class: "",
-    market_form: "",
-    price_elasticity: "",
-    bcg_position: "",
-    dominance: "",
-    retail_path: "",
-    notes: ""
-  });
-  const [isSavingClass, setIsSavingClass] = useState(false);
 
   useEffect(() => {
     async function fetchCompany() {
@@ -74,15 +71,6 @@ export default function RebhCompanyOfficialPage() {
         if (res.ok) {
           const data = await res.json();
           setClassData(data);
-          setClassForm({
-            industry_class: data.industry_class || "",
-            market_form: data.market_form || "",
-            price_elasticity: data.price_elasticity || "",
-            bcg_position: data.bcg_position || "",
-            dominance: data.dominance || "",
-            retail_path: data.retail_path || "",
-            notes: data.notes || ""
-          });
         }
       } catch (err) {
         console.error("Failed to load classification:", err);
@@ -90,25 +78,6 @@ export default function RebhCompanyOfficialPage() {
     }
     fetchClassification();
   }, [symbol]);
-
-  const handleSaveClassification = async () => {
-    setIsSavingClass(true);
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/rebh/classification/${symbol}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(classForm)
-      });
-      if (res.ok) {
-        setClassData((prev: any) => ({ ...prev, ...classForm, is_override: true, source: "تعديل مخصص من المالك" }));
-        setIsClassModalOpen(false);
-      }
-    } catch (err) {
-      console.error("Failed to save classification:", err);
-    } finally {
-      setIsSavingClass(false);
-    }
-  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,10 +125,12 @@ export default function RebhCompanyOfficialPage() {
   const indClass = company.industry_class || "—";
   const px = Number(company.price ?? company.px ?? 0);
   const mc = Number(company.market_cap ?? company.mc ?? 0);
+  const currency = company.currency || "SAR";
   const isFresh = company.fresh !== false;
   const staleReason = company.stale_reason;
   const quarantineReason = company.quarantine_reason;
-  const isQuarantined = Boolean(quarantineReason || (!company.balance_identity?.is_valid && company.balance_identity));
+  const balanceIdentity = company.balance_identity || { is_valid: true };
+  const isQuarantined = Boolean(quarantineReason || (!balanceIdentity.is_valid && company.balance_identity));
 
   const pe = company.TTM?.eps && px > 0 ? Number((px / company.TTM.eps).toFixed(1)) : company.pe;
   const f_score = company.piotroski ?? company.f_score ?? 0;
@@ -178,6 +149,41 @@ export default function RebhCompanyOfficialPage() {
   const selectedGrowth = company.selected_growth || {};
   const reverseDcf = company.reverse_dcf || {};
 
+  // Discrete Quarters diff & trend
+  const quarterly = company.quarterly || {};
+  const periods = quarterly.periods || [];
+  const netProfits = quarterly.net_profit || [];
+  const lastIdx = periods.length - 1;
+  const prevIdx = periods.length - 2;
+  const yoyIdx = periods.length - 5;
+
+  const currentQName = lastIdx >= 0 ? periods[lastIdx] : "الربع الأخير";
+  const currentQNet = lastIdx >= 0 && netProfits[lastIdx] != null ? netProfits[lastIdx] : null;
+  const prevQNet = prevIdx >= 0 && netProfits[prevIdx] != null ? netProfits[prevIdx] : null;
+  const yoyQNet = yoyIdx >= 0 && netProfits[yoyIdx] != null ? netProfits[yoyIdx] : null;
+
+  const qoqDelta = (currentQNet != null && prevQNet != null && prevQNet !== 0)
+    ? (((currentQNet - prevQNet) / Math.abs(prevQNet)) * 100).toFixed(1)
+    : null;
+  const yoyDelta = (currentQNet != null && yoyQNet != null && yoyQNet !== 0)
+    ? (((currentQNet - yoyQNet) / Math.abs(yoyQNet)) * 100).toFixed(1)
+    : null;
+
+  const TTM = company.TTM || {};
+  const pb = balanceIdentity.equity && balanceIdentity.equity > 0 && mc > 0
+    ? Number((mc / (balanceIdentity.equity / 1_000_000)).toFixed(2))
+    : company.pb;
+  const roe = (grades?.["الربحية والكفاءة"]?.p != null) ? `${grades["الربحية والكفاءة"].p}% مئين` : (company.roe ? `${company.roe}%` : "—");
+  const netMargin = TTM.revenue && TTM.net_profit ? ((TTM.net_profit / TTM.revenue) * 100).toFixed(1) : null;
+  const fcfYield = mc > 0 && TTM.fcf ? ((TTM.fcf / 1_000_000 / mc) * 100).toFixed(1) : null;
+
+  const estimatedFv = zones?.silver_max ?? zones?.gold_max ?? (nineBox?.earnings?.v2 ?? null);
+  const marginOfSafety = company.margin_of_safety ?? (
+    (estimatedFv && px > 0)
+      ? Number((((estimatedFv - px) / estimatedFv) * 100).toFixed(1))
+      : null
+  );
+
   return (
     <div className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] pb-16">
       {/* Top Command Bar */}
@@ -190,6 +196,7 @@ export default function RebhCompanyOfficialPage() {
           <nav className="hidden md:flex items-center gap-5 text-sm text-[#6B7280]">
             <Link href={`/rebh/company/${symbol}`} className="text-[#8C3B32] border-b-2 border-[#8C3B32] pb-1 font-semibold">نظرة شاملة</Link>
             <Link href="/rebh/tools" className="hover:text-[#1A1A1A] transition-colors">الأدوات والمختبرات</Link>
+            <Link href="/rebh/watchlist" className="hover:text-[#1A1A1A] transition-colors">قائمة المراقبة (Watchlist)</Link>
             <Link
               href={`/rebh/report/${symbol}`}
               className="px-3 py-1.5 bg-[#F3F4F6] border border-[#E5E7EB] text-[#1A1A1A] hover:border-[#8C3B32] hover:text-[#8C3B32] rounded-[4px] transition-colors font-semibold flex items-center gap-1.5"
@@ -197,6 +204,47 @@ export default function RebhCompanyOfficialPage() {
               <span>عرض التقرير الرسمي</span>
             </Link>
           </nav>
+        </div>
+
+        {/* Stock Search Bar in Header */}
+        <form onSubmit={handleSearch} className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-[#9CA3AF] absolute right-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="ابحث عن رمز سهم (مثال: 1120، 2010)..."
+              className="text-xs bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px] pl-3 pr-8 py-1.5 w-[220px] sm:w-[260px] text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#8C3B32] focus:ring-1 focus:ring-[#8C3B32]/20 transition-colors"
+            />
+          </div>
+          <button
+            type="submit"
+            className="px-3 py-1.5 bg-[#8C3B32] text-white text-xs font-semibold rounded-[4px] hover:bg-[#752f28] transition-colors"
+          >
+            بحث
+          </button>
+        </form>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              const pxVal = px.toFixed(2);
+              const fvVal = zones?.silver_max ?? zones?.gold_max ?? "—";
+              const mosVal = marginOfSafety != null ? `${marginOfSafety}%` : "—";
+              const txt = `[REBH Deep-Dive ONE Case Study] ${name} (${symbol})\nالسعر الحالي: ${pxVal} ر.س | القيمة العادلة المقدرة: ${fvVal} ر.س | هامش الأمان: ${mosVal}\nمكرر الأرباح TTM: ${pe ?? "—"}x | جودة بيوتروسكي: ${f_score}/9\nقرار بوابة الاستثمار: ${buyGate?.gate_passed ? "مجتاز لبوابة الاستثمار ✓" : "معلق ⚠️"}`;
+              navigator.clipboard.writeText(txt);
+            }}
+            className="flex items-center gap-1 px-3 py-1.5 bg-white hover:bg-[#F9FAFB] border border-[#D1D5DB] rounded-[4px] text-xs font-semibold text-[#374151]"
+          >
+            <span>نسخ الأطروحة</span>
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-1 px-3 py-1.5 bg-[#8C3B32] hover:bg-[#752f28] text-white rounded-[4px] text-xs font-semibold shadow-sm"
+          >
+            <span>طباعة المذكرة ⎙</span>
+          </button>
         </div>
       </header>
 
@@ -231,16 +279,8 @@ export default function RebhCompanyOfficialPage() {
               <span className="text-[10px] px-2 py-0.5 rounded bg-[#F3F4F6] text-[#6B7280] font-mono border border-[#E5E7EB]">
                 {classData?.industry_class || indClass}
               </span>
-              <button
-                onClick={() => setIsClassModalOpen(true)}
-                className="inline-flex items-center gap-1 text-[11px] text-[#8C3B32] hover:text-[#752f28] font-medium border border-[#E5E7EB] hover:border-[#8C3B32] bg-[#F7F8FA] px-2 py-0.5 rounded transition-colors"
-                title="تعديل تصنيف الشركة (7 ركائز)"
-              >
-                <Edit3 size={11} />
-                <span>{classData?.is_override ? "تعديل المالك" : "تخصيص التصنيف"}</span>
-              </button>
             </div>
-            <span className="text-xs text-[#6B7280]">{sec} · السوق السعودي TASI</span>
+            <span className="text-xs text-[#6B7280]">{classData?.sector || sec} · السوق السعودي TASI</span>
           </div>
         </div>
 
@@ -284,7 +324,10 @@ export default function RebhCompanyOfficialPage() {
 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-6 py-6 space-y-6">
-        {/* Rebh 5-Factor Radar Score */}
+        {/* 1. Investment Thesis & Buy Gate Verdict */}
+        <InvestmentThesisBuyGate buyGate={buyGate} />
+
+        {/* 2. Rebh 5-Factor Radar Score */}
         <RebhRadarScore
           grades={grades}
           sec={sec}
@@ -293,39 +336,40 @@ export default function RebhCompanyOfficialPage() {
           goodCount={buyGate?.pass_conditions?.length ?? 0}
           marketRank={company.market_rank}
           sectorRank={company.sector_rank}
+          scoreOverride={company.rebh_score}
           isStaleOrFallback={!isFresh}
+          predictabilityStars={company.predictability_stars}
         />
 
-        {/* Factor Grades Row */}
-        {grades && Object.keys(grades).length > 0 && (
-          <section className="bg-white border border-[#E5E7EB] rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-[#1A1A1A]">التقييم الكمي مقارنة بالقطاع</h3>
-              <span className="text-[11px] text-[#9CA3AF] font-mono">الأساس: مئينات القطاع والسوق°</span>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-              {Object.entries(grades).map(([factor, item]: [string, any]) => {
-                const isA = item.g.startsWith("A");
-                const isB = item.g.startsWith("B");
-                const isC = item.g.startsWith("C");
-                const gradeColor = isA ? 'text-[#16A34A]' : isB ? 'text-[#8C3B32]' : isC ? 'text-[#B8863F]' : 'text-[#DC2626]';
-                return (
-                  <div key={factor} className="bg-[#F7F8FA] rounded-[4px] p-3.5 text-center border border-[#E5E7EB]">
-                    <div className={`text-2xl font-black font-mono ${gradeColor}`}>
-                      {item.g}
-                    </div>
-                    <div className="text-xs text-[#1A1A1A] font-medium mt-1">{factor}</div>
-                    <div className="text-[11px] text-[#9CA3AF] font-mono mt-0.5">{item.p}% مئين</div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        )}
+        {/* 2.5 Capital Structure (Seeking Alpha Model) */}
+        <CapitalStructureCard
+          capitalStructure={company.capital_structure}
+          currency={currency}
+        />
 
-        {/* Two-Column Valuation & Core Methodology */}
+        {/* 2.6 My Notes (Session & API Persistent Analyst Thesis) */}
+        <CompanyAnalystNotes symbol={symbol} />
+
+        {/* 2.7 Factor Scoreboard — التقييم الكمي مقارنة بالقطاع */}
+        <FactorScoreboard grades={grades} />
+
+        {/* 3. مضاعفات التقييم + هامش الأمان والنمو الضمني */}
+        <ValuationBandsAndMos
+          pe={pe}
+          pb={pb}
+          roe={roe}
+          netMargin={netMargin}
+          fcfYield={fcfYield}
+          irrDecision={irrDecision}
+          zones={zones}
+          marginOfSafety={marginOfSafety}
+          reverseDcf={reverseDcf}
+          buildUp={buildUp}
+        />
+
+        {/* 4. Safety Cluster & Nine-Box */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Card 1: Khurafshi Safety Cluster & Build-Up R */}
+          {/* Card A: Khurafshi Safety Cluster & Build-Up R */}
           <div className="bg-white border border-[#E5E7EB] rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-5 space-y-4">
             <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-3">
               <h2 className="text-sm font-bold text-[#1A1A1A] flex items-center gap-2">
@@ -337,7 +381,6 @@ export default function RebhCompanyOfficialPage() {
               </span>
             </div>
 
-            {/* Safety Items */}
             <div className="space-y-2">
               {safety?.details ? (
                 safety.details.map((item: any, idx: number) => (
@@ -356,7 +399,6 @@ export default function RebhCompanyOfficialPage() {
               )}
             </div>
 
-            {/* Build-Up Decomposition */}
             {buildUp && (
               <div className="bg-[#F7F8FA] p-3 rounded-[4px] border border-[#E5E7EB] text-[11px] text-[#6B7280] space-y-1">
                 <div className="flex justify-between">
@@ -375,7 +417,7 @@ export default function RebhCompanyOfficialPage() {
             )}
           </div>
 
-          {/* Card 2: Nine-Box & Valuation Bands */}
+          {/* Card B: Nine-Box & Valuation Bands */}
           <div className="bg-white border border-[#E5E7EB] rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-5 space-y-4">
             <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-3">
               <h2 className="text-sm font-bold text-[#1A1A1A] flex items-center gap-2">
@@ -389,7 +431,6 @@ export default function RebhCompanyOfficialPage() {
               )}
             </div>
 
-            {/* Zones Grid */}
             <div className="grid grid-cols-3 gap-2 text-center text-xs">
               <div className="bg-[#F0FDF4] p-3 rounded-[4px] border border-[#BBF7D0]">
                 <span className="text-[10px] text-[#16A34A] block font-bold">المنطقة الذهبية</span>
@@ -411,7 +452,6 @@ export default function RebhCompanyOfficialPage() {
               </div>
             </div>
 
-            {/* IRR Decision & Margin of Safety */}
             <div className="bg-[#F7F8FA] p-3.5 rounded-[4px] border border-[#E5E7EB] text-xs space-y-1.5">
               <div className="flex justify-between">
                 <span>العائد الداخلي المتوقع (IRR على 5 سنوات):</span>
@@ -422,7 +462,7 @@ export default function RebhCompanyOfficialPage() {
               <div className="flex justify-between">
                 <span>هامش الأمان الحالي (Margin of Safety):</span>
                 <span className="text-[#16A34A] font-mono font-bold">
-                  {company.margin_of_safety != null ? `${company.margin_of_safety}%` : "—"}
+                  {marginOfSafety != null ? `${marginOfSafety}%` : "—"}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -545,6 +585,19 @@ export default function RebhCompanyOfficialPage() {
         {/* 9-Quarter Engine Room */}
         <QuarterlyEngineRoom symbol={symbol} />
 
+        {/* Statement Diagnostics & What Changed (Diff) */}
+        <StatementDiagnosticsDiff
+          balanceIdentity={balanceIdentity}
+          isFresh={isFresh}
+          staleReason={staleReason}
+          currentQName={currentQName}
+          qoqDelta={qoqDelta}
+          yoyDelta={yoyDelta}
+        />
+
+        {/* Exemplar Deep-Dive Navigation Portals */}
+        <ExemplarDeepDivePortals symbol={symbol} />
+
         {/* Sector Peers Comparison Table */}
         <SectorPeersTable currentSymbol={symbol} sector={classData?.sector || sec} />
 
@@ -554,125 +607,6 @@ export default function RebhCompanyOfficialPage() {
           <p className="font-mono text-[10px]">علامات الشفافية: ° محسوب آلياً · ≈ تقدير معلن بسببه · ⚑ إشارة رقابية</p>
         </footer>
       </main>
-
-      {/* 7-Pillar Classification Edit Modal */}
-      {isClassModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg rounded-[4px] border border-[#E5E7EB] bg-white p-6 shadow-xl">
-            <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-3">
-              <div className="flex items-center gap-2">
-                <Edit3 className="w-4 h-4 text-[#8C3B32]" />
-                <h3 className="text-sm font-bold text-[#1A1A1A]">
-                  تخصيص ركائز تصنيف الشركة (Owner Overrides)
-                </h3>
-              </div>
-              <button
-                onClick={() => setIsClassModalOpen(false)}
-                className="text-[#9CA3AF] hover:text-[#1A1A1A]"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="mt-4 space-y-3.5 text-xs">
-              <div>
-                <label className="block font-semibold text-[#374151] mb-1">1. تصنيف الصناعة (Industry Class)</label>
-                <input
-                  type="text"
-                  value={classForm.industry_class}
-                  onChange={(e) => setClassForm({ ...classForm, industry_class: e.target.value })}
-                  placeholder="مثال: Cyclical (دورية) / Growing (متنامية) / Defensive (دفاعية)"
-                  className="w-full rounded border border-[#D1D5DB] px-3 py-1.5 text-xs outline-none focus:border-[#8C3B32]"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-[#374151] mb-1">2. هيكل وشكل السوق (Market Form)</label>
-                <input
-                  type="text"
-                  value={classForm.market_form}
-                  onChange={(e) => setClassForm({ ...classForm, market_form: e.target.value })}
-                  placeholder="مثال: Oligopoly (احتكار قلة) / Monopoly (احتكار تام) / Monopolistic Competition (منافسة احتكارية)"
-                  className="w-full rounded border border-[#D1D5DB] px-3 py-1.5 text-xs outline-none focus:border-[#8C3B32]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-[#374151] mb-1">3. المرونة السعرية (Elasticity)</label>
-                  <input
-                    type="text"
-                    value={classForm.price_elasticity}
-                    onChange={(e) => setClassForm({ ...classForm, price_elasticity: e.target.value })}
-                    placeholder="مثال: Inelastic (غير مرنة) / Elastic (مرنة)"
-                    className="w-full rounded border border-[#D1D5DB] px-3 py-1.5 text-xs outline-none focus:border-[#8C3B32]"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-[#374151] mb-1">4. مصفوفة BCG (BCG Stage)</label>
-                  <input
-                    type="text"
-                    value={classForm.bcg_position}
-                    onChange={(e) => setClassForm({ ...classForm, bcg_position: e.target.value })}
-                    placeholder="مثال: Cash Cows (بقرة حلوب) / Stars (نجوم) / Question Marks (علامات استفهام)"
-                    className="w-full rounded border border-[#D1D5DB] px-3 py-1.5 text-xs outline-none focus:border-[#8C3B32]"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-[#374151] mb-1">5. الهيمنة التنافسية (Dominance)</label>
-                  <input
-                    type="text"
-                    value={classForm.dominance}
-                    onChange={(e) => setClassForm({ ...classForm, dominance: e.target.value })}
-                    placeholder="مثال: Market Leader (رائد السوق) / Strong Challenger (منافس قوي)"
-                    className="w-full rounded border border-[#D1D5DB] px-3 py-1.5 text-xs outline-none focus:border-[#8C3B32]"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-[#374151] mb-1">6. مسار التجزئة وقوة التسعير</label>
-                  <input
-                    type="text"
-                    value={classForm.retail_path}
-                    onChange={(e) => setClassForm({ ...classForm, retail_path: e.target.value })}
-                    placeholder="مثال: Retail Brand Power (قوة العلامة في التجزئة) / B2B Contractual (تعاقدي بين الشركات)"
-                    className="w-full rounded border border-[#D1D5DB] px-3 py-1.5 text-xs outline-none focus:border-[#8C3B32]"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-[#374151] mb-1">7. مذكرات ومبررات التعديل (Notes)</label>
-                <textarea
-                  value={classForm.notes}
-                  onChange={(e) => setClassForm({ ...classForm, notes: e.target.value })}
-                  rows={2}
-                  placeholder="أسباب التعديل أو الاستثناء الخاص بالسهم..."
-                  className="w-full rounded border border-[#D1D5DB] px-3 py-1.5 text-xs outline-none focus:border-[#8C3B32]"
-                />
-              </div>
-            </div>
-
-            <div className="mt-5 flex items-center justify-end gap-2.5 border-t border-[#E5E7EB] pt-3">
-              <button
-                onClick={() => setIsClassModalOpen(false)}
-                className="rounded border border-[#D1D5DB] px-3 py-1.5 text-xs font-semibold text-[#4B5563] hover:bg-[#F3F4F6]"
-              >
-                إلغاء
-              </button>
-              <button
-                onClick={handleSaveClassification}
-                disabled={isSavingClass}
-                className="inline-flex items-center gap-1.5 rounded bg-[#8C3B32] px-4 py-1.5 text-xs font-semibold text-white shadow hover:bg-[#752f28] disabled:opacity-50"
-              >
-                {isSavingClass ? "جاري الحفظ..." : "حفظ التعديلات"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
