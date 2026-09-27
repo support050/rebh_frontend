@@ -25,9 +25,18 @@ export const InteractiveStatementTable: React.FC<InteractiveStatementTableProps>
   secondaryId,
   onSelectRow,
 }) => {
-  const isMetrics = metrics.filter(m => m.group === "income");
+  const incomeMetrics = metrics.filter(m => m.group === "income");
   const cashMetrics = metrics.filter(m => m.group === "cash");
-  const ratioMetrics = metrics.filter(m => m.group === "margin" || m.group === "balance" || m.group === "valuation");
+  const marginMetrics = metrics.filter(m => m.group === "margin");
+  const balanceMetrics = metrics.filter(m => m.group === "balance");
+  const valuationMetrics = metrics.filter(m => m.group === "valuation");
+
+  const formatCellValue = (val: number | null, unit: string) => {
+    if (val === null || val === undefined) return "—";
+    if (val === 0) return "0";
+    const digits = unit === "SAR" ? 2 : (unit === "×" ? 2 : 1);
+    return val.toLocaleString(undefined, { maximumFractionDigits: digits, minimumFractionDigits: 0 });
+  };
 
   const renderTableSection = (title: string, items: typeof metrics) => {
     if (!items.length) return null;
@@ -45,9 +54,9 @@ export const InteractiveStatementTable: React.FC<InteractiveStatementTableProps>
           <table className="w-full text-xs border-collapse">
             <thead>
               <tr className="bg-[#F1F5F9] border-b border-[#E2E8F0]">
-                <th className="p-2.5 text-right font-bold text-[#475569] whitespace-nowrap">البند / النسبة</th>
+                <th scope="col" className="p-2.5 text-right font-bold text-[#475569] whitespace-nowrap">البند / النسبة</th>
                 {periods.map((p, i) => (
-                  <th key={i} className="p-2.5 text-right font-mono font-bold text-[#475569] whitespace-nowrap">{p}</th>
+                  <th key={i} scope="col" className="p-2.5 text-right font-mono font-bold text-[#475569] whitespace-nowrap">{p}</th>
                 ))}
               </tr>
             </thead>
@@ -60,8 +69,16 @@ export const InteractiveStatementTable: React.FC<InteractiveStatementTableProps>
                 return (
                   <tr
                     key={m.id}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => onSelectRow(m.id)}
-                    className={`cursor-pointer transition-colors ${
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onSelectRow(m.id);
+                      }
+                    }}
+                    className={`cursor-pointer transition-colors outline-none focus-visible:bg-[#F1F5F9] ${
                       isPrimary
                         ? "bg-[#EFF6FF] font-semibold"
                         : isSecondary
@@ -92,13 +109,11 @@ export const InteractiveStatementTable: React.FC<InteractiveStatementTableProps>
                     {m.data.map((val, i) => (
                       <td
                         key={i}
-                        className={`p-2.5 text-right font-mono ${
+                        className={`p-2.5 text-right font-mono tabular-nums ${
                           val < 0 ? "text-[#DC2626]" : "text-[#1E293B]"
                         }`}
                       >
-                        {val != null && val !== 0
-                          ? val.toLocaleString(undefined, { maximumFractionDigits: m.unit === "SAR" ? 2 : 1 })
-                          : val === 0 ? "0" : "—"}
+                        {formatCellValue(val, m.unit)}
                       </td>
                     ))}
                   </tr>
@@ -113,9 +128,11 @@ export const InteractiveStatementTable: React.FC<InteractiveStatementTableProps>
 
   return (
     <div className="space-y-4">
-      {renderTableSection("قائمة الدخل (SAR Millions) — اضغط للرسم", isMetrics)}
+      {renderTableSection("قائمة الدخل (SAR Millions) — اضغط للرسم", incomeMetrics)}
       {renderTableSection("قائمة التدفقات النقدية (SAR Millions) — اضغط للرسم", cashMetrics)}
-      {renderTableSection("النسب والمؤشرات المحاسبية (Ratios & Margins)", ratioMetrics)}
+      {renderTableSection("الهوامش الربحية (Margins)", marginMetrics)}
+      {renderTableSection("هيكل الميزانية والملاءة (Balance & Solvency)", balanceMetrics)}
+      {valuationMetrics.length > 0 && renderTableSection("مضاعفات التقييم (Valuation Multiples)", valuationMetrics)}
     </div>
   );
 };

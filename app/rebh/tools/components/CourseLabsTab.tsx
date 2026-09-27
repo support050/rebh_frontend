@@ -216,7 +216,7 @@ export default function CourseLabsTab() {
   // -------------------------------------------------------------
   // Lab 11: Banks Toolkit Lab
   // -------------------------------------------------------------
-  const [l11Symbol, setL11Symbol] = useState("1120.SR");
+  const [l11Symbol, setL11Symbol] = useState("1120");
   const [l11Nii, setL11Nii] = useState(6500.0);
   const [l11Ea, setL11Ea] = useState(720000.0);
   const [l11Prov, setL11Prov] = useState(450.0);
@@ -228,8 +228,8 @@ export default function CourseLabsTab() {
 
   const calcL11 = async (symOverride?: string) => {
     try {
-      const sym = symOverride !== undefined ? symOverride : l11Symbol;
-      const q = sym ? `symbol=${sym}` : `nii=${l11Nii}&earning_assets=${l11Ea}&provisions=${l11Prov}&loans=${l11Loans}&deposits=${l11Dep}&casa=${l11Casa}&revenue=${l11Rev}`;
+      const sym = (symOverride !== undefined ? symOverride : l11Symbol).trim();
+      const q = sym ? `symbol=${encodeURIComponent(sym)}` : `nii=${l11Nii}&earning_assets=${l11Ea}&provisions=${l11Prov}&loans=${l11Loans}&deposits=${l11Dep}&casa=${l11Casa}&revenue=${l11Rev}`;
       const res = await fetch(`${API_BASE_URL}/api/rebh/labs/banks-toolkit?${q}`);
       if (res.ok) {
         const data = await res.json();

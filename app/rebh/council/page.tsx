@@ -12,6 +12,7 @@ import {
     Save,
     AlertTriangle,
     RefreshCw,
+    Search,
 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api/config";
 
@@ -103,21 +104,25 @@ const uid = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2,
 
 export default function CouncilAuditStation() {
     const [tab, setTab] = useState<TabKey>("fisher");
-    const [symbol, setSymbol] = useState<string>("2222.SR");
+    const [symbol, setSymbol] = useState<string>("2222");
+    const [searchInput, setSearchInput] = useState<string>("");
     const [companyData, setCompanyData] = useState<any>(null);
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [isSaving, setIsSaving] = useState<boolean>(false);
     const [saveStatus, setSaveStatus] = useState<string | null>(null);
+    const [fetchError, setFetchError] = useState<string | null>(null);
 
-    /* ---------------- Fisher state ---------------- */
-    const [fisherScores, setFisherScores] = useState<Record<number, ScoreVal>>(
-        Object.fromEntries(FISHER_15.map((f) => [f.id, 0.5 as ScoreVal]))
-    );
+    /* ---------------- Fisher state: starts EMPTY (null) so user evaluates voluntarily ---------------- */
+    const [fisherScores, setFisherScores] = useState<Record<number, ScoreVal | null>>({});
 
     const fisherResult = useMemo(() => {
-        const total = FISHER_15.reduce((a, f) => a + (fisherScores[f.id] ?? 0.5), 0);
+        const answeredCount = Object.values(fisherScores).filter((v) => v !== null && v !== undefined).length;
+        const total = FISHER_15.reduce((a, f) => {
+            const sc = fisherScores[f.id];
+            return a + (sc != null ? sc : 0);
+        }, 0);
         const integrityFail = fisherScores[15] === 0;
-        return { total, integrityFail };
+        return { total, answeredCount, integrityFail };
     }, [fisherScores]);
 
     /* ---------------- Red flags state ---------------- */
@@ -137,49 +142,21 @@ export default function CouncilAuditStation() {
     const [bankChecked, setBankChecked] = useState<Set<string>>(new Set());
 
     /* ---------------- Auto-populated flags (from engine signals) ---------------- */
-    const [autoFlags, setAutoFlags] = useState<Set<string>>(new Set());
-
-    // سيجنالات المحرك تُعين تلقائياً على flags حسب هذا المابينج
-    const SIGNAL_TO_FLAGS: Record<string, string[]> = {
-        // OCF / CFO deterioration
-        "cfo_decline": ["ocf_decline"],
-        "ocf": ["ocf_decline"],
-        "cfo": ["ocf_decline"],
-        // Receivables rising faster than sales
-        "receivable": ["receivables"],
-        "receivables": ["receivables"],
-        "ذمم": ["receivables"],
-        // Recurring restructuring
-        "restructur": ["restructuring"],
-        "هيكلة": ["restructuring"],
-        // Rights issue / dilutive
-        "rights_issue": ["rights_issue"],
-        "capital_increase": ["rights_issue"],
-        "زيادة رأس مال": ["rights_issue"],
-        // Vanishing CF / inventory
-        "inventory": ["vanishing_cf"],
-        "مخزون": ["vanishing_cf"],
-        // Accrued expenses
-        "accrued": ["accrued"],
-        "مستحقة": ["accrued"],
-    };
-
-    function mapSignalsToFlags(signals: string[]): string[] {
-        const flagIds = new Set<string>();
-        signals.forEach(sig => {
-            const sigLower = sig.toLowerCase();
-            Object.entries(SIGNAL_TO_FLAGS).forEach(([keyword, ids]) => {
-                if (sigLower.includes(keyword.toLowerCase())) {
-                    ids.forEach(id => flagIds.add(id));
-                }
-            });
-        });
-        return Array.from(flagIds);
-    }
+    const [autoFlags, setAutoFlags] = useState<Map<string, string>>(new Map());
 
     // Fetch company automated audit & saved checklist
     useEffect(() => {
         let isMounted = true;
+
+        // Clear previous company's data immediately so stale data doesn't stay visible
+        setCompanyData(null);
+        setFisherScores({});
+        setDangerChecked(new Set());
+        setRedflagChecked(new Set());
+        setBankChecked(new Set());
+        setAutoFlags(new Map());
+        setFetchError(null);
+
         async function loadCompanyCouncil() {
             setIsLoading(true);
             setSaveStatus(null);
@@ -190,16 +167,42 @@ export default function CouncilAuditStation() {
                     if (!isMounted) return;
                     setCompanyData(data);
 
-                    // توليد الإشارات الآلية: استخراج flags من engine signals
-                    const engineSignals: string[] = data?.automated_audit?.signals || [];
-                    if (engineSignals.length > 0) {
-                        const autoFlagIds = mapSignalsToFlags(engineSignals);
-                        if (autoFlagIds.length > 0) {
-                            setAutoFlags(new Set(autoFlagIds));
-                            // Only pre-tick if user hasn't saved any checklist yet
-                            if (!data.saved_checklist?.danger_flags?.length) {
-                                setDangerChecked(prev => new Set([...Array.from(prev), ...autoFlagIds]));
-                            }
+                    // Fix stale closure: use functional updater so we read live tab state
+                    if (!data.is_bank) {
+                        setTab((t) => (t === "bank" ? "fisher" : t));
+                    }
+
+                    // Use backend-provided auto_flag_ids and auto_flag_reasons
+                    const autoFlagIds: string[] = data?.automated_audit?.auto_flag_ids || [];
+                    const reasonsMap: Record<string, string> = data?.automated_audit?.auto_flag_reasons || {};
+                    const flagsMap = new Map<string, string>();
+                    autoFlagIds.forEach((id) => {
+                        flagsMap.set(id, reasonsMap[id] || "");
+                    });
+
+                    if (autoFlagIds.length > 0) {
+                        setAutoFlags(flagsMap);
+                        // Pre-tick only when the user has never actually saved anything for this company.
+                        const sc = data.saved_checklist;
+                        const hasSaved = !!sc && (
+                            Object.keys(sc.fisher_scores || {}).length > 0 ||
+                            (sc.danger_flags?.length ?? 0) > 0 ||
+                            (sc.red_flags?.length ?? 0) > 0 ||
+                            (sc.bank_flags?.length ?? 0) > 0
+                        );
+                        if (!hasSaved) {
+                            const dangerIdSet = new Set(DANGER_SIGNS.map(d => d.id));
+                            const redIdSet = new Set(RED_FLAGS.map(r => r.id));
+                            const newDanger = new Set<string>();
+                            const newRed = new Set<string>();
+
+                            autoFlagIds.forEach(id => {
+                                if (dangerIdSet.has(id)) newDanger.add(id);
+                                if (redIdSet.has(id)) newRed.add(id);
+                            });
+
+                            if (newDanger.size > 0) setDangerChecked(newDanger);
+                            if (newRed.size > 0) setRedflagChecked(newRed);
                         }
                     }
 
@@ -207,25 +210,34 @@ export default function CouncilAuditStation() {
                     if (data.saved_checklist) {
                         const savedF = data.saved_checklist.fisher_scores;
                         if (savedF && Object.keys(savedF).length > 0) {
-                            const restoredScores: Record<number, ScoreVal> = {};
+                            const restoredScores: Record<number, ScoreVal | null> = {};
                             FISHER_15.forEach((item) => {
-                                restoredScores[item.id] = (savedF[String(item.id)] ?? savedF[item.id] ?? 0.5) as ScoreVal;
+                                const val = savedF[String(item.id)] ?? savedF[item.id];
+                                restoredScores[item.id] = val != null ? (val as ScoreVal) : null;
                             });
                             setFisherScores(restoredScores);
                         }
-                        if (data.saved_checklist.danger_flags) {
+                        if (data.saved_checklist.danger_flags?.length) {
                             setDangerChecked(new Set(data.saved_checklist.danger_flags));
                         }
-                        if (data.saved_checklist.red_flags) {
+                        if (data.saved_checklist.red_flags?.length) {
                             setRedflagChecked(new Set(data.saved_checklist.red_flags));
                         }
-                        if (data.saved_checklist.bank_flags) {
+                        if (data.saved_checklist.bank_flags?.length) {
                             setBankChecked(new Set(data.saved_checklist.bank_flags));
                         }
+                    }
+                } else {
+                    if (!isMounted) return;
+                    if (res.status === 404) {
+                        setFetchError(`الشركة "${symbol}" غير موجودة في قاعدة البيانات — تحقق من الرمز وحاول مجدداً`);
+                    } else {
+                        setFetchError(`خطأ في الخادم (${res.status}) — حاول مرة أخرى لاحقاً`);
                     }
                 }
             } catch (err) {
                 console.error("Failed to load company council audit:", err);
+                if (isMounted) setFetchError("تعذّر الاتصال بالخادم — تأكد من الاتصال بالإنترنت وحاول مجدداً");
             } finally {
                 if (isMounted) setIsLoading(false);
             }
@@ -241,7 +253,9 @@ export default function CouncilAuditStation() {
         try {
             const fisherPayload: Record<string, number> = {};
             Object.entries(fisherScores).forEach(([k, v]) => {
-                fisherPayload[k] = v;
+                if (v !== null && v !== undefined) {
+                    fisherPayload[k] = v;
+                }
             });
 
             const res = await fetch(`${API_BASE_URL}/api/rebh/council/${symbol}/save`, {
@@ -269,6 +283,15 @@ export default function CouncilAuditStation() {
         }
     }
 
+    const handleSearchSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        const trimmed = searchInput.trim();
+        if (trimmed) {
+            setSymbol(trimmed);
+            setSearchInput("");
+        }
+    };
+
     return (
         <div className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] font-sans">
             <style>{globalCss}</style>
@@ -289,25 +312,26 @@ export default function CouncilAuditStation() {
                             </div>
                         </div>
 
-                        {/* Company Selector & Save Action */}
+                        {/* Search Bar & Save Action */}
                         <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-1.5 rounded-[4px] border border-[#E5E7EB] bg-white px-3 py-1.5 shadow-sm">
-                                <Building2 size={16} className="text-[#8C3B32]" />
-                                <select
-                                    value={symbol}
-                                    onChange={(e) => setSymbol(e.target.value)}
-                                    className="bg-transparent text-[13px] font-bold text-[#1A1A1A] outline-none"
-                                >
-                                    <option value="2222.SR">2222.SR - أرامكو السعودية</option>
-                                    <option value="1120.SR">1120.SR - مصرف الراجحي</option>
-                                    <option value="1180.SR">1180.SR - البنك الأهلي السعودي</option>
-                                    <option value="2010.SR">2010.SR - سابك</option>
-                                    <option value="7010.SR">7010.SR - إس تي سي</option>
-                                    <option value="2280.SR">2280.SR - المراعي</option>
-                                    <option value="4001.SR">4001.SR - أسواق العثيم</option>
-                                    <option value="2380.SR">2380.SR - بترورابغ</option>
-                                </select>
-                            </div>
+                            <form onSubmit={handleSearchSubmit} className="relative flex items-center">
+                                <div className="flex items-center gap-1.5 rounded-[4px] border border-[#E5E7EB] bg-white px-3 py-1.5 shadow-sm focus-within:border-[#8C3B32]">
+                                    <Search size={15} className="text-[#8C3B32]" />
+                                    <input
+                                        type="text"
+                                        value={searchInput}
+                                        onChange={(e) => setSearchInput(e.target.value)}
+                                        placeholder={companyData ? `${companyData.name_ar || symbol} (${companyData.symbol || symbol})` : `ابحث برمز الشركة...`}
+                                        className="bg-transparent text-[12.5px] font-medium text-[#1A1A1A] outline-none placeholder:text-[#9CA3AF] w-52"
+                                    />
+                                    <button
+                                        type="submit"
+                                        className="rounded bg-[#F3F4F6] hover:bg-[#E5E7EB] px-2 py-0.5 text-[11px] font-bold text-[#1A1A1A] transition"
+                                    >
+                                        فحص
+                                    </button>
+                                </div>
+                            </form>
 
                             <button
                                 onClick={handleSaveChecklist}
@@ -323,6 +347,13 @@ export default function CouncilAuditStation() {
                     {saveStatus && (
                         <div className="mt-3 rounded-[4px] border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-2 text-[12px] font-medium text-[#16A34A]">
                             {saveStatus}
+                        </div>
+                    )}
+
+                    {fetchError && (
+                        <div className="mt-3 flex items-center gap-2 rounded-[4px] border border-[#FECACA] bg-[#FEF2F2] px-3.5 py-2.5 text-[12.5px] font-medium text-[#DC2626]">
+                            <AlertTriangle size={15} className="shrink-0" />
+                            <span>{fetchError}</span>
                         </div>
                     )}
 
@@ -345,12 +376,15 @@ export default function CouncilAuditStation() {
                             <div className="mt-2 flex flex-wrap items-center gap-2">
                                 <span className="text-[11.5px] font-medium text-[#8C3B32]">إشارات الرصد الآلي:</span>
                                 {companyData.automated_audit?.signals?.length > 0 ? (
-                                    companyData.automated_audit.signals.map((sig: string, idx: number) => (
-                                        <span key={idx} className="inline-flex items-center gap-1 rounded bg-[#FEF2F2] px-2 py-0.5 text-[11px] font-medium text-[#DC2626]">
-                                            <AlertTriangle size={11} />
-                                            {sig}
-                                        </span>
-                                    ))
+                                    companyData.automated_audit.signals.map((sig: any, idx: number) => {
+                                        const label = typeof sig === "string" ? sig : (sig?.text || sig?.rule || JSON.stringify(sig));
+                                        return (
+                                            <span key={idx} className="inline-flex items-center gap-1 rounded bg-[#FEF2F2] px-2 py-0.5 text-[11px] font-medium text-[#DC2626]">
+                                                <AlertTriangle size={11} />
+                                                {label}
+                                            </span>
+                                        );
+                                    })
                                 ) : (
                                     <span className="text-[11.5px] text-[#16A34A]">لا توجد إشارات تحذيرية آلية حرجة في القوائم ✓</span>
                                 )}
@@ -360,10 +394,6 @@ export default function CouncilAuditStation() {
                 </header>
 
                 {/* ---------------- TABS ---------------- */}
-                {/* Note: three checklists cover different, non-overlapping question types
-                    (weighted score / tally of binary flags / capped count), so a shared tab
-                    group keeps them from competing for space while making it clear they're
-                    views of the same audit, not separate pages. */}
                 <nav className="mb-5 flex flex-wrap gap-2">
                     <TabButton
                         active={tab === "fisher"}
@@ -377,25 +407,37 @@ export default function CouncilAuditStation() {
                         icon={<AlertOctagon size={15} />}
                         label="أعلام الخطر والحوكمة (Red Flags)"
                     />
-                    <TabButton
-                        active={tab === "bank"}
-                        onClick={() => setTab("bank")}
-                        icon={<UserCheck size={15} />}
-                        label="فاحص البنوك (Bank Flags)"
-                    />
+                    {companyData?.is_bank ? (
+                        <TabButton
+                            active={tab === "bank"}
+                            onClick={() => setTab("bank")}
+                            icon={<UserCheck size={15} />}
+                            label="فاحص البنوك (Bank Flags)"
+                            tag="قطاع بنكي"
+                        />
+                    ) : (
+                        <TabButton
+                            active={false}
+                            onClick={() => {}}
+                            icon={<UserCheck size={15} />}
+                            label="فاحص البنوك (خاص بالبنوك فقط)"
+                            disabled={true}
+                            tooltip="هذه الشركة ليست بنكاً — الفاحص البنكي مخصص للبنوك فقط"
+                        />
+                    )}
                 </nav>
 
                 {/* ---------------- FISHER 15 ---------------- */}
                 {tab === "fisher" && (
                     <section className="rounded-[4px] border border-[#E5E7EB] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] sm:p-6">
                         <VerdictBar
-                            value={fisherResult.total.toFixed(1)}
-                            suffix="/ 15"
-                            ok={fisherResult.total >= 12 && !fisherResult.integrityFail}
+                            value={fisherResult.answeredCount === 0 ? "—" : fisherResult.total.toFixed(1)}
+                            suffix={fisherResult.answeredCount === 0 ? "لم يُقيّم بعد" : `/ 15 (${fisherResult.answeredCount}/15 بند)`}
+                            ok={fisherResult.total >= 12 && !fisherResult.integrityFail && fisherResult.answeredCount >= 10}
                             disqualified={fisherResult.integrityFail}
                             okLabel="مؤهل للاستثمار النوعي (معيار فيشر)"
                             failLabel="غير مؤهل — النزاهة غير متحققة (بند 15)"
-                            midLabel="دون الحد المطلوب (12/15)"
+                            midLabel={fisherResult.answeredCount === 0 ? "ابدأ تقييم البنود أدناه" : "دون الحد المطلوب (12/15)"}
                         />
 
                         {fisherResult.integrityFail && (
@@ -439,7 +481,7 @@ export default function CouncilAuditStation() {
                                         {[0, 0.5, 1].map((v) => (
                                             <label
                                                 key={v}
-                                                className="flex flex-col items-center gap-1 text-[11px] text-[#6B7280]"
+                                                className="flex flex-col items-center gap-1 text-[11px] text-[#6B7280] cursor-pointer"
                                             >
                                                 <input
                                                     type="radio"
@@ -479,11 +521,11 @@ export default function CouncilAuditStation() {
                             midLabel="إشارة واحدة — راقب عن قرب"
                         />
 
-                        <GroupTitle>الست إشارات الخطر (Lecture 15)</GroupTitle>
+                        <GroupTitle>السبع إشارات الخطر (Lecture 15)</GroupTitle>
                         {autoFlags.size > 0 && (
                             <div className="mb-2 flex items-center gap-1.5 rounded-[4px] bg-[#FFFBEB] border border-[#FDE68A] px-3 py-2 text-[11.5px] text-[#92400E]">
                                 <span className="font-bold">•</span>
-                                <span>تم تفعيل <strong>{autoFlags.size}</strong> إشارة/إشارات تلقائياً من إشارات المحرك — يمكنك تعديلها يدوياً
+                                <span>رصد المحرك <strong>{autoFlags.size}</strong> إشارة/إشارات تلقائياً من القوائم المالية — يمكنك تعديلها يدوياً
                                     <span className="mr-1 inline-flex items-center rounded-full bg-[#FDE68A] px-2 py-0.5 text-[10px] font-bold">آلي</span>
                                 </span>
                             </div>
@@ -496,6 +538,7 @@ export default function CouncilAuditStation() {
                                     checked={dangerChecked.has(f.id)}
                                     onToggle={() => toggleFlag(dangerChecked, setDangerChecked, f.id)}
                                     isAuto={autoFlags.has(f.id)}
+                                    autoReason={autoFlags.get(f.id)}
                                 />
                             ))}
                         </div>
@@ -508,6 +551,8 @@ export default function CouncilAuditStation() {
                                     item={f}
                                     checked={redflagChecked.has(f.id)}
                                     onToggle={() => toggleFlag(redflagChecked, setRedflagChecked, f.id)}
+                                    isAuto={autoFlags.has(f.id)}
+                                    autoReason={autoFlags.get(f.id)}
                                 />
                             ))}
                         </div>
@@ -530,43 +575,57 @@ export default function CouncilAuditStation() {
                 {/* ---------------- BANK FLAGS ---------------- */}
                 {tab === "bank" && (
                     <section className="rounded-[4px] border border-[#E5E7EB] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] sm:p-6">
-                        <VerdictBar
-                            value={String(bankChecked.size)}
-                            suffix="/ 12"
-                            ok={bankChecked.size === 0}
-                            disqualified={bankChecked.size >= 3}
-                            okLabel="لا إشارات خطر بنكية"
-                            failLabel="3 إشارات فأكثر — تحذير جدي (لا توجد صرصورة واحدة في المطبخ)"
-                            midLabel="راقب — أقل من 3 إشارات"
-                        />
+                        {!companyData?.is_bank ? (
+                            <div className="rounded-[4px] border border-[#FDE68A] bg-[#FFFBEB] p-4 text-center">
+                                <AlertTriangle className="mx-auto mb-2 h-6 w-6 text-[#B45309]" />
+                                <h3 className="text-sm font-bold text-[#92400E]">
+                                    هذه الشركة ليست في القطاع المصرفي ({companyData?.sector || "غير بنكي"})
+                                </h3>
+                                <p className="mt-1 text-xs text-[#78350F]">
+                                    نموذج فحص البنوك (Assiry 12) مخصص حصرياً للمصارف والمؤسسات المالية التي تعتمد على الودائع والقروض وهوامش الفائدة الصافية (NIM).
+                                </p>
+                            </div>
+                        ) : (
+                            <>
+                                <VerdictBar
+                                    value={String(bankChecked.size)}
+                                    suffix="/ 12"
+                                    ok={bankChecked.size === 0}
+                                    disqualified={bankChecked.size >= 3}
+                                    okLabel="لا إشارات خطر بنكية"
+                                    failLabel="3 إشارات فأكثر — تحذير جدي (لا توجد صرصورة واحدة في المطبخ)"
+                                    midLabel="راقب — أقل من 3 إشارات"
+                                />
 
-                        <GroupTitle>ال 12 إشارة خطر بنكية (Assiry Banking Module)</GroupTitle>
-                        <div className="divide-y divide-[#E5E7EB]">
-                            {BANK_FLAGS.map((f) => (
-                                <label key={f.id} className="flex cursor-pointer items-start gap-2.5 py-3">
-                                    <input
-                                        type="checkbox"
-                                        checked={bankChecked.has(f.id)}
-                                        onChange={() => toggleFlag(bankChecked, setBankChecked, f.id)}
-                                        className="mt-0.5 h-4 w-4 accent-[#8C3B32]"
-                                    />
-                                    <div>
-                                        <div className="text-[13px] text-[#1A1A1A]">{f.labelAr}</div>
-                                        <div className="mt-0.5 text-[12px] text-[#6B7280]">
-                                            {f.label}
-                                        </div>
-                                        {f.note && (
-                                            <div className="mt-1 text-[11px] italic text-[#9CA3AF]">{f.note}</div>
-                                        )}
-                                    </div>
-                                </label>
-                            ))}
-                        </div>
+                                <GroupTitle>ال 12 إشارة خطر بنكية (Assiry Banking Module)</GroupTitle>
+                                <div className="divide-y divide-[#E5E7EB]">
+                                    {BANK_FLAGS.map((f) => (
+                                        <label key={f.id} className="flex cursor-pointer items-start gap-2.5 py-3">
+                                            <input
+                                                type="checkbox"
+                                                checked={bankChecked.has(f.id)}
+                                                onChange={() => toggleFlag(bankChecked, setBankChecked, f.id)}
+                                                className="mt-0.5 h-4 w-4 accent-[#8C3B32]"
+                                            />
+                                            <div>
+                                                <div className="text-[13px] text-[#1A1A1A]">{f.labelAr}</div>
+                                                <div className="mt-0.5 text-[12px] text-[#6B7280]">
+                                                    {f.label}
+                                                </div>
+                                                {f.note && (
+                                                    <div className="mt-1 text-[11px] italic text-[#9CA3AF]">{f.note}</div>
+                                                )}
+                                            </div>
+                                        </label>
+                                    ))}
+                                </div>
 
-                        <Footnote>
-                            تنطبق على أسهم القطاع البنكي فقط — فالبنك وسيط مالي وليس
-                            مصنعاً، لذا عناصر السلامة الصناعية المعتادة لا تنطبق عليه.
-                        </Footnote>
+                                <Footnote>
+                                    تنطبق على أسهم القطاع البنكي فقط — فالبنك وسيط مالي وليس
+                                    مصنعاً، لذا عناصر السلامة الصناعية المعتادة لا تنطبق عليه.
+                                </Footnote>
+                            </>
+                        )}
                     </section>
                 )}
 
@@ -586,23 +645,38 @@ function TabButton({
     onClick,
     icon,
     label,
+    disabled = false,
+    tag,
+    tooltip,
 }: {
     active: boolean;
     onClick: () => void;
     icon: React.ReactNode;
     label: string;
+    disabled?: boolean;
+    tag?: string;
+    tooltip?: string;
 }) {
     return (
         <button
-            onClick={onClick}
+            onClick={disabled ? undefined : onClick}
+            disabled={disabled}
+            title={tooltip}
             className={
-                active
+                disabled
+                    ? "inline-flex items-center gap-1.5 rounded-[4px] border border-[#E5E7EB] bg-[#F3F4F6] px-4 py-2 text-[12.5px] font-normal text-[#9CA3AF] cursor-not-allowed opacity-60"
+                    : active
                     ? "inline-flex items-center gap-1.5 rounded-[4px] border border-[#8C3B32] bg-white px-4 py-2 text-[12.5px] font-bold text-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
                     : "inline-flex items-center gap-1.5 rounded-[4px] border border-[#E5E7EB] bg-white px-4 py-2 text-[12.5px] font-medium text-[#6B7280] transition-colors hover:border-[#8C3B32]/40 hover:text-[#1A1A1A]"
             }
         >
             {icon}
             <span>{label}</span>
+            {tag && (
+                <span className="rounded bg-[#EFF6FF] text-[#2563EB] px-1.5 py-0.5 text-[10px] font-bold">
+                    {tag}
+                </span>
+            )}
         </button>
     );
 }
@@ -704,11 +778,13 @@ function FlagCheckbox({
     checked,
     onToggle,
     isAuto = false,
+    autoReason,
 }: {
     item: FlagItem;
     checked: boolean;
     onToggle: () => void;
     isAuto?: boolean;
+    autoReason?: string;
 }) {
     return (
         <label className="flex cursor-pointer items-start gap-2.5 py-2.5">
@@ -730,6 +806,11 @@ function FlagCheckbox({
                 <div className="mt-0.5 text-[12px] text-[#6B7280]">
                     {item.label}
                 </div>
+                {isAuto && autoReason && (
+                    <div className="mt-1 flex items-center gap-1.5 rounded-[4px] bg-[#FFFBEB] px-2 py-1 text-[11.5px] font-medium text-[#92400E] border border-[#FDE68A]">
+                        <span>سبب الرصد الآلي: {autoReason}</span>
+                    </div>
+                )}
             </div>
         </label>
     );

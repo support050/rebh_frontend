@@ -1,475 +1,703 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Plus, Trash2, AlertTriangle, Download, RotateCcw } from "lucide-react";
-import { API_BASE_URL } from "@/lib/api/config";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import Link from "next/link";
+import {
+    PlusCircle,
+    CheckCircle2,
+    TrendingUp,
+    DollarSign,
+    RefreshCw,
+    AlertTriangle,
+    ShieldAlert,
+    ExternalLink,
+    Download,
+    RotateCcw,
+} from "lucide-react";
+import {
+    Trade,
+    TradeType,
+    fetchJournalApi,
+    createTradeApi,
+    updateTradeApi,
+    deleteTradeApi,
+    toPayload,
+    getRiyadhDateIso,
+} from "@/lib/api/journal";
+import {
+    BENCHMARKS,
+    computeJournalStats,
+    computeTrade,
+    formatNum,
+    formatPct,
+    formatSar,
+} from "@/app/rebh/journal/utils";
+import { KpiCard, Card, Button } from "@/app/rebh/journal/components/JournalUI";
+import { TradeForm, CloseTradeDialog, ConfirmDialog } from "@/app/rebh/journal/components/TradeForm";
+import { TradeTable } from "@/app/rebh/journal/components/TradeTable";
 
-interface TradeRecord {
-  id: string;
-  sym: string;
-  shares: number;
-  buyPx: number;
-  sellPx: number;
-  tradeDate: string;
-  why: string;
-  exitReason?: string;
-  rMultiple?: number;
+const STORAGE_KEY = "rebh-trade-journal-v2";
+const CAPITAL_KEY = "rebh-trade-journal-capital-v2";
+
+const DEMO_TRADES: Trade[] = [
+    { id: "demo-1", symbol: "1120", type: "buy", shares: 200, buyPrice: 58, sellPrice: 64.4, reason: "تسارع أرباح ربعي + دخول عند المنطقة الفضية", status: "closed", createdAt: "2026-05-02", isLocalOnly: false },
+    { id: "demo-2", symbol: "7010", type: "buy", shares: 300, buyPrice: 39, sellPrice: 43.7, reason: "دخول عند المنطقة الفضية — نمو مستدام", status: "closed", createdAt: "2026-05-10", isLocalOnly: false },
+    { id: "demo-3", symbol: "4300", type: "buy", shares: 500, buyPrice: 22, sellPrice: 20.3, reason: "خروج: تغطية الفوائد أقل من 2× — كسر عنصر أمان", status: "closed", createdAt: "2026-05-18", isLocalOnly: false },
+    { id: "demo-4", symbol: "2030", type: "buy", shares: 150, buyPrice: 48, sellPrice: 51.2, reason: "شراء عند نطاق قاع الدورة (14-16× أرباح القاع)", status: "closed", createdAt: "2026-06-01", isLocalOnly: false },
+    { id: "demo-5", symbol: "1010", type: "buy", shares: 400, buyPrice: 18.5, sellPrice: 20.2, reason: "قصة تحسن هامش الفائدة الصافي (NIM)", status: "closed", createdAt: "2026-06-12", isLocalOnly: false },
+    { id: "demo-6", symbol: "2222", type: "buy", shares: 250, buyPrice: 28, sellPrice: 26.6, reason: "خروج: القوائم المالية غير محدّثة (stale)", status: "closed", createdAt: "2026-06-20", isLocalOnly: false },
+    { id: "demo-7", symbol: "1211", type: "buy", shares: 100, buyPrice: 72, sellPrice: null, reason: "مركز نشط — بانتظار نتائج الربع القادم", status: "active", createdAt: "2026-07-15", isLocalOnly: false },
+];
+
+function generateUuid(): string {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+        return crypto.randomUUID();
+    }
+    return `loc-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-const CARD = "bg-white border border-[#E5E7EB] rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.06)]";
-const INPUT = "bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px] px-3 py-2 text-xs text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#8C3B32] focus:ring-2 focus:ring-[#8C3B32]/10 transition";
-const BTN_PRIMARY = "px-4 py-2 bg-[#8C3B32] hover:bg-[#7a332b] text-white rounded-[4px] text-xs font-bold transition flex items-center gap-1.5";
-const KPI_LABEL = "text-[10px] text-[#6B7280] uppercase tracking-wide mt-1";
-const STORAGE_KEY = "rebh_trades_journal";
-
 export default function TradeJournalTab() {
-  // Empty production state by default, loaded from backend API & localStorage
-  const [trades, setTrades] = useState<TradeRecord[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [portfolioCapital, setPortfolioCapital] = useState<number>(100000);
+    const [trades, setTrades] = useState<Trade[]>([]);
+    const [capital, setCapital] = useState<number>(BENCHMARKS.DEFAULT_CAPITAL);
+    const [capitalInput, setCapitalInput] = useState<string>(String(BENCHMARKS.DEFAULT_CAPITAL));
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [syncState, setSyncState] = useState<"synced" | "local" | "syncing">("syncing");
 
-  useEffect(() => {
-    async function loadJournal() {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/rebh/journal`, {
-          credentials: "include"
+    // UI Dialog & Form States
+    const [showForm, setShowForm] = useState(false);
+    const [closingTrade, setClosingTrade] = useState<Trade | null>(null);
+    const [tradeToDelete, setTradeToDelete] = useState<Trade | null>(null);
+    const [showDemoConfirm, setShowDemoConfirm] = useState(false);
+    const [showClearConfirm, setShowClearConfirm] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+
+    const isInitialLoadRef = useRef(true);
+    const activeAbortControllerRef = useRef<AbortController | null>(null);
+
+    // Initial Load: Server primary with guarded fallback to localStorage & preserving local-only trades
+    const loadJournal = useCallback(async (signal?: AbortSignal) => {
+        setLoading(true);
+        setError(null);
+        setSyncState("syncing");
+
+        try {
+            // Read saved capital first (safe fallback)
+            try {
+                const rawCap = localStorage.getItem(CAPITAL_KEY);
+                if (rawCap) {
+                    const parsed = Number(rawCap);
+                    if (!isNaN(parsed) && parsed > 0) {
+                        setCapital(parsed);
+                        setCapitalInput(String(parsed));
+                    }
+                }
+            } catch {
+                // Ignore localStorage errors
+            }
+
+            const res = await fetchJournalApi(signal);
+            if (signal?.aborted) return;
+
+            if (res.ok && res.trades) {
+                // Read any pending local-only trades from localStorage and existing state
+                let localUnsyncedFromStorage: Trade[] = [];
+                try {
+                    const raw = localStorage.getItem(STORAGE_KEY);
+                    if (raw) {
+                        const parsed = JSON.parse(raw);
+                        if (Array.isArray(parsed)) {
+                            localUnsyncedFromStorage = parsed.filter(
+                                (t: Trade) => t.isLocalOnly && !t.id.startsWith("demo-")
+                            );
+                        }
+                    }
+                } catch {
+                    // Ignore parse error
+                }
+
+                setTrades((prev) => {
+                    const currentLocal = prev.filter((t) => t.isLocalOnly && !t.id.startsWith("demo-"));
+                    const allLocalCandidates = [...currentLocal, ...localUnsyncedFromStorage];
+                    const serverIds = new Set(res.trades!.map((t) => t.id));
+
+                    const seenLocalIds = new Set<string>();
+                    const uniqueLocal: Trade[] = [];
+                    for (const lt of allLocalCandidates) {
+                        if (!serverIds.has(lt.id) && !seenLocalIds.has(lt.id)) {
+                            seenLocalIds.add(lt.id);
+                            uniqueLocal.push(lt);
+                        }
+                    }
+
+                    return [...res.trades!, ...uniqueLocal];
+                });
+                setSyncState("synced");
+            } else {
+                setError(
+                    res.status === 401
+                        ? "جلسة غير مسجلة — يتم حفظ بيانات الصفقات على هذا المتصفح محلياً"
+                        : "تعذر الاتصال بالخادم — يتم استخدام النسخة المحلية المخزنة"
+                );
+                setSyncState("local");
+                try {
+                    const raw = localStorage.getItem(STORAGE_KEY);
+                    if (raw) {
+                        const parsed = JSON.parse(raw);
+                        if (Array.isArray(parsed)) {
+                            setTrades(parsed);
+                        }
+                    }
+                } catch (e) {
+                    console.error("Corrupt local storage data", e);
+                }
+            }
+            isInitialLoadRef.current = false;
+        } catch (e: unknown) {
+            if ((e as Error)?.name === "AbortError") return;
+            setError("حدث خطأ أثناء تحميل سجل الصفقات");
+            setSyncState("local");
+            isInitialLoadRef.current = false;
+        } finally {
+            if (!signal?.aborted) {
+                setLoading(false);
+            }
+        }
+    }, []);
+
+    const triggerRefresh = useCallback(() => {
+        if (activeAbortControllerRef.current) {
+            activeAbortControllerRef.current.abort();
+        }
+        const controller = new AbortController();
+        activeAbortControllerRef.current = controller;
+        loadJournal(controller.signal);
+    }, [loadJournal]);
+
+    useEffect(() => {
+        const controller = new AbortController();
+        activeAbortControllerRef.current = controller;
+        loadJournal(controller.signal);
+        return () => {
+            activeAbortControllerRef.current?.abort();
+        };
+    }, [loadJournal]);
+
+    // Persist to unified localStorage keys
+    useEffect(() => {
+        if (isInitialLoadRef.current) return;
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(trades));
+        } catch (e) {
+            console.error("Failed to persist trades to localStorage", e);
+        }
+    }, [trades]);
+
+    useEffect(() => {
+        if (isInitialLoadRef.current) return;
+        try {
+            localStorage.setItem(CAPITAL_KEY, String(capital));
+        } catch (e) {
+            console.error("Failed to persist capital to localStorage", e);
+        }
+    }, [capital]);
+
+    // Derived Computations & Stats
+    const computedTrades = useMemo(() => {
+        return trades.map((t) => computeTrade(t, capital));
+    }, [trades, capital]);
+
+    const stats = useMemo(() => {
+        return computeJournalStats(computedTrades, capital);
+    }, [computedTrades, capital]);
+
+    // Actions
+    async function handleAddTrade(newTradeData: {
+        symbol: string;
+        type: TradeType;
+        shares: number;
+        buyPrice: number;
+        sellPrice: number | null;
+        reason: string;
+        createdAt?: string;
+    }) {
+        setIsSaving(true);
+        const tradeDate = newTradeData.createdAt || getRiyadhDateIso();
+        const payload = toPayload({
+            ...newTradeData,
+            status: newTradeData.sellPrice != null ? "closed" : "active",
+            createdAt: tradeDate,
         });
-        if (res.ok) {
-          const serverTrades = await res.json();
-          if (Array.isArray(serverTrades) && serverTrades.length > 0) {
-            setTrades(serverTrades.map((t: any) => ({
-              id: String(t.id),
-              sym: t.symbol || t.sym,
-              shares: t.shares,
-              buyPx: t.buy_price ?? t.buyPx,
-              sellPx: t.sell_price ?? t.sellPx,
-              tradeDate: t.trade_date || t.tradeDate,
-              why: t.reason || "صفقة تداول استثمارية منهجية",
-              exitReason: t.exit_reason || t.exitReason || "تحقيق الهدف أو إعادة توازن"
-            })));
-            setIsLoaded(true);
-            return;
-          }
+
+        const tempId = generateUuid();
+        const localTrade: Trade = {
+            id: tempId,
+            symbol: payload.symbol,
+            type: payload.trade_type,
+            shares: payload.shares,
+            buyPrice: payload.buy_price,
+            sellPrice: payload.sell_price,
+            reason: payload.reason,
+            status: payload.status,
+            createdAt: payload.trade_date,
+            isLocalOnly: true,
+        };
+
+        // Optimistic UI update
+        setTrades((prev) => [localTrade, ...prev]);
+        setShowForm(false);
+
+        try {
+            const res = await createTradeApi(payload);
+            if (res.ok && res.serverId) {
+                setTrades((prev) =>
+                    prev.map((t) => (t.id === tempId ? { ...t, id: res.serverId!, isLocalOnly: false } : t))
+                );
+                setSyncState("synced");
+            } else {
+                setSyncState("local");
+            }
+        } catch (err) {
+            console.error("Error creating trade on server", err);
+            setSyncState("local");
+        } finally {
+            setIsSaving(false);
         }
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) {
-            setTrades(parsed);
-          }
-        }
-        const savedCap = localStorage.getItem("rebh_portfolio_capital");
-        if (savedCap) {
-          setPortfolioCapital(parseFloat(savedCap) || 100000);
-        }
-      } catch (e) {
-        console.error("Failed to load trades journal from API:", e);
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) setTrades(parsed);
-        }
-      } finally {
-        setIsLoaded(true);
-      }
     }
-    loadJournal();
-  }, []);
 
-  useEffect(() => {
-    if (!isLoaded) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(trades));
-    } catch (e) {
-      console.error("Failed to persist trades:", e);
+    async function handleCloseTradeConfirm(exitPrice: number) {
+        if (!closingTrade) return;
+        const targetId = closingTrade.id;
+        const original = trades.find((t) => t.id === targetId);
+        if (!original) return;
+
+        setTrades((prev) =>
+            prev.map((t) => (t.id === targetId ? { ...t, sellPrice: exitPrice, status: "closed" } : t))
+        );
+        setClosingTrade(null);
+
+        if (!original.isLocalOnly && !original.id.startsWith("demo-")) {
+            try {
+                const payload = toPayload({
+                    ...original,
+                    sellPrice: exitPrice,
+                    status: "closed",
+                });
+                const res = await updateTradeApi(targetId, payload);
+                if (!res.ok) {
+                    setTrades((prev) => prev.map((t) => (t.id === targetId ? original : t)));
+                    setError(`تعذر تحديث الصفقة على الخادم (${res.status}) — تم إلغاء الإغلاق`);
+                }
+            } catch (err) {
+                console.error("Failed to update trade on server", err);
+                setTrades((prev) => prev.map((t) => (t.id === targetId ? original : t)));
+                setError("تعذر تحديث الصفقة بسبب انقطاع الاتصال — تم إلغاء الإغلاق");
+            }
+        }
     }
-  }, [trades, isLoaded]);
 
-  useEffect(() => {
-    if (!isLoaded) return;
-    try {
-      localStorage.setItem("rebh_portfolio_capital", portfolioCapital.toString());
-    } catch (e) {
-      console.error("Failed to persist portfolio capital:", e);
+    async function handleDeleteTradeConfirm() {
+        if (!tradeToDelete) return;
+        const targetId = tradeToDelete.id;
+        const target = trades.find((t) => t.id === targetId);
+        if (!target) return;
+        const targetIndex = trades.findIndex((t) => t.id === targetId);
+
+        setTrades((prev) => prev.filter((t) => t.id !== targetId));
+        setTradeToDelete(null);
+
+        if (!target.isLocalOnly && !target.id.startsWith("demo-")) {
+            try {
+                const res = await deleteTradeApi(targetId);
+                if (!res.ok) {
+                    setTrades((prev) => {
+                        const next = [...prev];
+                        if (targetIndex >= 0 && targetIndex <= next.length) {
+                            next.splice(targetIndex, 0, target);
+                        } else {
+                            next.push(target);
+                        }
+                        return next;
+                    });
+                    setError(`تعذر حذف الصفقة من الخادم (${res.status}) — تمت استعادة الصفقة`);
+                }
+            } catch (err) {
+                console.error("Failed to delete trade on server", err);
+                setTrades((prev) => {
+                    const next = [...prev];
+                    if (targetIndex >= 0 && targetIndex <= next.length) {
+                        next.splice(targetIndex, 0, target);
+                    } else {
+                        next.push(target);
+                    }
+                    return next;
+                });
+                setError("تعذر حذف الصفقة بسبب انقطاع الاتصال — تمت استعادة الصفقة");
+            }
+        }
     }
-  }, [portfolioCapital, isLoaded]);
 
-  const [sym, setSym] = useState("");
-  const [shares, setShares] = useState("");
-  const [buyPx, setBuyPx] = useState("");
-  const [sellPx, setSellPx] = useState("");
-  const [tradeDate, setTradeDate] = useState(new Date().toISOString().slice(0, 10));
-  const [why, setWhy] = useState("");
-  const [exitReason, setExitReason] = useState("");
+    function handleLoadDemoConfirm() {
+        setTrades(DEMO_TRADES);
+        setShowDemoConfirm(false);
+    }
 
-  const addTrade = async () => {
-    if (!sym || !shares || !buyPx || !sellPx) return;
-    const s = parseFloat(shares);
-    const b = parseFloat(buyPx);
-    const sel = parseFloat(sellPx);
-    if (s <= 0 || b <= 0 || sel <= 0) return;
+    function handleClearConfirm() {
+        setTrades([]);
+        try {
+            localStorage.removeItem(STORAGE_KEY);
+        } catch {
+            // Ignore
+        }
+        setShowClearConfirm(false);
+    }
 
-    const payload = {
-      symbol: sym.trim().toUpperCase(),
-      trade_type: "buy",
-      shares: s,
-      buy_price: b,
-      sell_price: sel,
-      status: "closed",
-      reason: why.trim() || "صفقة تداول استثمارية منهجية",
-      exit_reason: exitReason.trim() || "تحقيق الهدف أو إعادة توازن",
-      trade_date: tradeDate || new Date().toISOString().slice(0, 10),
+    function handleCapitalBlur() {
+        const val = Number(capitalInput);
+        if (!isNaN(val) && val > 0) {
+            setCapital(val);
+        } else {
+            setCapitalInput(String(capital));
+        }
+    }
+
+    const exportJournalCSV = () => {
+        if (computedTrades.length === 0) return;
+        const headers = ["التاريخ", "الرمز", "النوع", "الحالة", "الكمية", "سعر الشراء", "سعر البيع", "العائد %", "الربح/الخسارة", "سبب الصفقة"];
+        const rows = computedTrades.map((t) => {
+            const retText = t.ret != null ? (t.ret * 100).toFixed(2) : "—";
+            const pnlText = t.pnl != null ? t.pnl.toFixed(2) : "—";
+            return [
+                t.createdAt,
+                t.symbol,
+                t.type === "buy" ? "شراء" : "بيع",
+                t.status === "closed" ? "مغلقة" : "نشطة",
+                t.shares,
+                t.buyPrice,
+                t.sellPrice != null ? t.sellPrice : "—",
+                retText,
+                pnlText,
+                `"${(t.reason || "").replace(/"/g, '""')}"`,
+            ].join(",");
+        });
+        const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(","), ...rows].join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `rebh_trade_journal_${new Date().toISOString().slice(0, 10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/rebh/journal`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(payload)
-      });
-      const data = res.ok ? await res.json() : null;
-      const recId = data?.id || `${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
-
-      const newRecord: TradeRecord = {
-        id: String(recId),
-        sym: payload.symbol,
-        shares: s,
-        buyPx: b,
-        sellPx: sel,
-        tradeDate: payload.trade_date,
-        why: payload.reason,
-        exitReason: payload.exit_reason,
-      };
-
-      setTrades(prev => [newRecord, ...prev]);
-    } catch (_) {
-      const newRecord: TradeRecord = {
-        id: `${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-        sym: payload.symbol,
-        shares: s,
-        buyPx: b,
-        sellPx: sel,
-        tradeDate: payload.trade_date,
-        why: payload.reason,
-        exitReason: payload.exit_reason,
-      };
-      setTrades(prev => [newRecord, ...prev]);
-    }
-
-    setSym("");
-    setShares("");
-    setBuyPx("");
-    setSellPx("");
-    setWhy("");
-    setExitReason("");
-  };
-
-  const removeTrade = async (id: string) => {
-    setTrades(prev => prev.filter(t => t.id !== id));
-    try {
-      await fetch(`${API_BASE_URL}/api/rebh/journal/${id}`, {
-        method: "DELETE",
-        credentials: "include"
-      });
-    } catch (_) { }
-  };
-
-  const clearJournal = () => {
-    if (confirm("هل أنت متأكد من مسح جميع الصفقات المسجلة في السجل؟")) {
-      setTrades([]);
-      try {
-        localStorage.removeItem(STORAGE_KEY);
-      } catch (_) { }
-    }
-  };
-
-  const exportJournalCSV = () => {
-    if (trades.length === 0) return;
-    const headers = ["التاريخ", "الرمز", "الكمية", "سعر الشراء", "سعر البيع", "العائد %", "الربح/الخسارة", "أطروحة الدخول", "سبب الخروج"];
-    const rows = trades.map(t => {
-      const pnl = t.shares * (t.sellPx - t.buyPx);
-      const retPct = ((t.sellPx / t.buyPx) - 1) * 100;
-      return [
-        t.tradeDate,
-        t.sym,
-        t.shares,
-        t.buyPx,
-        t.sellPx,
-        retPct.toFixed(2),
-        pnl.toFixed(2),
-        `"${t.why.replace(/"/g, '""')}"`,
-        `"${(t.exitReason || "").replace(/"/g, '""')}"`
-      ].join(",");
-    });
-    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(","), ...rows].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `rebh_trade_journal_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  // Minervini & Al-Amer Mathematical Formula Calculations:
-  // Return = Sell / Buy - 1
-  // P&L = Shares * (Sell - Buy)
-  // Expectancy = Win% * Avg Win - Loss% * Avg Loss
-  // 3% Risk Rule: Loss should not exceed 3% of actual portfolio capital
-  const computedTrades = trades.map(t => {
-    const amt = t.shares * t.buyPx;
-    const pnl = t.shares * (t.sellPx - t.buyPx);
-    const retPct = (t.sellPx / t.buyPx - 1) * 100;
-    // Loss as % of actual total portfolio capital
-    const lossVsPortfolioPct = pnl < 0 ? (Math.abs(pnl) / portfolioCapital) * 100 : 0;
-    const isOver3PctRisk = lossVsPortfolioPct > 3.0;
-
-    return { ...t, amt, pnl, retPct, lossVsPortfolioPct, isOver3PctRisk };
-  });
-
-  const totalCap = computedTrades.reduce((sum, t) => sum + t.amt, 0);
-  const netPnl = computedTrades.reduce((sum, t) => sum + t.pnl, 0);
-
-  const winning = computedTrades.filter(t => t.retPct > 0);
-  const losing = computedTrades.filter(t => t.retPct <= 0);
-
-  const winRate = computedTrades.length > 0 ? (winning.length / computedTrades.length) * 100 : 0;
-  const avgWin = winning.length > 0 ? winning.reduce((sum, t) => sum + t.retPct, 0) / winning.length : 0;
-  const avgLoss = losing.length > 0 ? Math.abs(losing.reduce((sum, t) => sum + t.retPct, 0) / losing.length) : 0;
-
-  const rrRatio = avgLoss > 0 ? avgWin / avgLoss : null;
-  // Mathematical Expectancy
-  const expectancy = ((winRate / 100) * avgWin) - (((100 - winRate) / 100) * avgLoss);
-
-  return (
-    <div className="py-6 space-y-6">
-      {/* Tab Header & Portfolio Setting */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <h2 className="text-base font-bold text-[#1A1A1A]">سجل وانضباط الصفقات (Trade Journal — جلسة العامر + معادلة مينرفيني)</h2>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#F0FDF4] text-[#16A34A] border border-[#BBF7D0]">
-              حفظ دائم للمحفظة
-            </span>
-          </div>
-          <p className="text-xs text-[#6B7280]">
-            سجل صفقات حقيقي لحساب نسبة المصداقية Win Rate ومعدل العائد للمخاطرة R/R والأمل الرياضي Expectancy مع قاعدة قيد الخسارة ≤3% من رأس مال المحفظة الفعلي.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-white border border-[#E5E7EB] px-3 py-1.5 rounded-[4px] text-xs">
-            <span className="text-[#6B7280]">رأس مال المحفظة الفعلي:</span>
-            <input
-              type="number"
-              value={portfolioCapital}
-              onChange={(e) => setPortfolioCapital(parseFloat(e.target.value) || 1)}
-              className="w-28 font-bold text-[#1A1A1A] bg-[#F7F8FA] border border-[#E5E7EB] rounded px-2 py-0.5 text-center focus:outline-none focus:border-[#8C3B32]"
-            />
-            <span className="text-[#6B7280]">ر.س</span>
-          </div>
-
-          <button
-            onClick={exportJournalCSV}
-            disabled={trades.length === 0}
-            className="px-3 py-1.5 bg-white border border-[#E5E7EB] hover:bg-[#F7F8FA] text-[#1A1A1A] rounded-[4px] text-xs font-semibold inline-flex items-center gap-1.5 transition disabled:opacity-50"
-          >
-            <Download className="w-3.5 h-3.5 text-[#6B7280]" />
-            تصدير CSV
-          </button>
-          {trades.length > 0 && (
-            <button
-              onClick={clearJournal}
-              className="p-1.5 text-[#6B7280] hover:text-[#DC2626] transition"
-              title="مسح السجل"
-            >
-              <RotateCcw className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Add Trade Bar */}
-      <div className={`flex flex-wrap gap-2.5 items-center ${CARD} p-4`}>
-        <input
-          type="date"
-          value={tradeDate}
-          onChange={(e) => setTradeDate(e.target.value)}
-          className={`${INPUT} w-36`}
-        />
-        <input
-          type="text"
-          placeholder="الرمز (مثال 1120)"
-          value={sym}
-          onChange={(e) => setSym(e.target.value)}
-          className={`${INPUT} w-28 font-bold`}
-        />
-        <input
-          type="number"
-          placeholder="الكمية"
-          value={shares}
-          onChange={(e) => setShares(e.target.value)}
-          className={`${INPUT} w-24`}
-        />
-        <input
-          type="number"
-          step="0.01"
-          placeholder="شراء (ر.س)"
-          value={buyPx}
-          onChange={(e) => setBuyPx(e.target.value)}
-          className={`${INPUT} w-24`}
-        />
-        <input
-          type="number"
-          step="0.01"
-          placeholder="بيع (ر.س)"
-          value={sellPx}
-          onChange={(e) => setSellPx(e.target.value)}
-          className={`${INPUT} w-24`}
-        />
-        <input
-          type="text"
-          placeholder="أطروحة الدخول المنهجية (مثال: تسارع أرباح + هامش أمان)"
-          value={why}
-          onChange={(e) => setWhy(e.target.value)}
-          className={`${INPUT} flex-1 min-w-[180px]`}
-        />
-        <input
-          type="text"
-          placeholder="سبب الخروج"
-          value={exitReason}
-          onChange={(e) => setExitReason(e.target.value)}
-          className={`${INPUT} w-36`}
-        />
-        <button onClick={addTrade} className={BTN_PRIMARY}>
-          <Plus className="w-3.5 h-3.5" />
-          تسجيل الصفقة
-        </button>
-      </div>
-
-      {/* KPIs Summary Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-center">
-        <div className={`${CARD} p-3`}>
-          <div className="text-lg font-black text-[#1A1A1A]">{trades.length}</div>
-          <div className={KPI_LABEL}>الصفقات (ربح {winning.length} / خسارة {losing.length})</div>
-        </div>
-        <div className={`${CARD} p-3`}>
-          <div className={`text-lg font-black ${winRate >= 60 ? 'text-[#16A34A]' : winRate >= 50 ? 'text-[#B45309]' : 'text-[#DC2626]'}`}>
-            {winRate.toFixed(0)}%
-          </div>
-          <div className={KPI_LABEL}>نسبة النجاح Win Rate (≥60% ممتاز)</div>
-        </div>
-        <div className={`${CARD} p-3`}>
-          <div className="text-lg font-black text-[#16A34A]">+{avgWin.toFixed(1)}%</div>
-          <div className={KPI_LABEL}>متوسط ربح الرابحة (Avg Win)</div>
-        </div>
-        <div className={`${CARD} p-3`}>
-          <div className="text-lg font-black text-[#DC2626]">-{avgLoss.toFixed(1)}%</div>
-          <div className={KPI_LABEL}>متوسط خسارة الخاسرة (Avg Loss)</div>
-        </div>
-        <div className={`${CARD} p-3`}>
-          <div className={`text-lg font-black ${rrRatio && rrRatio >= 2 ? 'text-[#16A34A]' : 'text-[#B45309]'}`}>
-            {rrRatio ? `${rrRatio.toFixed(2)}x` : "—"}
-          </div>
-          <div className={KPI_LABEL}>معدل العائد/المخاطرة (R/R)</div>
-        </div>
-        <div className={`${CARD} p-3`}>
-          <div className={`text-lg font-black ${expectancy > 0 ? 'text-[#16A34A]' : 'text-[#DC2626]'}`}>
-            {expectancy > 0 ? `+${expectancy.toFixed(2)}%` : `${expectancy.toFixed(2)}%`}
-          </div>
-          <div className={KPI_LABEL}>الأمل الرياضي للصفقة (Expectancy)</div>
-        </div>
-        <div className={`${CARD} p-3`}>
-          <div className={`text-lg font-black ${netPnl >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]'}`}>
-            {netPnl >= 0 ? `+${netPnl.toLocaleString()}` : netPnl.toLocaleString()} ر.س
-          </div>
-          <div className={KPI_LABEL}>صافي الأرباح المحققة</div>
-        </div>
-      </div>
-
-      {/* Trades Table */}
-      <div className={`${CARD} p-5 overflow-hidden`}>
-        <div className="flex justify-between items-center mb-3">
-          <h3 className="text-xs font-bold text-[#6B7280] uppercase tracking-wide">
-            سجل الصفقات المنهجية وقيد المخاطرة (قاعدة 3% من رأس المال = {(portfolioCapital * 0.03).toLocaleString()} ر.س كحد أقصى للخسارة)
-          </h3>
-          <span className="text-[10px] text-[#6B7280]">
-            المجموع المستثمر بالصفقات: {totalCap.toLocaleString()} ر.س
-          </span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-right border-collapse">
-            <thead>
-              <tr className="text-[#6B7280] bg-[#F3F4F6] border-b border-[#E5E7EB]">
-                <th className="p-2 font-semibold">التاريخ</th>
-                <th className="p-2 font-semibold">الرمز</th>
-                <th className="p-2 font-semibold">الكمية</th>
-                <th className="p-2 font-semibold">الشراء</th>
-                <th className="p-2 font-semibold">البيع</th>
-                <th className="p-2 font-semibold">العائد %</th>
-                <th className="p-2 font-semibold">الربح/الخسارة</th>
-                <th className="p-2 font-semibold">مخاطرة المحفظة</th>
-                <th className="p-2 font-semibold text-right">أطروحة الدخول</th>
-                <th className="p-2 font-semibold text-right">سبب الخروج</th>
-                <th className="p-2 font-semibold text-center">إجراء</th>
-              </tr>
-            </thead>
-            <tbody>
-              {computedTrades.map((t) => (
-                <tr key={t.id} className="border-t border-[#E5E7EB] hover:bg-[#F3F4F6]">
-                  <td className="p-2 text-[#6B7280] tabular-nums whitespace-nowrap">{t.tradeDate}</td>
-                  <td className="p-2 font-bold text-[#1A1A1A]">{t.sym}</td>
-                  <td className="p-2 text-[#6B7280] tabular-nums">{t.shares.toLocaleString()}</td>
-                  <td className="p-2 text-[#1A1A1A] tabular-nums">{t.buyPx.toFixed(2)}</td>
-                  <td className="p-2 text-[#1A1A1A] tabular-nums">{t.sellPx.toFixed(2)}</td>
-                  <td className={`p-2 font-bold tabular-nums ${t.retPct >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]'}`}>
-                    {t.retPct > 0 ? `+${t.retPct.toFixed(1)}%` : `${t.retPct.toFixed(1)}%`}
-                  </td>
-                  <td className={`p-2 font-bold tabular-nums ${t.pnl >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]'}`}>
-                    {t.pnl > 0 ? `+${t.pnl.toLocaleString()}` : t.pnl.toLocaleString()} ر.س
-                  </td>
-                  <td className="p-2 tabular-nums">
-                    {t.pnl < 0 ? (
-                      <div className="flex items-center gap-1">
-                        <span className={t.isOver3PctRisk ? "text-[#DC2626] font-bold" : "text-[#6B7280]"}>
-                          {t.lossVsPortfolioPct.toFixed(2)}%
+    return (
+        <div className="py-6 space-y-6">
+            {/* Tab Header & Direct Link to Full Journal */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#E5E7EB] pb-4">
+                <div>
+                    <div className="flex items-center gap-2 mb-1">
+                        <h2 className="text-base font-bold text-[#1A1A1A]">
+                            سجل وانضباط الصفقات (Trade Journal — جلسة العامر + معادلة مينرفيني)
+                        </h2>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#F0FDF4] text-[#16A34A] border border-[#BBF7D0]">
+                            قاعدة بيانات موحدة
                         </span>
-                        {t.isOver3PctRisk && (
-                          <span className="inline-flex items-center gap-0.5 text-[#DC2626] text-[10px] bg-[#FEF2F2] border border-[#FECACA] px-1.5 py-0.5 rounded">
-                            <AlertTriangle className="w-3 h-3" />
-                            خرق 3%
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-[#16A34A]">آمن ✓</span>
-                    )}
-                  </td>
-                  <td className="p-2 text-[#1A1A1A]">{t.why}</td>
-                  <td className="p-2 text-[#6B7280]">{t.exitReason || "—"}</td>
-                  <td className="p-2 text-center">
-                    <button
-                      onClick={() => removeTrade(t.id)}
-                      aria-label="حذف الصفقة"
-                      className="text-[#6B7280] hover:text-[#DC2626] transition p-1"
+                    </div>
+                    <p className="text-xs text-[#6B7280]">
+                        تطبيق مباشر لمنهجية أحمد العامر في تسجيل الصفقات ومراقبة قاعدة قيد الخسارة ≤3% من رأس المال، وحساب الأمل الرياضي لمينرفيني.
+                    </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2.5">
+                    {/* Link to Full Page */}
+                    <Link
+                        href="/rebh/journal"
+                        className="px-3 py-1.5 bg-[#FBEAE8] hover:bg-[#F7D8D3] text-[#8C3B32] border border-[#F0CFC9] rounded-[4px] text-xs font-bold inline-flex items-center gap-1.5 transition"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                        <span>فتح الصفحة المستقلة الكاملة (مع دليل الباب 7)</span>
+                        <ExternalLink size={13} />
+                    </Link>
+
+                    {/* Sync Indicator */}
+                    <div className="flex items-center gap-1.5 text-[11px] font-mono bg-white border border-[#E5E7EB] px-2.5 py-1.5 rounded-[4px]">
+                        <span
+                            className={`w-2 h-2 rounded-full ${syncState === "synced"
+                                ? "bg-[#16A34A]"
+                                : syncState === "local"
+                                    ? "bg-[#B45309]"
+                                    : "bg-[#2563EB] animate-pulse"
+                                }`}
+                        />
+                        <span className="text-[#6B7280]">
+                            {syncState === "synced"
+                                ? "متصل ومُزامن"
+                                : syncState === "local"
+                                    ? "محلي (Local)"
+                                    : "مزامنة…"}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={triggerRefresh}
+                            title="إعادة التحديث"
+                            className="p-0.5 rounded text-[#6B7280] hover:text-[#1A1A1A] transition"
+                        >
+                            <RefreshCw size={11} className={loading ? "animate-spin" : ""} />
+                        </button>
+                    </div>
+
+                    {/* Export CSV */}
+                    <button
+                        onClick={exportJournalCSV}
+                        disabled={trades.length === 0}
+                        className="px-3 py-1.5 bg-white border border-[#E5E7EB] hover:bg-[#F7F8FA] text-[#1A1A1A] rounded-[4px] text-xs font-semibold inline-flex items-center gap-1.5 transition disabled:opacity-50"
+                    >
+                        <Download className="w-3.5 h-3.5 text-[#6B7280]" />
+                        تصدير CSV
                     </button>
-                  </td>
-                </tr>
-              ))}
-              {computedTrades.length === 0 && (
-                <tr>
-                  <td colSpan={11} className="p-8 text-center text-[#6B7280]">
-                    لا توجد صفقات مسجلة حالياً. استخدم الشريط أعلاه لتسجيل صفقاتك ومراقبة انضباط المخاطرة.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+
+                    {trades.length > 0 && (
+                        <button
+                            onClick={() => setShowClearConfirm(true)}
+                            className="p-1.5 text-[#6B7280] hover:text-[#DC2626] transition bg-white border border-[#E5E7EB] rounded-[4px]"
+                            title="مسح الصفقات المحلية"
+                        >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* Error or Alert banner */}
+            {error && (
+                <div
+                    role="status"
+                    className="p-3 rounded-[4px] bg-[#FFFBEB] border border-[#FDE68A] border-r-4 border-r-[#B45309] text-[12px] text-[#92400E] flex items-center justify-between"
+                >
+                    <div className="flex items-center gap-2">
+                        <AlertTriangle size={15} />
+                        <span>{error}</span>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setError(null)}
+                        className="text-[11px] font-bold underline hover:text-[#78350F]"
+                    >
+                        تجاهل
+                    </button>
+                </div>
+            )}
+
+            {/* Oversized Losses Warning Banner */}
+            {stats.oversizedLosses.length > 0 && (
+                <div
+                    role="status"
+                    className="p-3.5 rounded-[4px] bg-[#FEF2F2] border border-[#FECACA] border-r-4 border-r-[#DC2626] text-[12.5px] text-[#DC2626] flex items-center justify-between gap-3"
+                >
+                    <div className="flex items-center gap-2">
+                        <ShieldAlert size={18} className="shrink-0" />
+                        <div>
+                            <b>تنبيه انضباط ⚑:</b> يوجد {stats.oversizedLosses.length} صفقة تجاوزت خسارتها {BENCHMARKS.MAX_LOSS_PCT * 100}% من رأس المال الحالي ({formatNum(capital, 0)} SAR).
+                            تذكر دائماً مبدأ أحمد العامر: <i>«حجم المركز، لا أمر وقف الخسارة، هو خط الدفاع الأول عن المحفظة»</i>.
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ---------------- KPI GRID ---------------- */}
+            <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                <KpiCard
+                    icon={<CheckCircle2 size={18} className={stats.winRate != null && stats.winRate >= BENCHMARKS.MIN_WIN_RATE ? "text-[#16A34A]" : "text-[#B45309]"} />}
+                    label="معدل الربح (Win Rate)"
+                    sublabel={`الهدف ≥ ${BENCHMARKS.MIN_WIN_RATE * 100}%`}
+                    value={stats.winRate != null ? formatPct(stats.winRate * 100, 0, false) : "—"}
+                    valueColor={
+                        stats.winRate == null
+                            ? "text-[#9CA3AF]"
+                            : stats.winRate >= BENCHMARKS.MIN_WIN_RATE
+                                ? "text-[#16A34A]"
+                                : stats.winRate >= BENCHMARKS.MIN_WIN_RATE_FAIR
+                                    ? "text-[#B45309]"
+                                    : "text-[#DC2626]"
+                    }
+                    badge={stats.winRate != null && stats.winRate >= BENCHMARKS.MIN_WIN_RATE ? "ضمن معيار الدورة" : undefined}
+                    honestyMark={stats.hasLowSample ? "⚠" : "°"}
+                    honestyTooltip={stats.hasLowSample ? `⚠ عدد الصفقات المغلقة أقل من ${BENCHMARKS.MIN_SAMPLE_SIZE} صفقات` : "° محسوب من الصفقات المغلقة الفعلية"}
+                    footnote={
+                        stats.closedCount > 0
+                            ? `${stats.wins} رابحة / ${stats.losses} خاسرة من إجمالي ${stats.closedCount} صفقة مغلقة`
+                            : "لا توجد صفقات مغلقة بعد لاحتساب المعدل"
+                    }
+                />
+
+                <KpiCard
+                    icon={<TrendingUp size={18} className="text-[#2563EB]" />}
+                    label="المكافأة / المخاطرة (R/R)"
+                    sublabel={`الهدف ≥ ${BENCHMARKS.MIN_RR_TARGET.toFixed(1)}×`}
+                    value={stats.rr != null ? `${formatNum(stats.rr, 2)}×` : "—"}
+                    valueColor={
+                        stats.rr == null
+                            ? "text-[#9CA3AF]"
+                            : stats.rr >= BENCHMARKS.MIN_RR_TARGET
+                                ? "text-[#16A34A]"
+                                : stats.rr >= BENCHMARKS.MIN_RR_ACCEPTABLE
+                                    ? "text-[#B45309]"
+                                    : "text-[#DC2626]"
+                    }
+                    badge={stats.rr != null && stats.rr >= BENCHMARKS.MIN_RR_TARGET ? `الهدف ≥ ${BENCHMARKS.MIN_RR_TARGET}×` : undefined}
+                    honestyMark={stats.hasLowSample ? "⚠" : "°"}
+                    honestyTooltip={
+                        stats.hasLowSample
+                            ? `⚠ عدد الصفقات المغلقة أقل من ${BENCHMARKS.MIN_SAMPLE_SIZE} صفقات`
+                            : "° نسبة متوسط العائد في الصفقات الرابحة إلى متوسط الخسارة في الصفقات الخاسرة"
+                    }
+                    footnote={
+                        stats.closedCount > 0
+                            ? `متوسط ربح ${stats.avgGain != null ? formatPct(stats.avgGain * 100, 1) : "—"} / متوسط خسارة ${stats.avgLoss != null ? formatPct(-stats.avgLoss * 100, 1) : "لا توجد خسائر"}`
+                            : "يتطلب صفقات رابحة وخاسرة لحساب النسبة"
+                    }
+                />
+
+                <KpiCard
+                    icon={<DollarSign size={18} className={stats.expectancyPct != null && stats.expectancyPct > 0 ? "text-[#16A34A]" : "text-[#DC2626]"} />}
+                    label="التوقّع الرياضي (Expectancy)"
+                    sublabel="رياضيات مينرفيني"
+                    value={stats.expectancyPct != null ? formatPct(stats.expectancyPct * 100, 2) : "—"}
+                    valueColor={
+                        stats.expectancyPct == null
+                            ? "text-[#9CA3AF]"
+                            : stats.expectancyPct > 0
+                                ? "text-[#16A34A]"
+                                : "text-[#DC2626]"
+                    }
+                    honestyMark={stats.hasLowSample ? ["⚠", "≈"] : "≈"}
+                    honestyTooltip={
+                        stats.hasLowSample
+                            ? `⚠ عدد الصفقات المغلقة أقل من ${BENCHMARKS.MIN_SAMPLE_SIZE} — ≈ تقدير بافتراض حجم مركز ${BENCHMARKS.POSITION_SIZE_RATIO * 100}% من رأس المال`
+                            : `≈ تقدير القيمة النقدية بافتراض حجم مركز ${BENCHMARKS.POSITION_SIZE_RATIO * 100}% من رأس المال الحالي`
+                    }
+                    footnote={
+                        stats.expectancySar != null
+                            ? `${formatSar(stats.expectancySar, 0)} ≈ عائد متوقع لكل صفقة (بافتراض مركز ${BENCHMARKS.POSITION_SIZE_RATIO * 100}%)`
+                            : stats.closedCount === 0
+                                ? "لا توجد صفقات مغلقة بعد لاحتساب التوقع"
+                                : stats.losses === 0
+                                    ? "يتطلب وجود صفقات خاسرة مغلقة لتحديد متوسط الخسارة"
+                                    : stats.wins === 0
+                                        ? "يتطلب وجود صفقات رابحة مغلقة لتحديد متوسط الربح"
+                                        : "المعادلة: (نسبة الربح × متوسط الربح) - (نسبة الخسارة × متوسط الخسارة)"
+                    }
+                />
+
+                <KpiCard
+                    icon={<DollarSign size={18} className={stats.netPnl >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"} />}
+                    label="صافي الأرباح المحققة"
+                    sublabel="الربح الفعلي"
+                    value={formatSar(stats.netPnl, 0)}
+                    valueColor={stats.netPnl > 0 ? "text-[#16A34A]" : stats.netPnl < 0 ? "text-[#DC2626]" : "text-[#1A1A1A]"}
+                    honestyMark={stats.hasLowSample ? "⚠" : "°"}
+                    honestyTooltip={
+                        stats.hasLowSample
+                            ? `⚠ عدد الصفقات المغلقة أقل من ${BENCHMARKS.MIN_SAMPLE_SIZE} صفقات`
+                            : "° صافي ناتج الصفقات المغلقة بالريال السعودي"
+                    }
+                    footnote={`${stats.activeCount} مراكز نشطة حالياً تحت المتابعة`}
+                />
+            </section>
+
+            {/* ---------------- CONTROLS ROW ---------------- */}
+            <Card className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-3">
+                    <label className="flex items-center gap-2 text-[12px] text-[#4B5563]">
+                        <span className="font-semibold whitespace-nowrap">رأس المال الإجمالي (SAR):</span>
+                        <input
+                            type="number"
+                            inputMode="numeric"
+                            value={capitalInput}
+                            onChange={(e) => setCapitalInput(e.target.value)}
+                            onBlur={handleCapitalBlur}
+                            className="w-36 bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px] px-3 py-1.5 text-[13px] font-mono tabular-nums font-bold text-[#1A1A1A] outline-none focus:border-[#8C3B32] focus:ring-2 focus:ring-[#8C3B32]/10 dir-ltr text-right"
+                            title="اضغط خارج الحقل لتحديث رأس المال"
+                        />
+                    </label>
+
+                    <Button
+                        variant="primary"
+                        onClick={() => setShowForm((s) => !s)}
+                    >
+                        <PlusCircle size={15} className="ml-1.5" />
+                        {showForm ? "إغلاق النموذج" : "تسجيل صفقة جديدة"}
+                    </Button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <Button variant="ghost" onClick={() => setShowDemoConfirm(true)}>
+                        تحميل بيانات تجريبية
+                    </Button>
+                </div>
+            </Card>
+
+            {/* ---------------- ADD TRADE FORM ---------------- */}
+            {showForm && (
+                <TradeForm
+                    onSubmit={handleAddTrade}
+                    onCancel={() => setShowForm(false)}
+                    isSubmitting={isSaving}
+                />
+            )}
+
+            {/* ---------------- TRADES TABLE ---------------- */}
+            <TradeTable
+                trades={computedTrades}
+                onCloseTrade={(trade) => setClosingTrade(trade)}
+                onDeleteTrade={(trade) => setTradeToDelete(trade)}
+                onNewTradeClick={() => setShowForm(true)}
+            />
+
+            {/* Close Trade Modal */}
+            {closingTrade && (
+                <CloseTradeDialog
+                    symbol={closingTrade.symbol}
+                    buyPrice={closingTrade.buyPrice}
+                    shares={closingTrade.shares}
+                    onClose={handleCloseTradeConfirm}
+                    onCancel={() => setClosingTrade(null)}
+                />
+            )}
+
+            {/* Delete Single Trade Confirm Modal */}
+            {tradeToDelete && (
+                <ConfirmDialog
+                    title={`حذف صفقة ${tradeToDelete.symbol}`}
+                    message={`هل أنت متأكد من رغبتك في حذف صفقة ${tradeToDelete.symbol} (${tradeToDelete.shares} سهم)؟ لا يمكن التراجع عن هذا الإجراء.`}
+                    confirmText="حذف الصفقة"
+                    danger
+                    onConfirm={handleDeleteTradeConfirm}
+                    onCancel={() => setTradeToDelete(null)}
+                />
+            )}
+
+            {/* Load Demo Data Confirm Modal */}
+            {showDemoConfirm && (
+                <ConfirmDialog
+                    title="تحميل البيانات التجريبية"
+                    message="هل أنت متأكد من رغبتك في تحميل البيانات التجريبية؟ سيؤدي ذلك إلى استبدال الصفقات الحالية المعروضة بنموذج بيانات توضيحي لمنهجية الدورة."
+                    confirmText="تحميل النموذج التجريبي"
+                    onConfirm={handleLoadDemoConfirm}
+                    onCancel={() => setShowDemoConfirm(false)}
+                />
+            )}
+
+            {/* Clear Confirm Modal */}
+            {showClearConfirm && (
+                <ConfirmDialog
+                    title="مسح جميع الصفقات"
+                    message="هل أنت متأكد من رغبتك في مسح جميع الصفقات المحلية؟ لا يمكن استرجاع الصفقات بعد مسحها."
+                    confirmText="تأكيد المسح"
+                    danger
+                    onConfirm={handleClearConfirm}
+                    onCancel={() => setShowClearConfirm(false)}
+                />
+            )}
         </div>
-      </div>
-    </div>
-  );
+    );
 }

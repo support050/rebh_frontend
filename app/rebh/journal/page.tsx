@@ -1,813 +1,659 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
     BookOpen,
     PlusCircle,
     CheckCircle2,
     TrendingUp,
     DollarSign,
-    Trash2,
+    RefreshCw,
+    AlertTriangle,
+    ShieldAlert,
 } from "lucide-react";
-import { API_BASE_URL } from "@/lib/api/config";
+import {
+    Trade,
+    TradeType,
+    fetchJournalApi,
+    createTradeApi,
+    updateTradeApi,
+    deleteTradeApi,
+    toPayload,
+    getRiyadhDateIso,
+} from "@/lib/api/journal";
+import {
+    BENCHMARKS,
+    computeJournalStats,
+    computeTrade,
+    formatNum,
+    formatPct,
+    formatSar,
+} from "./utils";
+import { KpiCard, Card, Button } from "./components/JournalUI";
+import { TradeForm, CloseTradeDialog, ConfirmDialog } from "./components/TradeForm";
+import { TradeTable } from "./components/TradeTable";
+import { RulebookAccordion } from "./components/RulebookAccordion";
 
-/* ============================================================
-   REBH · Trade Journal — the discipline machine
-   Ahmed Al-Amer's trade-registration method + Minervini's
-   expectancy mathematics, ported to Next.js / TypeScript.
-   ============================================================ */
-
-type TradeStatus = "active" | "closed";
-type TradeType = "buy" | "sell";
-
-interface Trade {
-    id: string;
-    symbol: string;
-    type: TradeType;
-    shares: number;
-    buyPrice: number;
-    sellPrice: number | null; // null while active
-    reason: string;
-    status: TradeStatus;
-    createdAt: string;
-}
-
-const STORAGE_KEY = "rebh-trade-journal-v1";
-const CAPITAL_KEY = "rebh-trade-journal-capital-v1";
+const STORAGE_KEY = "rebh-trade-journal-v2";
+const CAPITAL_KEY = "rebh-trade-journal-capital-v2";
 
 const DEMO_TRADES: Trade[] = [
-    { id: "d1", symbol: "1120", type: "buy", shares: 200, buyPrice: 58, sellPrice: 64.4, reason: "تسارع أرباح ربعي + دخول عند المنطقة الفضية", status: "closed", createdAt: "2026-05-02" },
-    { id: "d2", symbol: "7010", type: "buy", shares: 300, buyPrice: 39, sellPrice: 43.7, reason: "دخول عند المنطقة الفضية — نمو مستدام", status: "closed", createdAt: "2026-05-10" },
-    { id: "d3", symbol: "4300", type: "buy", shares: 500, buyPrice: 22, sellPrice: 20.3, reason: "خروج: تغطية الفوائد أقل من 2× — كسر عنصر أمان", status: "closed", createdAt: "2026-05-18" },
-    { id: "d4", symbol: "2030", type: "buy", shares: 150, buyPrice: 48, sellPrice: 51.2, reason: "شراء عند نطاق قاع الدورة (14-16× أرباح القاع)", status: "closed", createdAt: "2026-06-01" },
-    { id: "d5", symbol: "1010", type: "buy", shares: 400, buyPrice: 18.5, sellPrice: 20.2, reason: "قصة تحسن هامش الفائدة الصافي (NIM)", status: "closed", createdAt: "2026-06-12" },
-    { id: "d6", symbol: "2222", type: "buy", shares: 250, buyPrice: 28, sellPrice: 26.6, reason: "خروج: القوائم المالية غير محدّثة (stale)", status: "closed", createdAt: "2026-06-20" },
-    { id: "d7", symbol: "1211", type: "buy", shares: 100, buyPrice: 72, sellPrice: null, reason: "مركز نشط — بانتظار نتائج الربع القادم", status: "active", createdAt: "2026-07-15" },
+    { id: "demo-1", symbol: "1120", type: "buy", shares: 200, buyPrice: 58, sellPrice: 64.4, reason: "تسارع أرباح ربعي + دخول عند المنطقة الفضية", status: "closed", createdAt: "2026-05-02", isLocalOnly: false },
+    { id: "demo-2", symbol: "7010", type: "buy", shares: 300, buyPrice: 39, sellPrice: 43.7, reason: "دخول عند المنطقة الفضية — نمو مستدام", status: "closed", createdAt: "2026-05-10", isLocalOnly: false },
+    { id: "demo-3", symbol: "4300", type: "buy", shares: 500, buyPrice: 22, sellPrice: 20.3, reason: "خروج: تغطية الفوائد أقل من 2× — كسر عنصر أمان", status: "closed", createdAt: "2026-05-18", isLocalOnly: false },
+    { id: "demo-4", symbol: "2030", type: "buy", shares: 150, buyPrice: 48, sellPrice: 51.2, reason: "شراء عند نطاق قاع الدورة (14-16× أرباح القاع)", status: "closed", createdAt: "2026-06-01", isLocalOnly: false },
+    { id: "demo-5", symbol: "1010", type: "buy", shares: 400, buyPrice: 18.5, sellPrice: 20.2, reason: "قصة تحسن هامش الفائدة الصافي (NIM)", status: "closed", createdAt: "2026-06-12", isLocalOnly: false },
+    { id: "demo-6", symbol: "2222", type: "buy", shares: 250, buyPrice: 28, sellPrice: 26.6, reason: "خروج: القوائم المالية غير محدّثة (stale)", status: "closed", createdAt: "2026-06-20", isLocalOnly: false },
+    { id: "demo-7", symbol: "1211", type: "buy", shares: 100, buyPrice: 72, sellPrice: null, reason: "مركز نشط — بانتظار نتائج الربع القادم", status: "active", createdAt: "2026-07-15", isLocalOnly: false },
 ];
 
-const uid = () => Math.random().toString(36).slice(2, 10);
-
-function fmt(v: number, d = 1) {
-    if (v == null || Number.isNaN(v)) return "—";
-    return v.toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: 0 });
-}
-function pct(v: number, d = 1) {
-    if (v == null || Number.isNaN(v)) return "—";
-    return `${fmt(v, d)}%`;
+function generateUuid(): string {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+        return crypto.randomUUID();
+    }
+    return `loc-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
 export default function TradeJournalPage() {
     const [trades, setTrades] = useState<Trade[]>([]);
-    const [capital, setCapital] = useState<number>(100000);
+    const [capital, setCapital] = useState<number>(BENCHMARKS.DEFAULT_CAPITAL);
+    const [capitalInput, setCapitalInput] = useState<string>(String(BENCHMARKS.DEFAULT_CAPITAL));
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [syncState, setSyncState] = useState<"synced" | "local" | "syncing">("syncing");
+
+    // UI Dialog & Form States
     const [showForm, setShowForm] = useState(false);
-    const [hydrated, setHydrated] = useState(false);
+    const [closingTrade, setClosingTrade] = useState<Trade | null>(null);
+    const [tradeToDelete, setTradeToDelete] = useState<Trade | null>(null);
+    const [showDemoConfirm, setShowDemoConfirm] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
 
-    // form state
-    const [symbol, setSymbol] = useState("");
-    const [type, setType] = useState<TradeType>("buy");
-    const [shares, setShares] = useState("");
-    const [buyPrice, setBuyPrice] = useState("");
-    const [sellPrice, setSellPrice] = useState("");
-    const [reason, setReason] = useState("");
+    const isInitialLoadRef = useRef(true);
+    const activeAbortControllerRef = useRef<AbortController | null>(null);
 
-    // ---- load / persist from backend API ----
-    useEffect(() => {
-        async function fetchJournal() {
+    // 1. Initial Load: Server primary with guarded fallback to localStorage & preserving local-only trades
+    const loadJournal = useCallback(async (signal?: AbortSignal) => {
+        setLoading(true);
+        setError(null);
+        setSyncState("syncing");
+
+        try {
+            // Read saved capital first (safe fallback)
             try {
-                const res = await fetch(`${API_BASE_URL}/api/rebh/journal`, {
-                    credentials: "include"
-                });
-                if (res.ok) {
-                    const serverTrades = await res.json();
-                    if (Array.isArray(serverTrades) && serverTrades.length > 0) {
-                        setTrades(serverTrades.map((t: any) => ({
-                            id: String(t.id),
-                            symbol: t.symbol || t.sym,
-                            type: t.type || "buy",
-                            shares: t.shares,
-                            buyPrice: t.buy_price ?? t.buyPx,
-                            sellPrice: t.sell_price ?? t.sellPx,
-                            status: t.status,
-                            reason: t.reason,
-                            createdAt: t.trade_date || t.tradeDate
-                        })));
-                    } else {
-                        // fallback to localStorage if server empty
-                        const raw = localStorage.getItem(STORAGE_KEY);
-                        if (raw) {
-                            const localTrades = JSON.parse(raw);
-                            if (Array.isArray(localTrades)) setTrades(localTrades);
-                        }
+                const rawCap = localStorage.getItem(CAPITAL_KEY);
+                if (rawCap) {
+                    const parsed = Number(rawCap);
+                    if (!isNaN(parsed) && parsed > 0) {
+                        setCapital(parsed);
+                        setCapitalInput(String(parsed));
                     }
                 }
-                const rawCap = localStorage.getItem(CAPITAL_KEY);
-                if (rawCap) setCapital(Number(rawCap));
-            } catch (e) {
-                console.error("Failed to load trade journal from API", e);
-                const raw = localStorage.getItem(STORAGE_KEY);
-                if (raw) setTrades(JSON.parse(raw));
-            } finally {
-                setHydrated(true);
+            } catch {
+                // Ignore localStorage errors
+            }
+
+            const res = await fetchJournalApi(signal);
+            if (signal?.aborted) return;
+
+            if (res.ok && res.trades) {
+                // Read any pending local-only trades from localStorage and existing state
+                let localUnsyncedFromStorage: Trade[] = [];
+                try {
+                    const raw = localStorage.getItem(STORAGE_KEY);
+                    if (raw) {
+                        const parsed = JSON.parse(raw);
+                        if (Array.isArray(parsed)) {
+                            localUnsyncedFromStorage = parsed.filter(
+                                (t: Trade) => t.isLocalOnly && !t.id.startsWith("demo-")
+                            );
+                        }
+                    }
+                } catch {
+                    // Ignore parse error
+                }
+
+                setTrades((prev) => {
+                    const currentLocal = prev.filter((t) => t.isLocalOnly && !t.id.startsWith("demo-"));
+                    const allLocalCandidates = [...currentLocal, ...localUnsyncedFromStorage];
+                    const serverIds = new Set(res.trades!.map((t) => t.id));
+                    
+                    const seenLocalIds = new Set<string>();
+                    const uniqueLocal: Trade[] = [];
+                    for (const lt of allLocalCandidates) {
+                        if (!serverIds.has(lt.id) && !seenLocalIds.has(lt.id)) {
+                            seenLocalIds.add(lt.id);
+                            uniqueLocal.push(lt);
+                        }
+                    }
+
+                    return [...res.trades!, ...uniqueLocal];
+                });
+                setSyncState("synced");
+            } else {
+                // If 401 or network error, read from localStorage without wiping it
+                setError(
+                    res.status === 401
+                        ? "جلسة غير مسجلة — يتم حفظ بيانات الصفقات على هذا المتصفح محلياً"
+                        : "تعذر الاتصال بالخادم — يتم استخدام النسخة المحلية المخزنة"
+                );
+                setSyncState("local");
+                try {
+                    const raw = localStorage.getItem(STORAGE_KEY);
+                    if (raw) {
+                        const parsed = JSON.parse(raw);
+                        if (Array.isArray(parsed)) {
+                            setTrades(parsed);
+                        }
+                    }
+                } catch (e) {
+                    console.error("Corrupt local storage data", e);
+                }
+            }
+            isInitialLoadRef.current = false;
+        } catch (e: unknown) {
+            if ((e as Error)?.name === "AbortError") return;
+            setError("حدث خطأ أثناء تحميل سجل الصفقات");
+            setSyncState("local");
+            isInitialLoadRef.current = false;
+        } finally {
+            if (!signal?.aborted) {
+                setLoading(false);
             }
         }
-        fetchJournal();
     }, []);
 
+    const triggerRefresh = useCallback(() => {
+        if (activeAbortControllerRef.current) {
+            activeAbortControllerRef.current.abort();
+        }
+        const controller = new AbortController();
+        activeAbortControllerRef.current = controller;
+        loadJournal(controller.signal);
+    }, [loadJournal]);
+
     useEffect(() => {
-        if (!hydrated) return;
+        const controller = new AbortController();
+        activeAbortControllerRef.current = controller;
+        loadJournal(controller.signal);
+        return () => {
+            // Always abort whatever is the *current* active controller on unmount,
+            // including controllers created by triggerRefresh after mount.
+            activeAbortControllerRef.current?.abort();
+        };
+    }, [loadJournal]);
+
+    // 2. Persist to localStorage safely on state change
+    useEffect(() => {
+        if (isInitialLoadRef.current) return;
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(trades));
         } catch (e) {
-            console.error("Failed to persist trade journal to localStorage", e);
+            console.error("Failed to persist trades to localStorage", e);
         }
-    }, [trades, hydrated]);
+    }, [trades]);
 
     useEffect(() => {
-        if (!hydrated) return;
+        if (isInitialLoadRef.current) return;
         try {
             localStorage.setItem(CAPITAL_KEY, String(capital));
         } catch (e) {
-            console.error("Failed to persist capital", e);
+            console.error("Failed to persist capital to localStorage", e);
         }
-    }, [capital, hydrated]);
+    }, [capital]);
 
-    // ---- derived math (Al-Amer / Minervini) ----
-    const stats = useMemo(() => {
-        const closed = trades.filter((t) => t.status === "closed" && t.sellPrice != null);
-        const withMath = closed.map((t) => {
-            const ret = (t.sellPrice! - t.buyPrice) / t.buyPrice; // return %
-            const amt = t.shares * t.buyPrice;
-            const pnl = t.shares * (t.sellPrice! - t.buyPrice);
-            return { ...t, ret, amt, pnl };
-        });
-
-        const wins = withMath.filter((t) => t.pnl > 0);
-        const losses = withMath.filter((t) => t.pnl < 0);
-
-        const winRate = withMath.length > 0 ? wins.length / withMath.length : 0;
-        const lossRate = withMath.length > 0 ? losses.length / withMath.length : 0;
-
-        const avgGain = wins.length > 0 ? wins.reduce((s, t) => s + t.ret, 0) / wins.length : 0;
-        const avgLoss = losses.length > 0 ? Math.abs(losses.reduce((s, t) => s + t.ret, 0) / losses.length) : 0;
-
-        const rr = avgLoss > 0 ? avgGain / avgLoss : null;
-        // Expectancy = (Win% * Avg Win) - (Loss% * Avg Loss)
-        const expectancyPct = (winRate * avgGain) - (lossRate * avgLoss);
-        const expectancySar = expectancyPct * (capital > 0 ? capital * 0.1 : 10000); // normalized to 10% position size
-
-        const netPnl = withMath.reduce((s, t) => s + t.pnl, 0);
-
-        // 3% max loss check per Al-Amer rule
-        const oversizedLosses = withMath.filter((t) => {
-            if (t.pnl >= 0) return false;
-            return Math.abs(t.pnl) > capital * 0.03;
-        });
-
-        return {
-            totalTrades: trades.length,
-            closedCount: withMath.length,
-            activeCount: trades.filter((t) => t.status === "active").length,
-            wins: wins.length,
-            losses: losses.length,
-            winRate,
-            lossRate,
-            avgGain,
-            avgLoss,
-            rr,
-            expectancyPct,
-            expectancySar,
-            netPnl,
-            oversizedLosses,
-        };
+    // 3. Derived Computations & Stats
+    const computedTrades = useMemo(() => {
+        return trades.map((t) => computeTrade(t, capital));
     }, [trades, capital]);
 
-    // ---- actions ----
-    function resetForm() {
-        setSymbol("");
-        setType("buy");
-        setShares("");
-        setBuyPrice("");
-        setSellPrice("");
-        setReason("");
-    }
+    const stats = useMemo(() => {
+        return computeJournalStats(computedTrades, capital);
+    }, [computedTrades, capital]);
 
-    async function addTrade(e: React.FormEvent) {
-        e.preventDefault();
-        const sh = Number(shares);
-        const bp = Number(buyPrice);
-        const sp = sellPrice.trim() === "" ? null : Number(sellPrice);
-        if (!symbol.trim() || !sh || !bp || !reason.trim()) return; // reason mandatory per course methodology
+    // 4. Actions
+    async function handleAddTrade(newTradeData: {
+        symbol: string;
+        type: TradeType;
+        shares: number;
+        buyPrice: number;
+        sellPrice: number | null;
+        reason: string;
+        createdAt?: string;
+    }) {
+        setIsSaving(true);
+        const tradeDate = newTradeData.createdAt || getRiyadhDateIso();
+        const payload = toPayload({
+            ...newTradeData,
+            status: newTradeData.sellPrice != null ? "closed" : "active",
+            createdAt: tradeDate,
+        });
 
-        const payload = {
-            symbol: symbol.trim().toUpperCase(),
-            trade_type: type,
-            shares: sh,
-            buy_price: bp,
-            sell_price: sp,
-            reason: reason.trim(),
-            status: sp != null ? "closed" : "active",
-            trade_date: new Date().toISOString().slice(0, 10),
+        const tempId = generateUuid();
+        const localTrade: Trade = {
+            id: tempId,
+            symbol: payload.symbol,
+            type: payload.trade_type,
+            shares: payload.shares,
+            buyPrice: payload.buy_price,
+            sellPrice: payload.sell_price,
+            reason: payload.reason,
+            status: payload.status,
+            createdAt: payload.trade_date,
+            isLocalOnly: true,
         };
 
-        try {
-            const res = await fetch(`${API_BASE_URL}/api/rebh/journal`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify(payload)
-            });
-            if (res.ok) {
-                const data = await res.json();
-                const serverId = data.id || uid();
-                const newTrade: Trade = {
-                    id: String(serverId),
-                    symbol: payload.symbol,
-                    type,
-                    shares: sh,
-                    buyPrice: bp,
-                    sellPrice: sp,
-                    reason: payload.reason,
-                    status: payload.status as TradeStatus,
-                    createdAt: payload.trade_date,
-                };
-                setTrades((prev) => [newTrade, ...prev]);
-            } else {
-                // fallback local
-                const newTrade: Trade = {
-                    id: uid(),
-                    symbol: payload.symbol,
-                    type,
-                    shares: sh,
-                    buyPrice: bp,
-                    sellPrice: sp,
-                    reason: payload.reason,
-                    status: payload.status as TradeStatus,
-                    createdAt: payload.trade_date,
-                };
-                setTrades((prev) => [newTrade, ...prev]);
-            }
-        } catch (_) {
-            const newTrade: Trade = {
-                id: uid(),
-                symbol: payload.symbol,
-                type,
-                shares: sh,
-                buyPrice: bp,
-                sellPrice: sp,
-                reason: payload.reason,
-                status: payload.status as TradeStatus,
-                createdAt: payload.trade_date,
-            };
-            setTrades((prev) => [newTrade, ...prev]);
-        }
-        resetForm();
+        // Optimistic UI update
+        setTrades((prev) => [localTrade, ...prev]);
         setShowForm(false);
+
+        try {
+            // Server Sync
+            const res = await createTradeApi(payload);
+            if (res.ok && res.serverId) {
+                setTrades((prev) =>
+                    prev.map((t) => (t.id === tempId ? { ...t, id: res.serverId!, isLocalOnly: false } : t))
+                );
+                setSyncState("synced");
+            } else {
+                setSyncState("local");
+            }
+        } catch (err) {
+            console.error("Error creating trade on server", err);
+            setSyncState("local");
+        } finally {
+            setIsSaving(false);
+        }
     }
 
-    async function closeTrade(id: string, sp: number) {
+    async function handleCloseTradeConfirm(exitPrice: number) {
+        if (!closingTrade) return;
+        const targetId = closingTrade.id;
+        // Snapshot via find so no field is missed if Trade type gains new fields
+        const original = trades.find((t) => t.id === targetId);
+        if (!original) return;
+
+        // Optimistic UI update
         setTrades((prev) =>
-            prev.map((t) => (t.id === id ? { ...t, sellPrice: sp, status: "closed" } : t))
+            prev.map((t) => (t.id === targetId ? { ...t, sellPrice: exitPrice, status: "closed" } : t))
         );
-        const target = trades.find((t) => t.id === id);
-        if (target && !id.startsWith("d")) {
+        setClosingTrade(null);
+
+        // Server sync if not local-only and not demo
+        if (!original.isLocalOnly && !original.id.startsWith("demo-")) {
             try {
-                await fetch(`${API_BASE_URL}/api/rebh/journal/${id}`, {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    credentials: "include",
-                    body: JSON.stringify({
-                        symbol: target.symbol,
-                        trade_type: target.type,
-                        shares: target.shares,
-                        buy_price: target.buyPrice,
-                        sell_price: sp,
-                        status: "closed",
-                        reason: target.reason,
-                        trade_date: target.createdAt
-                    })
+                const payload = toPayload({
+                    ...original,
+                    sellPrice: exitPrice,
+                    status: "closed",
                 });
-            } catch (_) { }
+                const res = await updateTradeApi(targetId, payload);
+                if (!res.ok) {
+                    // Rollback on failure
+                    setTrades((prev) => prev.map((t) => (t.id === targetId ? original : t)));
+                    setError(`تعذر تحديث الصفقة على الخادم (${res.status}) — تم إلغاء الإغلاق`);
+                }
+            } catch (err) {
+                console.error("Failed to update trade on server", err);
+                setTrades((prev) => prev.map((t) => (t.id === targetId ? original : t)));
+                setError("تعذر تحديث الصفقة بسبب انقطاع الاتصال — تم إلغاء الإغلاق");
+            }
         }
     }
 
-    async function removeTrade(id: string) {
-        setTrades((prev) => prev.filter((t) => t.id !== id));
-        if (!id.startsWith("d")) {
+    async function handleDeleteTradeConfirm() {
+        if (!tradeToDelete) return;
+        const targetId = tradeToDelete.id;
+        // Snapshot via find so no field is missed if Trade type gains new fields
+        const target = trades.find((t) => t.id === targetId);
+        if (!target) return;
+        const targetIndex = trades.findIndex((t) => t.id === targetId);
+
+        // Optimistic UI
+        setTrades((prev) => prev.filter((t) => t.id !== targetId));
+        setTradeToDelete(null);
+
+        // Server sync if not local-only and not demo
+        if (!target.isLocalOnly && !target.id.startsWith("demo-")) {
             try {
-                await fetch(`${API_BASE_URL}/api/rebh/journal/${id}`, {
-                    method: "DELETE",
-                    credentials: "include"
+                const res = await deleteTradeApi(targetId);
+                if (!res.ok) {
+                    // Rollback on server failure preserving index
+                    setTrades((prev) => {
+                        const next = [...prev];
+                        if (targetIndex >= 0 && targetIndex <= next.length) {
+                            next.splice(targetIndex, 0, target);
+                        } else {
+                            next.push(target);
+                        }
+                        return next;
+                    });
+                    setError(`تعذر حذف الصفقة من الخادم (${res.status}) — تمت استعادة الصفقة`);
+                }
+            } catch (err) {
+                console.error("Failed to delete trade on server", err);
+                setTrades((prev) => {
+                    const next = [...prev];
+                    if (targetIndex >= 0 && targetIndex <= next.length) {
+                        next.splice(targetIndex, 0, target);
+                    } else {
+                        next.push(target);
+                    }
+                    return next;
                 });
-            } catch (_) { }
+                setError("تعذر حذف الصفقة بسبب انقطاع الاتصال — تمت استعادة الصفقة");
+            }
         }
     }
 
-    function loadDemo() {
+    function handleLoadDemoConfirm() {
         setTrades(DEMO_TRADES);
+        setShowDemoConfirm(false);
     }
 
-    function clearAll() {
-        setTrades([]);
+    function handleCapitalBlur() {
+        const val = Number(capitalInput);
+        if (!isNaN(val) && val > 0) {
+            setCapital(val);
+        } else {
+            setCapitalInput(String(capital));
+        }
     }
 
     return (
-        <div style={styles.page}>
-            <style>{globalCss}</style>
+        <div className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] p-5 md:p-8 max-w-[1240px] mx-auto font-sans">
+            {/* Header */}
+            <header className="mb-6 pb-4 border-b border-[#E5E7EB]">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                        <BookOpen size={24} className="text-[#8C3B32]" />
+                        <h1 className="text-2xl font-black text-[#1A1A1A]">
+                            REBH <span className="text-[#8C3B32]">دفتر الصفقات</span>
+                        </h1>
+                        <span className="text-[11px] font-mono text-[#6B7280] bg-white border border-[#E5E7EB] rounded px-2 py-0.5">
+                            آلة الانضباط الجنائي
+                        </span>
+                    </div>
 
-            <header style={styles.header}>
-                <div style={styles.headerTitleRow}>
-                    <BookOpen size={26} color="#8C3B32" />
-                    <h1 style={styles.h1}>
-                        REBH <span style={{ color: "#8C3B32" }}>دفتر الصفقات</span>
-                    </h1>
+                    {/* Sync Indicator */}
+                    <div className="flex items-center gap-2 text-[11px] font-mono">
+                        <span
+                            className={`w-2 h-2 rounded-full ${
+                                syncState === "synced"
+                                    ? "bg-[#16A34A]"
+                                    : syncState === "local"
+                                    ? "bg-[#B45309]"
+                                    : "bg-[#2563EB] animate-pulse"
+                            }`}
+                        />
+                        <span className="text-[#6B7280]">
+                            {syncState === "synced"
+                                ? "متصل بالخادم ومُزامن"
+                                : syncState === "local"
+                                ? "حفظ محلي (Offline/Local)"
+                                : "جاري المزامنة…"}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={triggerRefresh}
+                            title="إعادة التحديث"
+                            className="p-1 rounded text-[#6B7280] hover:text-[#1A1A1A] transition focus-visible:ring-2 focus-visible:ring-[#8C3B32]"
+                        >
+                            <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
+                        </button>
+                    </div>
                 </div>
-                <p style={styles.sub}>
-                    آلة الانضباط — من جلسة تسجيل الصفقات لأحمد العامر + رياضيات التوقع
-                    (Expectancy) لمينرفيني. معدل ربح ≥ 60% ممتاز · R/R ≥ 3× · التوقّع
-                    يجب أن يكون موجباً · خسارة الصفقة الواحدة ≈3% من رأس المال عبر
-                    الحجم لا وقف الخسارة.
+
+                <p className="text-[12.5px] text-[#6B7280] mt-2 max-w-4xl leading-relaxed">
+                    تطبيق مباشر لمنهجية أحمد العامر في تسجيل الصفقات + رياضيات التوقع (Expectancy) لمارك مينرفيني.
+                    الانضباط الرياضي: معدل ربح مستهدف ≥ {BENCHMARKS.MIN_WIN_RATE * 100}% · المكافأة/المخاطرة R/R ≥ {BENCHMARKS.MIN_RR_TARGET}× · توقع إيجابي مستمر ·
+                    وحماية المحفظة بقاعدة ألا تتجاوز خسارة الصفقة الواحدة <b className="text-[#8C3B32]">≈{BENCHMARKS.MAX_LOSS_PCT * 100}%</b> من رأس المال عبر حجم المركز لا وقف الخسارة.
                 </p>
             </header>
 
-            {/* ---------------- KPI BAR ---------------- */}
-            <section style={styles.kpiBar}>
-                <KpiCard
-                    icon={<CheckCircle2 size={18} color={stats.winRate >= 0.6 ? "#16A34A" : "#B45309"} />}
-                    label="معدل الربح (Win Rate)"
-                    value={pct(stats.winRate * 100, 0)}
-                    valueColor={stats.winRate >= 0.6 ? "#16A34A" : stats.winRate >= 0.5 ? "#B45309" : "#DC2626"}
-                    badge={stats.winRate >= 0.6 ? "ممتاز" : undefined}
-                    footnote={`${stats.wins} رابحة / ${stats.losses} خاسرة من ${stats.closedCount}`}
-                />
-                <KpiCard
-                    icon={<TrendingUp size={18} color="#2563EB" />}
-                    label="المكافأة/المخاطرة (R/R)"
-                    value={stats.rr != null ? `${fmt(stats.rr, 2)}×` : "—"}
-                    valueColor={stats.rr != null && stats.rr >= 3 ? "#16A34A" : stats.rr != null && stats.rr >= 2 ? "#B45309" : "#DC2626"}
-                    badge={stats.rr != null && stats.rr >= 3 ? "الهدف ≥3×" : undefined}
-                    footnote={`متوسط ربح ${pct(stats.avgGain * 100, 1)} / متوسط خسارة ${pct(stats.avgLoss * 100, 1)}`}
-                />
-                <KpiCard
-                    icon={<DollarSign size={18} color={stats.expectancyPct > 0 ? "#16A34A" : "#DC2626"} />}
-                    label="التوقّع (Expectancy)"
-                    value={pct(stats.expectancyPct * 100, 2)}
-                    valueColor={stats.expectancyPct > 0 ? "#16A34A" : "#DC2626"}
-                    footnote={`${fmt(stats.expectancySar, 0)} SAR / صفقة مغلقة`}
-                />
-                <KpiCard
-                    icon={<DollarSign size={18} color={stats.netPnl >= 0 ? "#16A34A" : "#DC2626"} />}
-                    label="صافي الربح والخسارة"
-                    value={`${fmt(stats.netPnl, 0)} SAR`}
-                    valueColor={stats.netPnl >= 0 ? "#16A34A" : "#DC2626"}
-                    footnote={`${stats.activeCount} مركز نشط حالياً`}
-                />
-            </section>
-
-            {stats.oversizedLosses.length > 0 && (
-                <div style={styles.warnBanner}>
-                    ⚑ {stats.oversizedLosses.length} صفقة تجاوزت خسارتها 3% من رأس
-                    المال ({fmt(capital, 0)} SAR) — قاعدة الحجم، لا وقف الخسارة، هي ما
-                    يحمي المحفظة.
+            {/* Error or Alert banner */}
+            {error && (
+                <div
+                    role="status"
+                    className="mb-5 p-3 rounded-[4px] bg-[#FFFBEB] border border-[#FDE68A] border-r-4 border-r-[#B45309] text-[12px] text-[#92400E] flex items-center justify-between"
+                >
+                    <div className="flex items-center gap-2">
+                        <AlertTriangle size={15} />
+                        <span>{error}</span>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setError(null)}
+                        className="text-[11px] font-bold underline hover:text-[#78350F]"
+                    >
+                        تجاهل
+                    </button>
                 </div>
             )}
 
-            {/* ---------------- CONTROLS ---------------- */}
-            <section style={styles.controlsRow}>
-                <label style={styles.capitalLabel}>
-                    رأس المال الإجمالي (SAR)
-                    <input
-                        type="number"
-                        value={capital}
-                        onChange={(e) => setCapital(Number(e.target.value) || 0)}
-                        style={styles.capitalInput}
-                    />
-                </label>
-                <button style={styles.primaryBtn} onClick={() => setShowForm((s) => !s)}>
-                    <PlusCircle size={16} style={{ marginInlineEnd: 6 }} />
-                    {showForm ? "إغلاق النموذج" : "تسجيل صفقة جديدة"}
-                </button>
-                <button style={styles.ghostBtn} onClick={loadDemo}>
-                    تحميل بيانات تجريبية
-                </button>
-                <button style={styles.ghostDangerBtn} onClick={clearAll}>
-                    مسح الكل
-                </button>
+            {/* Honesty Marks Legend */}
+            <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] px-3.5 py-2 mb-4 text-[10.5px] text-[#6B7280] flex flex-wrap items-center gap-x-4 gap-y-1">
+                <span className="font-bold text-[#1A1A1A]">علامات الأمانة:</span>
+                <span>° محسوب ومقاس رياضياً</span>
+                <span>≈ تقدير تقريبي وفق حجم مركز {BENCHMARKS.POSITION_SIZE_RATIO * 100}%</span>
+                <span>⚠ عدد صفقات غير كافٍ إحصائياً (&lt; {BENCHMARKS.MIN_SAMPLE_SIZE} صفقات)</span>
+                <span>🔌 صفقة محلية غير متزامنة مع الخادم بعد</span>
+                <span>⚑ خرق لقاعدة الـ {BENCHMARKS.MAX_LOSS_PCT * 100}% لإدارة المخاطر</span>
+            </div>
+
+            {/* ---------------- KPI GRID ---------------- */}
+            <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 mb-5">
+                <KpiCard
+                    icon={<CheckCircle2 size={18} className={stats.winRate != null && stats.winRate >= BENCHMARKS.MIN_WIN_RATE ? "text-[#16A34A]" : "text-[#B45309]"} />}
+                    label="معدل الربح (Win Rate)"
+                    sublabel={`الهدف ≥ ${BENCHMARKS.MIN_WIN_RATE * 100}%`}
+                    value={stats.winRate != null ? formatPct(stats.winRate * 100, 0, false) : "—"}
+                    valueColor={
+                        stats.winRate == null
+                            ? "text-[#9CA3AF]"
+                            : stats.winRate >= BENCHMARKS.MIN_WIN_RATE
+                            ? "text-[#16A34A]"
+                            : stats.winRate >= BENCHMARKS.MIN_WIN_RATE_FAIR
+                            ? "text-[#B45309]"
+                            : "text-[#DC2626]"
+                    }
+                    badge={stats.winRate != null && stats.winRate >= BENCHMARKS.MIN_WIN_RATE ? "ضمن معيار الدورة" : undefined}
+                    honestyMark={stats.hasLowSample ? "⚠" : "°"}
+                    honestyTooltip={stats.hasLowSample ? `⚠ عدد الصفقات المغلقة أقل من ${BENCHMARKS.MIN_SAMPLE_SIZE} صفقات` : "° محسوب من الصفقات المغلقة الفعلية"}
+                    footnote={
+                        stats.closedCount > 0
+                            ? `${stats.wins} رابحة / ${stats.losses} خاسرة من إجمالي ${stats.closedCount} صفقة مغلقة`
+                            : "لا توجد صفقات مغلقة بعد لاحتساب المعدل"
+                    }
+                />
+
+                <KpiCard
+                    icon={<TrendingUp size={18} className="text-[#2563EB]" />}
+                    label="المكافأة / المخاطرة (R/R)"
+                    sublabel={`الهدف ≥ ${BENCHMARKS.MIN_RR_TARGET.toFixed(1)}×`}
+                    value={stats.rr != null ? `${formatNum(stats.rr, 2)}×` : "—"}
+                    valueColor={
+                        stats.rr == null
+                            ? "text-[#9CA3AF]"
+                            : stats.rr >= BENCHMARKS.MIN_RR_TARGET
+                            ? "text-[#16A34A]"
+                            : stats.rr >= BENCHMARKS.MIN_RR_ACCEPTABLE
+                            ? "text-[#B45309]"
+                            : "text-[#DC2626]"
+                    }
+                    badge={stats.rr != null && stats.rr >= BENCHMARKS.MIN_RR_TARGET ? `الهدف ≥ ${BENCHMARKS.MIN_RR_TARGET}×` : undefined}
+                    honestyMark={stats.hasLowSample ? "⚠" : "°"}
+                    honestyTooltip={
+                        stats.hasLowSample
+                            ? `⚠ عدد الصفقات المغلقة أقل من ${BENCHMARKS.MIN_SAMPLE_SIZE} صفقات`
+                            : "° نسبة متوسط العائد في الصفقات الرابحة إلى متوسط الخسارة في الصفقات الخاسرة"
+                    }
+                    footnote={
+                        stats.closedCount > 0
+                            ? `متوسط ربح ${stats.avgGain != null ? formatPct(stats.avgGain * 100, 1) : "—"} / متوسط خسارة ${stats.avgLoss != null ? formatPct(-stats.avgLoss * 100, 1) : "لا توجد خسائر"}`
+                            : "يتطلب صفقات رابحة وخاسرة لحساب النسبة"
+                    }
+                />
+
+                <KpiCard
+                    icon={<DollarSign size={18} className={stats.expectancyPct != null && stats.expectancyPct > 0 ? "text-[#16A34A]" : "text-[#DC2626]"} />}
+                    label="التوقّع الرياضي (Expectancy)"
+                    sublabel="رياضيات مينرفيني"
+                    value={stats.expectancyPct != null ? formatPct(stats.expectancyPct * 100, 2) : "—"}
+                    valueColor={
+                        stats.expectancyPct == null
+                            ? "text-[#9CA3AF]"
+                            : stats.expectancyPct > 0
+                            ? "text-[#16A34A]"
+                            : "text-[#DC2626]"
+                    }
+                    honestyMark={stats.hasLowSample ? ["⚠", "≈"] : "≈"}
+                    honestyTooltip={
+                        stats.hasLowSample
+                            ? `⚠ عدد الصفقات المغلقة أقل من ${BENCHMARKS.MIN_SAMPLE_SIZE} — ≈ تقدير بافتراض حجم مركز ${BENCHMARKS.POSITION_SIZE_RATIO * 100}% من رأس المال`
+                            : `≈ تقدير القيمة النقدية بافتراض حجم مركز ${BENCHMARKS.POSITION_SIZE_RATIO * 100}% من رأس المال الحالي`
+                    }
+                    footnote={
+                        stats.expectancySar != null
+                            ? `${formatSar(stats.expectancySar, 0)} ≈ عائد متوقع لكل صفقة (بافتراض مركز ${BENCHMARKS.POSITION_SIZE_RATIO * 100}%)`
+                            : stats.closedCount === 0
+                            ? "لا توجد صفقات مغلقة بعد لاحتساب التوقع"
+                            : stats.losses === 0
+                            ? "يتطلب وجود صفقات خاسرة مغلقة لتحديد متوسط الخسارة"
+                            : stats.wins === 0
+                            ? "يتطلب وجود صفقات رابحة مغلقة لتحديد متوسط الربح"
+                            : "المعادلة: (نسبة الربح × متوسط الربح) - (نسبة الخسارة × متوسط الخسارة)"
+                    }
+                />
+
+                <KpiCard
+                    icon={<DollarSign size={18} className={stats.netPnl >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"} />}
+                    label="صافي الأرباح المحققة"
+                    sublabel="الربح الفعلي"
+                    value={formatSar(stats.netPnl, 0)}
+                    valueColor={stats.netPnl > 0 ? "text-[#16A34A]" : stats.netPnl < 0 ? "text-[#DC2626]" : "text-[#1A1A1A]"}
+                    honestyMark={stats.hasLowSample ? "⚠" : "°"}
+                    honestyTooltip={
+                        stats.hasLowSample
+                            ? `⚠ عدد الصفقات المغلقة أقل من ${BENCHMARKS.MIN_SAMPLE_SIZE} صفقات`
+                            : "° صافي ناتج الصفقات المغلقة بالريال السعودي"
+                    }
+                    footnote={`${stats.activeCount} مراكز نشطة حالياً تحت المتابعة`}
+                />
             </section>
+
+            {/* Oversized Losses Warning Banner */}
+            {stats.oversizedLosses.length > 0 && (
+                <div
+                    role="status"
+                    className="mb-5 p-3.5 rounded-[4px] bg-[#FEF2F2] border border-[#FECACA] border-r-4 border-r-[#DC2626] text-[12.5px] text-[#DC2626] flex items-center justify-between gap-3"
+                >
+                    <div className="flex items-center gap-2">
+                        <ShieldAlert size={18} className="shrink-0" />
+                        <div>
+                            <b>تنبيه انضباط ⚑:</b> يوجد {stats.oversizedLosses.length} صفقة تجاوزت خسارتها {BENCHMARKS.MAX_LOSS_PCT * 100}% من رأس المال الحالي ({formatNum(capital, 0)} SAR).
+                            تذكر دائماً مبدأ أحمد العامر: <i>«حجم المركز، لا أمر وقف الخسارة، هو خط الدفاع الأول عن المحفظة»</i>.
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ---------------- CONTROLS ROW ---------------- */}
+            <Card className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-3">
+                    <label className="flex items-center gap-2 text-[12px] text-[#4B5563]">
+                        <span className="font-semibold whitespace-nowrap">رأس المال الإجمالي (SAR):</span>
+                        <input
+                            type="number"
+                            inputMode="numeric"
+                            value={capitalInput}
+                            onChange={(e) => setCapitalInput(e.target.value)}
+                            onBlur={handleCapitalBlur}
+                            className="w-36 bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px] px-3 py-1.5 text-[13px] font-mono tabular-nums font-bold text-[#1A1A1A] outline-none focus:border-[#8C3B32] focus:ring-2 focus:ring-[#8C3B32]/10 dir-ltr text-right"
+                            title="اضغط خارج الحقل لتحديث رأس المال"
+                        />
+                    </label>
+
+                    <Button
+                        variant="primary"
+                        onClick={() => setShowForm((s) => !s)}
+                    >
+                        <PlusCircle size={15} className="ml-1.5" />
+                        {showForm ? "إغلاق النموذج" : "تسجيل صفقة جديدة"}
+                    </Button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <Button variant="ghost" onClick={() => setShowDemoConfirm(true)}>
+                        تحميل بيانات تجريبية
+                    </Button>
+                </div>
+            </Card>
 
             {/* ---------------- ADD TRADE FORM ---------------- */}
             {showForm && (
-                <form onSubmit={addTrade} style={styles.formPanel}>
-                    <div style={styles.formGrid}>
-                        <Field label="الرمز (Symbol)">
-                            <input
-                                value={symbol}
-                                onChange={(e) => setSymbol(e.target.value)}
-                                placeholder="مثال: 1120"
-                                style={styles.input}
-                            />
-                        </Field>
-                        <Field label="النوع">
-                            <select
-                                value={type}
-                                onChange={(e) => setType(e.target.value as TradeType)}
-                                style={styles.input}
-                            >
-                                <option value="buy">شراء</option>
-                                <option value="sell">بيع</option>
-                            </select>
-                        </Field>
-                        <Field label="عدد الأسهم">
-                            <input
-                                type="number"
-                                value={shares}
-                                onChange={(e) => setShares(e.target.value)}
-                                placeholder="200"
-                                style={styles.input}
-                            />
-                        </Field>
-                        <Field label="سعر الدخول">
-                            <input
-                                type="number"
-                                step="0.01"
-                                value={buyPrice}
-                                onChange={(e) => setBuyPrice(e.target.value)}
-                                placeholder="58.00"
-                                style={styles.input}
-                            />
-                        </Field>
-                        <Field label="سعر الخروج / المستهدف (اتركه فارغاً إن كان المركز نشطاً)">
-                            <input
-                                type="number"
-                                step="0.01"
-                                value={sellPrice}
-                                onChange={(e) => setSellPrice(e.target.value)}
-                                placeholder="64.40"
-                                style={styles.input}
-                            />
-                        </Field>
-                    </div>
-                    <Field label="سبب الدخول / الاستراتيجية — إلزامي بمنهجية الدورة">
-                        <textarea
-                            value={reason}
-                            onChange={(e) => setReason(e.target.value)}
-                            placeholder="مثال: دخول عند المنطقة الفضية + تسارع أرباح ربعي..."
-                            style={{ ...styles.input, minHeight: 60, resize: "vertical" as const }}
-                        />
-                    </Field>
-                    <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-                        <button type="submit" style={styles.primaryBtn}>
-                            حفظ الصفقة
-                        </button>
-                        <button
-                            type="button"
-                            style={styles.ghostBtn}
-                            onClick={() => {
-                                resetForm();
-                                setShowForm(false);
-                            }}
-                        >
-                            إلغاء
-                        </button>
-                    </div>
-                </form>
+                <TradeForm
+                    onSubmit={handleAddTrade}
+                    onCancel={() => setShowForm(false)}
+                    isSubmitting={isSaving}
+                />
             )}
 
-            {/* ---------------- TRADE LOG TABLE ---------------- */}
-            <section style={styles.panel}>
-                <h3 style={styles.panelTitle}>سجل الصفقات</h3>
-                {trades.length === 0 ? (
-                    <div style={styles.empty}>لا توجد صفقات مسجّلة بعد — أضف صفقة أو حمّل البيانات التجريبية</div>
-                ) : (
-                    <div style={{ overflowX: "auto" }}>
-                        <table style={styles.table}>
-                            <thead>
-                                <tr>
-                                    <th style={styles.th}>الرمز</th>
-                                    <th style={styles.th}>الحالة</th>
-                                    <th style={styles.th}>الأسهم</th>
-                                    <th style={styles.th}>سعر الدخول</th>
-                                    <th style={styles.th}>سعر الخروج</th>
-                                    <th style={styles.th}>العائد %</th>
-                                    <th style={styles.th}>ربح/خسارة SAR</th>
-                                    <th style={{ ...styles.th, textAlign: "right" }}>السبب</th>
-                                    <th style={styles.th}></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {trades.map((t) => {
-                                    const ret =
-                                        t.sellPrice != null ? (t.sellPrice - t.buyPrice) / t.buyPrice : null;
-                                    const pnl = t.sellPrice != null ? t.shares * (t.sellPrice - t.buyPrice) : null;
-                                    const sizePct = pnl != null && capital ? Math.abs(pnl) / capital : null;
-                                    return (
-                                        <tr key={t.id}>
-                                            <td style={{ ...styles.td, fontWeight: 700, textAlign: "left" }}>{t.symbol}</td>
-                                            <td style={styles.td}>
-                                                <span
-                                                    style={{
-                                                        ...styles.statusBadge,
-                                                        background:
-                                                            t.status === "active" ? "#EFF6FF" : "#F3F4F6",
-                                                        color: t.status === "active" ? "#2563EB" : "#6B7280",
-                                                        border: `1px solid ${t.status === "active" ? "#BFDBFE" : "#E5E7EB"}`,
-                                                    }}
-                                                >
-                                                    {t.status === "active" ? "نشطة" : "مغلقة"}
-                                                </span>
-                                            </td>
-                                            <td style={styles.td}>{fmt(t.shares, 0)}</td>
-                                            <td style={styles.td}>{fmt(t.buyPrice, 2)}</td>
-                                            <td style={styles.td}>{t.sellPrice != null ? fmt(t.sellPrice, 2) : "—"}</td>
-                                            <td style={{ ...styles.td, color: ret == null ? "#9CA3AF" : ret > 0 ? "#16A34A" : "#DC2626", fontWeight: ret == null ? 400 : 600 }}>
-                                                {ret != null ? pct(ret * 100, 1) : "—"}
-                                            </td>
-                                            <td style={{ ...styles.td, color: pnl == null ? "#9CA3AF" : pnl >= 0 ? "#16A34A" : "#DC2626", fontWeight: pnl == null ? 400 : 600 }}>
-                                                {pnl != null ? fmt(pnl, 0) : "—"}
-                                                {sizePct != null && sizePct > 0.03 && pnl! < 0 ? " ⚑>3%" : ""}
-                                            </td>
-                                            <td style={{ ...styles.td, textAlign: "right", fontSize: 11.5, color: "#6B7280" }}>
-                                                {t.reason}
-                                            </td>
-                                            <td style={styles.td}>
-                                                <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-                                                    {t.status === "active" && (
-                                                        <button
-                                                            style={styles.smallGhostBtn}
-                                                            onClick={() => {
-                                                                const val = window.prompt("سعر الخروج / الإغلاق:");
-                                                                const num = val ? Number(val) : NaN;
-                                                                if (!Number.isNaN(num) && num > 0) closeTrade(t.id, num);
-                                                            }}
-                                                        >
-                                                            إغلاق
-                                                        </button>
-                                                    )}
-                                                    <button style={styles.smallDangerBtn} onClick={() => removeTrade(t.id)}>
-                                                        <Trash2 size={13} />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-            </section>
+            {/* ---------------- TRADES TABLE ---------------- */}
+            <TradeTable
+                trades={computedTrades}
+                onCloseTrade={(trade) => setClosingTrade(trade)}
+                onDeleteTrade={(trade) => setTradeToDelete(trade)}
+                onNewTradeClick={() => setShowForm(true)}
+            />
 
-            <footer style={styles.footer}>
-                REBH Tools · محفوظ محلياً على هذا الجهاز (localStorage) · مراجعة كل
-                2-3 أشهر لا سنوياً · هذه المنصة تعرض الأرقام ولا توصي بالشراء أو
-                البيع
+            {/* ---------------- DOOR 7 RULEBOOK ---------------- */}
+            <RulebookAccordion />
+
+            {/* Close Trade Modal */}
+            {closingTrade && (
+                <CloseTradeDialog
+                    symbol={closingTrade.symbol}
+                    buyPrice={closingTrade.buyPrice}
+                    shares={closingTrade.shares}
+                    onClose={handleCloseTradeConfirm}
+                    onCancel={() => setClosingTrade(null)}
+                />
+            )}
+
+            {/* Delete Single Trade Confirm Modal */}
+            {tradeToDelete && (
+                <ConfirmDialog
+                    title={`حذف صفقة ${tradeToDelete.symbol}`}
+                    message={`هل أنت متأكد من رغبتك في حذف صفقة ${tradeToDelete.symbol} (${tradeToDelete.shares} سهم)؟ لا يمكن التراجع عن هذا الإجراء.`}
+                    confirmText="حذف الصفقة"
+                    danger
+                    onConfirm={handleDeleteTradeConfirm}
+                    onCancel={() => setTradeToDelete(null)}
+                />
+            )}
+
+
+            {/* Load Demo Data Confirm Modal */}
+            {showDemoConfirm && (
+                <ConfirmDialog
+                    title="تحميل البيانات التجريبية"
+                    message="هل أنت متأكد من رغبتك في تحميل البيانات التجريبية؟ سيؤدي ذلك إلى استبدال الصفقات الحالية المعروضة بنموذج بيانات توضيحي لمنهجية الدورة."
+                    confirmText="تحميل النموذج التجريبي"
+                    onConfirm={handleLoadDemoConfirm}
+                    onCancel={() => setShowDemoConfirm(false)}
+                />
+            )}
+
+            {/* Footer */}
+            <footer className="mt-8 pt-5 border-t border-[#E5E7EB] text-center text-[11px] text-[#6B7280] leading-relaxed">
+                <div>
+                    منصة REBH الجنائية · مراجعة دفتر الصفقات تتم دورياً كل 2–3 أشهر للتحقق من الانضباط الرياضي.
+                </div>
+                <div className="text-[10.5px] text-[#9CA3AF] mt-1">
+                    هذه الأداة لحساب إحصاءات التداول الشخصية ولا تقدم أي توصيات بالشراء أو البيع المالي.
+                </div>
             </footer>
         </div>
     );
 }
-
-/* ================= sub-components ================= */
-
-function KpiCard({
-    icon,
-    label,
-    value,
-    valueColor,
-    badge,
-    footnote,
-}: {
-    icon: React.ReactNode;
-    label: string;
-    value: string;
-    valueColor?: string;
-    badge?: string;
-    footnote?: string;
-}) {
-    return (
-        <div style={styles.kpiCard}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={styles.kpiIconWrap}>{icon}</div>
-                {badge && <span style={styles.kpiBadge}>{badge}</span>}
-            </div>
-            <div style={{ ...styles.kpiValue, color: valueColor || "#1A1A1A" }}>{value}</div>
-            <div style={styles.kpiLabel}>{label}</div>
-            {footnote && <div style={styles.kpiFoot}>{footnote}</div>}
-        </div>
-    );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-    return (
-        <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "#6B7280" }}>
-            {label}
-            {children}
-        </label>
-    );
-}
-
-/* ================= styles ================= */
-
-// NOTE: kept as inline style objects (matching the original implementation's approach)
-// rather than converting to Tailwind classes, to minimize risk of behavioral drift —
-// only color/radius/shadow VALUES changed to match the new light design system.
-const styles: Record<string, React.CSSProperties> = {
-    page: {
-        minHeight: "100vh",
-        background: "#F7F8FA",
-        color: "#1A1A1A",
-        fontFamily: "'Segoe UI', system-ui, sans-serif",
-        padding: "26px 24px 60px",
-        direction: "rtl",
-    },
-    header: { marginBottom: 22, borderBottom: "1px solid #E5E7EB", paddingBottom: 16 },
-    headerTitleRow: { display: "flex", alignItems: "center", gap: 10 },
-    h1: { fontSize: 22, fontWeight: 900, margin: 0, color: "#1A1A1A" },
-    sub: { color: "#6B7280", fontSize: 12.5, marginTop: 8, maxWidth: 900, lineHeight: 1.7 },
-    kpiBar: {
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-        gap: 12,
-        marginBottom: 16,
-    },
-    kpiCard: {
-        background: "#FFFFFF",
-        border: "1px solid #E5E7EB",
-        borderRadius: 4,
-        padding: "14px 16px",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-    },
-    kpiIconWrap: { display: "flex", alignItems: "center" },
-    kpiBadge: {
-        fontSize: 10.5,
-        fontWeight: 800,
-        color: "#8C3B32",
-        background: "#FBEAE8",
-        border: "1px solid #F0CFC9",
-        borderRadius: 20,
-        padding: "2px 9px",
-    },
-    kpiValue: { fontSize: 24, fontWeight: 900, marginTop: 10, fontFamily: "Consolas, monospace" },
-    kpiLabel: { fontSize: 11, color: "#6B7280", marginTop: 4, letterSpacing: 0.3, textTransform: "uppercase" },
-    kpiFoot: { fontSize: 10.5, color: "#9CA3AF", marginTop: 6 },
-    warnBanner: {
-        background: "#FEF2F2",
-        border: "1px solid #FECACA",
-        borderInlineStart: "3px solid #DC2626",
-        borderRadius: 4,
-        padding: "10px 14px",
-        fontSize: 12.5,
-        color: "#DC2626",
-        marginBottom: 16,
-    },
-    controlsRow: {
-        display: "flex",
-        gap: 10,
-        alignItems: "center",
-        flexWrap: "wrap",
-        marginBottom: 16,
-        background: "#FFFFFF",
-        border: "1px solid #E5E7EB",
-        borderRadius: 4,
-        padding: "14px 16px",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-    },
-    capitalLabel: { display: "flex", flexDirection: "column", gap: 4, fontSize: 11.5, color: "#6B7280" },
-    capitalInput: {
-        background: "#F7F8FA",
-        border: "1px solid #E5E7EB",
-        borderRadius: 4,
-        color: "#1A1A1A",
-        padding: "8px 12px",
-        fontSize: 13,
-        width: 160,
-    },
-    primaryBtn: {
-        background: "#8C3B32",
-        border: "none",
-        borderRadius: 4,
-        color: "#fff",
-        padding: "9px 18px",
-        fontSize: 12.5,
-        fontWeight: 800,
-        cursor: "pointer",
-        display: "inline-flex",
-        alignItems: "center",
-    },
-    ghostBtn: {
-        background: "transparent",
-        border: "1px solid #E5E7EB",
-        borderRadius: 4,
-        color: "#6B7280",
-        padding: "9px 16px",
-        fontSize: 12.5,
-        fontWeight: 700,
-        cursor: "pointer",
-    },
-    ghostDangerBtn: {
-        background: "transparent",
-        border: "1px solid #FECACA",
-        borderRadius: 4,
-        color: "#DC2626",
-        padding: "9px 16px",
-        fontSize: 12.5,
-        fontWeight: 700,
-        cursor: "pointer",
-    },
-    formPanel: {
-        background: "#FFFFFF",
-        border: "1px solid #E5E7EB",
-        borderRadius: 4,
-        padding: "18px 20px",
-        marginBottom: 18,
-        boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-        borderInlineStart: "3px solid #8C3B32",
-    },
-    formGrid: {
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-        gap: 12,
-        marginBottom: 12,
-    },
-    input: {
-        background: "#F7F8FA",
-        border: "1px solid #E5E7EB",
-        borderRadius: 4,
-        color: "#1A1A1A",
-        padding: "8px 12px",
-        fontSize: 13,
-        outline: "none",
-        fontFamily: "inherit",
-    },
-    panel: {
-        background: "#FFFFFF",
-        border: "1px solid #E5E7EB",
-        borderRadius: 4,
-        padding: "18px 20px",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-    },
-    panelTitle: {
-        fontSize: 12,
-        color: "#6B7280",
-        letterSpacing: 1.4,
-        textTransform: "uppercase",
-        marginBottom: 12,
-        fontWeight: 700,
-    },
-    empty: { color: "#9CA3AF", fontSize: 12.5, padding: 18, textAlign: "center" },
-    table: { width: "100%", borderCollapse: "collapse", fontSize: 12.5 },
-    th: {
-        fontSize: 10,
-        color: "#6B7280",
-        textAlign: "center",
-        padding: "7px 9px",
-        borderBottom: "1px solid #E5E7EB",
-        background: "#F3F4F6",
-        letterSpacing: 0.6,
-        whiteSpace: "nowrap",
-    },
-    td: {
-        padding: "6.5px 9px",
-        borderBottom: "1px solid #E5E7EB",
-        textAlign: "center",
-        whiteSpace: "nowrap",
-        color: "#1A1A1A",
-    },
-    statusBadge: {
-        display: "inline-block",
-        borderRadius: 20,
-        padding: "2px 8px",
-        fontSize: 10.5,
-        fontWeight: 800,
-    },
-    smallGhostBtn: {
-        background: "transparent",
-        border: "1px solid #E5E7EB",
-        borderRadius: 4,
-        color: "#2563EB",
-        padding: "3px 9px",
-        fontSize: 10.5,
-        cursor: "pointer",
-    },
-    smallDangerBtn: {
-        background: "transparent",
-        border: "1px solid #E5E7EB",
-        borderRadius: 4,
-        color: "#DC2626",
-        padding: "3px 8px",
-        fontSize: 10.5,
-        cursor: "pointer",
-        display: "inline-flex",
-        alignItems: "center",
-    },
-    footer: {
-        color: "#9CA3AF",
-        fontSize: 10.5,
-        textAlign: "center",
-        padding: "30px 0 0",
-    },
-};
-
-const globalCss = `
-  input:focus, select:focus, textarea:focus { border-color: #8C3B32 !important; box-shadow: 0 0 0 2px rgba(140,59,50,0.1); }
-  table tr:hover td { background: #F7F8FA; }
-  button:hover { filter: brightness(0.97); }
-`;

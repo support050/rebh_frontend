@@ -42,7 +42,7 @@ const NAV_ITEMS: { group: string; items: NavItem[] }[] = [
       { name: "التقرير التحليلي", nameEn: "Abu Saad Report", path: "/rebh/report/2222", icon: FileText, tag: "PDF ⎙", tagColor: "text-[#8C3B32] bg-[#FBEAE8] border-[#F0CFC9]" },
       { name: "تقارير الدورة (10 شركات)", nameEn: "Course Reports", path: "/rebh/course-reports", icon: BookOpen, tag: "10+8", tagColor: "text-[#8C3B32] bg-[#FBEAE8] border-[#F0CFC9]" },
       { name: "محطة التداول والتحليل", nameEn: "Terminal Suite", path: "/terminal", icon: BarChart2, tag: "Terminal", tagColor: "text-[#2563EB] bg-[#EFF6FF] border-[#BFDBFE]" },
-      { name: "صحة وتدقيق البيانات", nameEn: "Data Health", path: "/rebh/health", icon: Activity, tag: "Audited", tagColor: "text-[#16A34A] bg-[#F0FDF4] border-[#BBF7D0]" },
+      // { name: "صحة وتدقيق البيانات", nameEn: "Data Health", path: "/rebh/health", icon: Activity, tag: "Audited", tagColor: "text-[#16A34A] bg-[#F0FDF4] border-[#BBF7D0]" },
     ]
   }
 ];

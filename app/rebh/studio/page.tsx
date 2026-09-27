@@ -18,46 +18,49 @@ const QUICK_SYMBOLS = [
   { sym: "4200", name: "الأندلس", sec: "تجزئة" },
 ];
 
+const PRESET_ICONS: Record<string, React.ReactNode> = {
+  profitability_divergence: <Activity size={14} />,
+  revenue_margin_health: <BarChart3 size={14} />,
+  fcf_conversion: <Layers size={14} />,
+  price_trend: <CandlestickChart size={14} />,
+  balance_strength: <TrendingUp size={14} />,
+  valuation_bands: <Sparkles size={14} />,
+};
+
 const PRESETS = [
   {
     id: "profitability_divergence",
     label: "تباعد الربحية والكاش (NI vs CFO)",
-    icon: <Activity size={14} />,
     desc: "هل الأرباح المحاسبية تُترجم إلى كاش حقيقي؟",
     params: "?preset=profitability_divergence"
   },
   {
     id: "revenue_margin_health",
     label: "صحة الإيراد وهوامش الربح الربعية",
-    icon: <BarChart3 size={14} />,
     desc: "مسار الإيرادات وهوامش الربح الإجمالي فصلاً بفصل",
     params: "?preset=revenue_margin_health"
   },
   {
     id: "fcf_conversion",
     label: "FCF مقابل CapEx (كاش المالك)",
-    icon: <Layers size={14} />,
     desc: "التدفق الحر الحقيقي بعد خصم الإنفاق الرأسمالي",
     params: "?preset=fcf_conversion"
   },
   {
     id: "price_trend",
     label: "مسار السعر مع SMA-20 والحجم",
-    icon: <CandlestickChart size={14} />,
     desc: "تحليل حركة السعر اليومي مع متوسط متحرك 20 يوم",
     params: "?preset=price_trend"
   },
   {
     id: "balance_strength",
     label: "قوة الميزانية — ROE / ROIC / صافي الدين",
-    icon: <TrendingUp size={14} />,
     desc: "عوائد التوظيف ومستوى الدين عبر السنوات",
     params: "?preset=balance_strength"
   },
   {
     id: "valuation_bands",
     label: "نطاقات التقييم — PE / PB / عائد التوزيعات",
-    icon: <Sparkles size={14} />,
     desc: "مضاعفات التقييم الحالية مقارنةً بالمتوسط التاريخي",
     params: "?preset=valuation_bands"
   },
@@ -162,28 +165,31 @@ export default function RebhStudioLandingPage() {
             قوالب التحليل الجاهزة — ابدأ بالسؤال لا بالرسمة
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {PRESETS.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => go("2222", p.params)}
-                className="bg-white border border-[#E5E7EB] rounded-[6px] p-4 text-right hover:border-[#8C3B32] hover:shadow-sm transition-all group flex items-start gap-3"
-              >
-                <span className="shrink-0 w-8 h-8 rounded-[6px] bg-[#FFF1EF] border border-[#FECACA] flex items-center justify-center text-[#8C3B32] mt-0.5">
-                  {p.icon}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <span className="block text-xs font-bold text-[#0F172A]">{p.label}</span>
-                  <span className="block text-[11px] text-[#64748B] mt-0.5">{p.desc}</span>
-                </div>
-                <ArrowRight
-                  size={13}
-                  className="shrink-0 text-[#CBD5E1] group-hover:text-[#8C3B32] mt-1 transition-colors rotate-180"
-                />
-              </button>
-            ))}
+            {PRESETS.map((p) => {
+              const targetSym = input.trim().length === 4 ? input.trim() : "2222";
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => go(targetSym, p.params)}
+                  className="bg-white border border-[#E5E7EB] rounded-[6px] p-4 text-right hover:border-[#8C3B32] hover:shadow-sm transition-all group flex items-start gap-3"
+                >
+                  <span className="shrink-0 w-8 h-8 rounded-[6px] bg-[#FFF1EF] border border-[#FECACA] flex items-center justify-center text-[#8C3B32] mt-0.5">
+                    {PRESET_ICONS[p.id]}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <span className="block text-xs font-bold text-[#0F172A]">{p.label}</span>
+                    <span className="block text-[11px] text-[#64748B] mt-0.5">{p.desc}</span>
+                  </div>
+                  <ArrowRight
+                    size={13}
+                    className="shrink-0 text-[#CBD5E1] group-hover:text-[#8C3B32] mt-1 transition-colors rotate-180"
+                  />
+                </button>
+              );
+            })}
           </div>
           <p className="text-[11px] text-[#9CA3AF] text-center">
-            القوالب تفتح أرامكو 2222 — يمكنك تغيير الرمز بعد الفتح من شريط البحث.
+            تفتح القوالب سهم أرامكو (2222) افتراضياً أو الرمز الذي تكتبه في خانة البحث أعلاه.
           </p>
         </section>
       </main>

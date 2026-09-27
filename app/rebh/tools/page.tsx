@@ -3,37 +3,22 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
-  Sliders, Shield, BarChart3, Layers, Calendar,
-  HelpCircle, Eye, RefreshCw, ArrowUpRight, Cpu,
-  PieChart, Bell, BookOpen, Plus, X, Loader2, AlertTriangle,
+  Sliders, BarChart3, Layers, Calendar,
+  ArrowUpRight, Cpu,
+  PieChart, Bell, BookOpen,
 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api/config";
+import type { CompanyItem } from "./types";
 
 // Modular Sub-Components
 import MarketMonitorTab from "./components/MarketMonitorTab";
 import TradeJournalTab from "./components/TradeJournalTab";
 import CourseLabsTab from "./components/CourseLabsTab";
+import FvLabTab from "./components/FvLabTab";
+import PortfolioXrayTab from "./components/PortfolioXrayTab";
+import AlertBuilderTab from "./components/AlertBuilderTab";
+import EarningsCalendarTab from "./components/EarningsCalendarTab";
 
-interface CompanyItem {
-  sym: string;
-  n: string;
-  sec: string;
-  px: number;
-  mc: number;
-  pe?: number;
-  pb?: number;
-  roe?: number;
-  g_net?: number;
-  g_rev?: number;
-  f_score?: number;
-  fresh?: boolean;
-  ncav?: number;
-  pncav?: number;
-  peg?: number;
-  period?: string;
-  end?: string;
-  period_end?: string;
-}
 
 // ---------------------------------------------------------------------------
 // Shared style tokens (kept local to this file — no shared UI primitives
@@ -41,12 +26,6 @@ interface CompanyItem {
 // across every card/input/button below).
 // ---------------------------------------------------------------------------
 const CARD = "bg-white border border-[#E5E7EB] rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.06)]";
-const SUBCARD = "bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px]";
-const INPUT =
-  "bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px] px-3 py-2 text-xs text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#8C3B32] focus:ring-2 focus:ring-[#8C3B32]/10 transition";
-const BTN_PRIMARY =
-  "px-4 py-2 bg-[#8C3B32] hover:bg-[#7a332b] text-white rounded-[4px] text-xs font-bold transition inline-flex items-center gap-1.5";
-const KPI_LABEL = "text-[10px] text-[#6B7280] uppercase tracking-wide block mb-1";
 
 export default function RebhToolsPage() {
   const [activeTab, setActiveTab] = useState<"fv_lab" | "portfolio_xray" | "alerts" | "calendar" | "market_monitor" | "trade_journal" | "course_labs">("fv_lab");
@@ -54,28 +33,34 @@ export default function RebhToolsPage() {
   // Market universe data
   const [universe, setUniverse] = useState<CompanyItem[]>([]);
   const [loadingUniverse, setLoadingUniverse] = useState(false);
+  const [universeError, setUniverseError] = useState<string | null>(null);
 
   // Real Tadawul Corporate Actions & Dividends Feed
   const [corporateActions, setCorporateActions] = useState<any[]>([]);
   const [calendarSubTab, setCalendarSubTab] = useState<"cma_deadlines" | "corporate_actions">("corporate_actions");
 
-  useEffect(() => {
-    async function loadUniverse() {
-      try {
-        setLoadingUniverse(true);
-        const res = await fetch(`${API_BASE_URL}/api/rebh/universe`);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data)) {
-            setUniverse(data);
-          }
+  const loadUniverse = async () => {
+    try {
+      setLoadingUniverse(true);
+      setUniverseError(null);
+      const res = await fetch(`${API_BASE_URL}/api/rebh/universe`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setUniverse(data);
         }
-      } catch (err) {
-        console.error("Failed to load market universe:", err);
-      } finally {
-        setLoadingUniverse(false);
+      } else {
+        setUniverseError(`تعذر جلب بيانات السوق (${res.status})`);
       }
+    } catch (err: any) {
+      console.error("Failed to load market universe:", err);
+      setUniverseError("تعذر الاتصال بخادم بيانات السوق المالي");
+    } finally {
+      setLoadingUniverse(false);
     }
+  };
+
+  useEffect(() => {
     async function loadCorporateActions() {
       try {
         const res = await fetch(`${API_BASE_URL}/api/rebh/corporate-actions?limit=50`);
@@ -99,11 +84,99 @@ export default function RebhToolsPage() {
   const [terminalGrowth, setTerminalGrowth] = useState<number>(2.0);
   const [baseEps, setBaseEps] = useState<number>(3.5);
 
+  // FV Lab Symbol lookup
+  const [fvSymbolInput, setFvSymbolInput] = useState<string>("");
+  const [fvLoadingSymbol, setFvLoadingSymbol] = useState<boolean>(false);
+  const [fvSymbolMeta, setFvSymbolMeta] = useState<{ sym: string; name: string; px?: number; pe?: number; error?: string } | null>(null);
+
+  const fetchSymbolEps = async (symbolToFetch?: string) => {
+    const rawSym = (symbolToFetch || fvSymbolInput).trim();
+    if (!rawSym) return;
+
+    // Check in local universe first for immediate response
+    const localMatch = universe.find(c => c.sym === rawSym || c.sym === `${rawSym}.SR`);
+    if (localMatch && localMatch.pe && localMatch.pe > 0 && localMatch.px) {
+      const derivedEps = Math.round((localMatch.px / localMatch.pe) * 100) / 100;
+      setBaseEps(derivedEps);
+      setFvSymbolMeta({
+        sym: localMatch.sym,
+        name: localMatch.n,
+        px: localMatch.px,
+        pe: localMatch.pe,
+      });
+      return;
+    }
+
+    setFvLoadingSymbol(true);
+    setFvSymbolMeta(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/rebh/company/${rawSym}`);
+      if (res.ok) {
+        const data = await res.json();
+        // Priority 1: TTM net profit / shares if available, or px / pe
+        let epsVal: number | null = null;
+        if (data.TTM?.net_profit && data.mc && data.px) {
+          const sharesCount = data.mc / data.px;
+          if (sharesCount > 0) {
+            epsVal = (data.TTM.net_profit / 1_000_000) / sharesCount;
+          }
+        }
+        if (!epsVal && data.px && data.pe && data.pe > 0) {
+          epsVal = data.px / data.pe;
+        }
+
+        if (epsVal && epsVal > 0) {
+          const roundedEps = Math.round(epsVal * 100) / 100;
+          setBaseEps(roundedEps);
+          setFvSymbolMeta({
+            sym: data.sym || rawSym,
+            name: data.n || data.name || rawSym,
+            px: data.px,
+            pe: data.pe,
+          });
+        } else {
+          setFvSymbolMeta({
+            sym: rawSym,
+            name: data.n || rawSym,
+            error: "الشركة خاسرة أو ليس لها أرباح موجبة TTM لحساب ربحية السهم",
+          });
+        }
+      } else {
+        setFvSymbolMeta({ sym: rawSym, name: rawSym, error: "لم يتم العثور على بيانات هذا الرمز" });
+      }
+    } catch {
+      setFvSymbolMeta({ sym: rawSym, name: rawSym, error: "تعذر الاتصال بالخادم لجلب بيانات السهم" });
+    } finally {
+      setFvLoadingSymbol(false);
+    }
+  };
+
+  const dcfValidation = React.useMemo(() => {
+    const r = discountRate / 100.0;
+    const g = growthRate / 100.0;
+    const gTerm = terminalGrowth / 100.0;
+
+    const reasons: string[] = [];
+    if (r <= gTerm) {
+      reasons.push(`معدل العائد المطلوب (${discountRate}%) يجب أن يكون أكبر قطيعاً من معدل النمو النهائي (${terminalGrowth}%). رياضيّاً، المقام (R − g_term) يصبح صفراً أو سالباً فتؤول القيمة إلى ما لا نهاية.`);
+    }
+    if (baseEps <= 0) {
+      reasons.push("ربحية السهم (EPS) صفرية أو سالبة. نموذج التدفقات المخصومة التقليدي لا يمكن تطبيقه على شركات خاسرة.");
+    }
+    const isGrowthHigh = g > r;
+
+    return {
+      isValid: reasons.length === 0,
+      reasons,
+      isGrowthHigh,
+    };
+  }, [discountRate, growthRate, terminalGrowth, baseEps]);
+
   const calculatedFv = React.useMemo(() => {
     const r = discountRate / 100.0;
     const g = growthRate / 100.0;
     const gTerm = terminalGrowth / 100.0;
-    if (r <= gTerm) return 0;
+    if (r <= gTerm || baseEps <= 0) return 0;
 
     let pvSum = 0;
     let currentE = baseEps;
@@ -117,23 +190,71 @@ export default function RebhToolsPage() {
   }, [discountRate, growthRate, terminalGrowth, baseEps]);
 
   // Portfolio X-Ray State
-  interface Holding {
-    sym: string;
-    amount: number;
-  }
-  const [holdings, setHoldings] = useState<Holding[]>([
+  const STORAGE_KEY_PORTFOLIO = "rebh_tools_portfolio_xray_v1";
+
+  const DEFAULT_HOLDINGS: { sym: string; amount: number }[] = [
     { sym: "1120", amount: 40000 },
     { sym: "2222", amount: 30000 },
     { sym: "7010", amount: 20000 },
     { sym: "4300", amount: 15000 },
-  ]);
+  ];
+
+  interface Holding {
+    sym: string;
+    amount: number;
+  }
+
+  const [holdings, setHoldings] = useState<Holding[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY_PORTFOLIO);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (e) {
+        console.error("Failed to load portfolio from localStorage", e);
+      }
+    }
+    return DEFAULT_HOLDINGS;
+  });
+
   const [newSym, setNewSym] = useState("");
   const [newAmount, setNewAmount] = useState("");
+  const [holdingError, setHoldingError] = useState<string | null>(null);
+
+  // Sync holdings to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_PORTFOLIO, JSON.stringify(holdings));
+    } catch (e) {
+      console.error("Failed to persist portfolio holdings:", e);
+    }
+  }, [holdings]);
 
   const addHolding = () => {
-    if (!newSym || !newAmount || parseFloat(newAmount) <= 0) return;
+    setHoldingError(null);
     const s = newSym.trim();
     const a = parseFloat(newAmount);
+
+    if (!s) {
+      setHoldingError("يرجى إدخال رمز السهم");
+      return;
+    }
+    if (isNaN(a) || a <= 0) {
+      setHoldingError("يرجى إدخال مبلغ استثماري صحيح أكبر من صفر");
+      return;
+    }
+
+    // Validate symbol existence against universe if universe is available
+    if (universe.length > 0) {
+      const exists = universe.some(c => c.sym === s || c.sym === `${s}.SR`);
+      if (!exists) {
+        setHoldingError(`الرمز [${s}] غير مدرج في السوق أو لم يتم العثور عليه`);
+        return;
+      }
+    }
+
     setHoldings(prev => {
       const idx = prev.findIndex(h => h.sym === s);
       if (idx >= 0) {
@@ -145,16 +266,35 @@ export default function RebhToolsPage() {
     });
     setNewSym("");
     setNewAmount("");
+    setHoldingError(null);
   };
 
   const removeHolding = (sym: string) => {
     setHoldings(prev => prev.filter(h => h.sym !== sym));
   };
 
+  const resetDefaultHoldings = () => {
+    if (confirm("هل تريد استعادة المحفظة النموذجية الافتراضية؟")) {
+      setHoldings(DEFAULT_HOLDINGS);
+      setHoldingError(null);
+    }
+  };
+
   const xrayMetrics = React.useMemo(() => {
     const totalAmount = holdings.reduce((sum, h) => sum + h.amount, 0);
     if (totalAmount === 0 || universe.length === 0) {
-      return { totalAmount: 0, weightedPe: null, weightedPb: null, weightedRoe: null, hhi: 0, sectorMix: [] };
+      return {
+        totalAmount: 0,
+        weightedPe: null,
+        weightedPb: null,
+        weightedRoe: null,
+        sectorHhi: 0,
+        stockHhi: 0,
+        sectorMix: [],
+        missingPeCount: 0,
+        negativePeCount: 0,
+        coveredPeWeightPct: 0
+      };
     }
 
     const sectorWeights: Record<string, number> = {};
@@ -165,16 +305,29 @@ export default function RebhToolsPage() {
     let weightedRoeSum = 0;
     let roeWeightSum = 0;
 
+    let stockHhiSum = 0;
+    let missingPeCount = 0;
+    let negativePeCount = 0;
+
     holdings.forEach(h => {
-      const co = universe.find(c => c.sym === h.sym);
+      const co = universe.find(c => c.sym === h.sym || c.sym === `${h.sym}.SR`);
       const weight = h.amount / totalAmount;
       const sec = co?.sec || "أخرى";
       sectorWeights[sec] = (sectorWeights[sec] || 0) + weight;
 
-      if (co?.pe && co.pe > 0) {
+      // Stock HHI: sum of squared weights of individual holdings
+      stockHhiSum += (weight * 100) * (weight * 100);
+
+      // Track P/E availability & negativity
+      if (!co || co.pe == null) {
+        missingPeCount++;
+      } else if (co.pe <= 0) {
+        negativePeCount++;
+      } else {
         weightedPeInverseSum += weight / co.pe;
         peWeightSum += weight;
       }
+
       if (co?.pb && co.pb > 0) {
         weightedPbSum += weight * co.pb;
         pbWeightSum += weight;
@@ -188,7 +341,9 @@ export default function RebhToolsPage() {
     const harmonicPe = peWeightSum > 0 && weightedPeInverseSum > 0 ? (peWeightSum / weightedPeInverseSum) : null;
     const avgPb = pbWeightSum > 0 ? (weightedPbSum / pbWeightSum) : null;
     const avgRoe = roeWeightSum > 0 ? (weightedRoeSum / roeWeightSum) : null;
-    const hhi = Object.values(sectorWeights).reduce((sum, w) => sum + (w * w), 0);
+
+    // Sector HHI
+    const sectorHhiSum = Object.values(sectorWeights).reduce((sum, w) => sum + ((w * 100) * (w * 100)), 0);
 
     const sectorMix = Object.entries(sectorWeights)
       .map(([name, weight]) => ({ name, pct: Math.round(weight * 1000) / 10 }))
@@ -199,8 +354,12 @@ export default function RebhToolsPage() {
       weightedPe: harmonicPe ? Math.round(harmonicPe * 10) / 10 : null,
       weightedPb: avgPb ? Math.round(avgPb * 100) / 100 : null,
       weightedRoe: avgRoe ? Math.round(avgRoe * 10) / 10 : null,
-      hhi: Math.round(hhi * 10000) / 100,
-      sectorMix
+      sectorHhi: Math.round(sectorHhiSum),
+      stockHhi: Math.round(stockHhiSum),
+      sectorMix,
+      missingPeCount,
+      negativePeCount,
+      coveredPeWeightPct: Math.round(peWeightSum * 1000) / 10
     };
   }, [holdings, universe]);
 
@@ -295,18 +454,13 @@ export default function RebhToolsPage() {
         const deadlineDays = isAnnual ? 90 : 45;
         const filingDeadline = new Date(pEndDate.getTime() + deadlineDays * 24 * 60 * 60 * 1000);
 
-        const isOverdue = today > filingDeadline;
+        // Since this record comes from already-published financial statements in universe (fresh === true):
+        // The company HAS already disclosed this period. Marking it overdue just because today > filingDeadline
+        // is mathematically & regulatory wrong.
         const diffDays = Math.round((filingDeadline.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
 
-        let status = "في الإطار النظامي";
+        let status = "تم الإفصاح نظامياً ✓";
         let statusColor = "bg-[#F0FDF4] text-[#16A34A] border-[#BBF7D0]";
-        if (isOverdue) {
-          status = "متأخر عن المهلة ⚑";
-          statusColor = "bg-[#FEF2F2] text-[#DC2626] border-[#FECACA]";
-        } else if (diffDays <= 7 && diffDays >= 0) {
-          status = "مرتقب خلال أسبوع ⏳";
-          statusColor = "bg-[#FFFBEB] text-[#B45309] border-[#FDE68A]";
-        }
 
         return {
           sym: c.sym,
@@ -327,7 +481,7 @@ export default function RebhToolsPage() {
   const TABS = [
     { id: "fv_lab", label: "مختبر القيمة العادلة (FV Lab)", icon: Sliders },
     { id: "portfolio_xray", label: "أشعة المحفظة (Portfolio X-Ray)", icon: PieChart },
-    { id: "alerts", label: "منبه الإشارات (Alert Builder)", icon: Bell },
+    { id: "alerts", label: "فلتر الأسهم المتقدم (Screener)", icon: Bell },
     { id: "calendar", label: "رزنامة النتائج (Earnings Calendar)", icon: Calendar },
     { id: "market_monitor", label: "مراقب تقييم السوق (Market Monitor)", icon: BarChart3 },
     { id: "trade_journal", label: "سجل الصفقات (Trade Journal)", icon: BookOpen },
@@ -378,424 +532,71 @@ export default function RebhToolsPage() {
 
         {/* Tab 1: Fair Value Lab */}
         {activeTab === "fv_lab" && (
-          <div className="py-6 space-y-6">
-            <div className={`${CARD} p-6`}>
-              <div className="max-w-2xl mb-6">
-                <div className="flex items-center gap-2 mb-1">
-                  <h2 className="text-base font-bold text-[#1A1A1A]">حاسبة التدفقات النقدية التقليدية (Conventional Terminal DCF Lab)</h2>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]">
-                    نموذج تقليدي أكاديمي — ليس منهج الخرافشي الأساسي
-                  </span>
-                </div>
-                <p className="text-xs text-[#6B7280]">
-                  تنبيه منهجي: تعتمد دورة الخرافشي أسلوب تقييم العائد المتوقع وتفكيك مضاعفات النمو (Khurafshi Return Engine) وترفض الاعتماد المطلق على القيمة النهائية للتدفقات (Terminal Value). تم توفير هذه الحاسبة لأغراض المقارنة الأكاديمية فقط.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-                <div className={`space-y-5 ${SUBCARD} p-5`}>
-                  <div>
-                    <div className="flex justify-between text-xs mb-1.5">
-                      <span className="text-[#6B7280]">ربحية السهم الأساسية (EPS TTM):</span>
-                      <span className="text-[#8C3B32] font-bold">{baseEps.toFixed(2)} ر.س</span>
-                    </div>
-                    <input
-                      type="range" min="0.5" max="25" step="0.25"
-                      value={baseEps} onChange={(e) => setBaseEps(parseFloat(e.target.value))}
-                      className="w-full accent-[#8C3B32]"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-xs mb-1.5">
-                      <span className="text-[#6B7280]">معدل العائد المطلوب (Discount Rate R):</span>
-                      <span className="text-[#DC2626] font-bold">{discountRate.toFixed(1)}%</span>
-                    </div>
-                    <input
-                      type="range" min="4" max="15" step="0.5"
-                      value={discountRate} onChange={(e) => setDiscountRate(parseFloat(e.target.value))}
-                      className="w-full accent-[#8C3B32]"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-xs mb-1.5">
-                      <span className="text-[#6B7280]">معدل النمو للخمس سنوات (Growth g):</span>
-                      <span className="text-[#16A34A] font-bold">{growthRate.toFixed(1)}%</span>
-                    </div>
-                    <input
-                      type="range" min="0" max="25" step="0.5"
-                      value={growthRate} onChange={(e) => setGrowthRate(parseFloat(e.target.value))}
-                      className="w-full accent-[#8C3B32]"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-xs mb-1.5">
-                      <span className="text-[#6B7280]">معدل النمو النهائي (Terminal Growth):</span>
-                      <span className="text-[#1A1A1A] font-bold">{terminalGrowth.toFixed(1)}%</span>
-                    </div>
-                    <input
-                      type="range" min="0.5" max="4.0" step="0.25"
-                      value={terminalGrowth} onChange={(e) => setTerminalGrowth(parseFloat(e.target.value))}
-                      className="w-full accent-[#8C3B32]"
-                    />
-                  </div>
-                </div>
-
-                <div className="bg-[#F3F4F6] border border-[#E5E7EB] rounded-[4px] p-6 text-center space-y-4">
-                  <span className="text-xs uppercase tracking-wide text-[#6B7280] block">القيمة العادلة المحسوبة للسهم</span>
-                  <div className="text-5xl font-black text-[#1A1A1A]">
-                    {calculatedFv > 0 ? `${calculatedFv.toFixed(2)}` : "غير صالح"}
-                    <span className="text-base font-normal text-[#6B7280] mr-2">ر.س</span>
-                  </div>
-                  <p className="text-xs text-[#6B7280] max-w-sm mx-auto">
-                    بناءً على عائد مطلوب {discountRate}% ونمو متوقع {growthRate}% للسهم الواحد.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
+          <FvLabTab
+            baseEps={baseEps}
+            setBaseEps={setBaseEps}
+            discountRate={discountRate}
+            setDiscountRate={setDiscountRate}
+            growthRate={growthRate}
+            setGrowthRate={setGrowthRate}
+            terminalGrowth={terminalGrowth}
+            setTerminalGrowth={setTerminalGrowth}
+            fvSymbolInput={fvSymbolInput}
+            setFvSymbolInput={setFvSymbolInput}
+            fvLoadingSymbol={fvLoadingSymbol}
+            fvSymbolMeta={fvSymbolMeta}
+            fetchSymbolEps={fetchSymbolEps}
+            dcfValidation={dcfValidation}
+            calculatedFv={calculatedFv}
+          />
         )}
 
         {/* Tab 2: Portfolio X-Ray */}
         {activeTab === "portfolio_xray" && (
-          <div className="py-6 space-y-6">
-            <div className={`${CARD} p-6`}>
-              <div className="max-w-2xl mb-6">
-                <h2 className="text-base font-bold text-[#1A1A1A] mb-1">أشعة المحفظة الاستثمارية (Portfolio X-Ray)</h2>
-                <p className="text-xs text-[#6B7280]">
-                  أدخل أسهم محفظتك ومقاديرها بالريال لمعرفة مكرر أرباح المحفظة التوافقي، تركز القطاعات، ومؤشر هيرفندال (HHI).
-                </p>
-              </div>
-
-              <div className={`flex flex-wrap gap-3 items-center ${SUBCARD} p-4 mb-6`}>
-                <input
-                  type="text"
-                  placeholder="رمز السهم (مثال: 1120)"
-                  value={newSym}
-                  onChange={(e) => setNewSym(e.target.value)}
-                  className={`${INPUT} w-36`}
-                />
-                <input
-                  type="number"
-                  placeholder="المبلغ المستثمر (ر.س)"
-                  value={newAmount}
-                  onChange={(e) => setNewAmount(e.target.value)}
-                  className={`${INPUT} w-44`}
-                />
-                <button onClick={addHolding} className={BTN_PRIMARY}>
-                  <Plus className="w-3.5 h-3.5" />
-                  إضافة للمحفظة
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center mb-6">
-                <div className={`${SUBCARD} p-3.5`}>
-                  <span className={KPI_LABEL}>إجمالي المحفظة</span>
-                  <span className="text-lg font-black text-[#1A1A1A]">{xrayMetrics.totalAmount.toLocaleString()} ر.س</span>
-                </div>
-                <div className={`${SUBCARD} p-3.5`}>
-                  <span className={KPI_LABEL}>مكرر P/E التوافقي</span>
-                  <span className="text-lg font-black text-[#1A1A1A]">{xrayMetrics.weightedPe ? `${xrayMetrics.weightedPe}x` : "—"}</span>
-                </div>
-                <div className={`${SUBCARD} p-3.5`}>
-                  <span className={KPI_LABEL}>مكرر الدفترية المرجح</span>
-                  <span className="text-lg font-black text-[#1A1A1A]">{xrayMetrics.weightedPb ? `${xrayMetrics.weightedPb}x` : "—"}</span>
-                </div>
-                <div className={`${SUBCARD} p-3.5`}>
-                  <span className={KPI_LABEL}>العائد المرجح ROE</span>
-                  <span className="text-lg font-black text-[#16A34A]">{xrayMetrics.weightedRoe ? `${xrayMetrics.weightedRoe}%` : "—"}</span>
-                </div>
-                <div className={`${SUBCARD} p-3.5`}>
-                  <span className={KPI_LABEL}>تركز المحفظة HHI</span>
-                  <span className={`text-lg font-black ${xrayMetrics.hhi > 35 ? 'text-[#B45309]' : 'text-[#16A34A]'}`}>
-                    {xrayMetrics.hhi}
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className={`${SUBCARD} p-4 overflow-x-auto`}>
-                  <h3 className="text-xs font-bold text-[#1A1A1A] mb-3">مكونات المحفظة الحالية ({holdings.length})</h3>
-                  <table className="w-full text-xs text-right border-collapse">
-                    <thead>
-                      <tr className="text-[#6B7280] bg-[#F3F4F6]">
-                        <th className="p-2 font-semibold">الرمز</th>
-                        <th className="p-2 font-semibold">المبلغ</th>
-                        <th className="p-2 font-semibold">الوزن</th>
-                        <th className="p-2 font-semibold text-center">إجراء</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {holdings.map(h => {
-                        const co = universe.find(c => c.sym === h.sym);
-                        const weight = xrayMetrics.totalAmount > 0 ? ((h.amount / xrayMetrics.totalAmount) * 100).toFixed(1) : "0";
-                        return (
-                          <tr key={h.sym} className="border-t border-[#E5E7EB] hover:bg-[#F3F4F6]">
-                            <td className="p-2">
-                              <span className="font-bold text-[#1A1A1A]">{h.sym}</span>
-                              <span className="text-[#6B7280] text-[10px] mr-1.5">{co?.n}</span>
-                            </td>
-                            <td className="p-2 text-[#1A1A1A] tabular-nums">{h.amount.toLocaleString()} ر.س</td>
-                            <td className="p-2 text-[#8C3B32] font-bold tabular-nums">{weight}%</td>
-                            <td className="p-2 text-center">
-                              <button
-                                onClick={() => removeHolding(h.sym)}
-                                aria-label="حذف"
-                                className="text-[#6B7280] hover:text-[#DC2626] transition"
-                              >
-                                <X className="w-3.5 h-3.5 inline" />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className={`${SUBCARD} p-4`}>
-                  <h3 className="text-xs font-bold text-[#1A1A1A] mb-3">توزيع القطاعات (Sector Allocation)</h3>
-                  <div className="space-y-3">
-                    {xrayMetrics.sectorMix.map(sec => (
-                      <div key={sec.name}>
-                        <div className="flex justify-between text-xs mb-1">
-                          <span className="text-[#1A1A1A]">{sec.name}</span>
-                          <span className="text-[#8C3B32] font-bold tabular-nums">{sec.pct}%</span>
-                        </div>
-                        <div className="w-full h-2 bg-[#E5E7EB] rounded-full overflow-hidden">
-                          <div className="h-full bg-[#8C3B32]" style={{ width: `${sec.pct}%` }} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <PortfolioXrayTab
+            universe={universe}
+            universeError={universeError}
+            loadUniverse={loadUniverse}
+            holdings={holdings}
+            newSym={newSym}
+            setNewSym={setNewSym}
+            newAmount={newAmount}
+            setNewAmount={setNewAmount}
+            holdingError={holdingError}
+            setHoldingError={setHoldingError}
+            addHolding={addHolding}
+            removeHolding={removeHolding}
+            resetDefaultHoldings={resetDefaultHoldings}
+            xrayMetrics={xrayMetrics}
+          />
         )}
 
-        {/* Tab 3: Alerts & Rule Builder */}
+        {/* Tab 3: Advanced Stock Screener */}
         {activeTab === "alerts" && (
-          <div className="py-6 space-y-6">
-            <div className={`${CARD} p-6`}>
-              <div className="max-w-2xl mb-6">
-                <h2 className="text-base font-bold text-[#1A1A1A] mb-1">منبه الإشارات وباني الشروط (Alert Builder &amp; Presets)</h2>
-                <p className="text-xs text-[#6B7280]">
-                  ابنِ شروطاً مركبة بنظام AND لمعرفة جميع الشركات التي تحققها فوراً في السوق المالي مع حفظ القوائم.
-                </p>
-              </div>
-
-              <div className={`flex flex-wrap gap-2.5 items-center ${SUBCARD} p-4 mb-6`}>
-                <select
-                  value={selectedMetric}
-                  onChange={(e) => setSelectedMetric(e.target.value as keyof CompanyItem)}
-                  className={INPUT}
-                >
-                  {METRIC_OPTIONS.map(o => (
-                    <option key={o.key} value={o.key}>{o.label}</option>
-                  ))}
-                </select>
-
-                <select
-                  value={selectedOp}
-                  onChange={(e) => setSelectedOp(e.target.value as "<" | ">")}
-                  className={INPUT}
-                >
-                  <option value="<">&lt; أقل من</option>
-                  <option value=">">&gt; أكبر من</option>
-                </select>
-
-                <input
-                  type="number"
-                  placeholder="القيمة"
-                  value={ruleVal}
-                  onChange={(e) => setRuleVal(e.target.value)}
-                  className={`${INPUT} w-28`}
-                />
-
-                <button onClick={addRule} className={BTN_PRIMARY}>
-                  <Plus className="w-3.5 h-3.5" />
-                  إضافة شرط
-                </button>
-              </div>
-
-              <div className="flex flex-wrap gap-2 mb-6">
-                {rules.map((r, idx) => (
-                  <span key={idx} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#8C3B32]/40 rounded-full text-xs text-[#1A1A1A]">
-                    <span>{r.label} {r.op} {r.val}</span>
-                    <button onClick={() => removeRule(idx)} aria-label="حذف الشرط" className="text-[#6B7280] hover:text-[#DC2626] transition">
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-
-              <div className={`${SUBCARD} overflow-hidden`}>
-                <div className="px-4 py-3 border-b border-[#E5E7EB] flex justify-between items-center text-xs bg-[#F3F4F6]">
-                  <span className="font-bold text-[#1A1A1A]">الشركات المطابقة للشروط اليوم: {alertHits.length} شركة</span>
-                  <span className="text-[#6B7280]">تحديث مباشر</span>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs text-right border-collapse">
-                    <thead>
-                      <tr className="text-[#6B7280] bg-[#F3F4F6] border-b border-[#E5E7EB]">
-                        <th className="p-3 font-semibold">الرمز والشركة</th>
-                        <th className="p-3 font-semibold">القطاع</th>
-                        <th className="p-3 font-semibold">السعر</th>
-                        <th className="p-3 font-semibold">P/E</th>
-                        <th className="p-3 font-semibold">ROE</th>
-                        <th className="p-3 font-semibold">F-Score</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {alertHits.slice(0, 15).map(c => (
-                        <tr key={c.sym} className="border-t border-[#E5E7EB] hover:bg-[#F3F4F6]">
-                          <td className="p-3 font-bold text-[#1A1A1A]">
-                            <Link href={`/rebh/${c.sym}`} className="text-[#8C3B32] hover:underline ml-1.5">{c.sym}</Link>
-                            <span>{c.n}</span>
-                          </td>
-                          <td className="p-3 text-[#6B7280]">{c.sec}</td>
-                          <td className="p-3 text-[#1A1A1A] tabular-nums">{c.px ? `${c.px.toFixed(2)} ر.س` : "—"}</td>
-                          <td className="p-3 tabular-nums">{c.pe ? `${c.pe}x` : "—"}</td>
-                          <td className="p-3 text-[#16A34A] tabular-nums">{c.roe ? `${c.roe}%` : "—"}</td>
-                          <td className="p-3 font-bold tabular-nums">{c.f_score != null ? `${c.f_score}/9` : "—"}</td>
-                        </tr>
-                      ))}
-                      {alertHits.length === 0 && (
-                        <tr>
-                          <td colSpan={6} className="p-6 text-center text-[#6B7280]">لا توجد شركات تحقق الشروط المحددة حالياً.</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
+          <AlertBuilderTab
+            rules={rules}
+            setRules={setRules}
+            selectedMetric={selectedMetric}
+            setSelectedMetric={setSelectedMetric}
+            selectedOp={selectedOp}
+            setSelectedOp={setSelectedOp}
+            ruleVal={ruleVal}
+            setRuleVal={setRuleVal}
+            metricOptions={METRIC_OPTIONS}
+            addRule={addRule}
+            removeRule={removeRule}
+            alertHits={alertHits}
+          />
         )}
 
         {/* Tab 4: Earnings & Corporate Actions Calendar */}
         {activeTab === "calendar" && (
-          <div className="py-6 space-y-6">
-            <div className={`${CARD} p-6`}>
-              <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
-                <div>
-                  <h2 className="text-base font-bold text-[#1A1A1A] mb-1">رزنامة السوق: التوزيعات وإجراءات الشركات والمهل النظامية</h2>
-                  <p className="text-xs text-[#6B7280]">
-                    بيانات إعلانات تداول المباشرة: التوزيعات النقدية، زيادة وتخفيض رأس المال، ومواعيد الاستحقاق، إلى جانب المهل النظامية (CMA 45/90 يوم).
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 bg-[#F7F8FA] p-1 border border-[#E5E7EB] rounded-[4px]">
-                  <button
-                    onClick={() => setCalendarSubTab("corporate_actions")}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-[4px] transition ${calendarSubTab === "corporate_actions" ? "bg-[#8C3B32] text-white" : "text-[#6B7280] hover:text-[#1A1A1A]"}`}
-                  >
-                    إجراءات وتوزيعات الشركات ({corporateActions.length})
-                  </button>
-                  <button
-                    onClick={() => setCalendarSubTab("cma_deadlines")}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-[4px] transition ${calendarSubTab === "cma_deadlines" ? "bg-[#8C3B32] text-white" : "text-[#6B7280] hover:text-[#1A1A1A]"}`}
-                  >
-                    مهل إعلانات النتائج (CMA)
-                  </button>
-                </div>
-              </div>
-
-              {/* Sub-tab 1: Real Corporate Actions from Tadawul */}
-              {calendarSubTab === "corporate_actions" && (
-                <div className={`${SUBCARD} overflow-x-auto`}>
-                  <table className="w-full text-xs text-right border-collapse">
-                    <thead>
-                      <tr className="text-[#6B7280] bg-[#F3F4F6] border-b border-[#E5E7EB]">
-                        <th className="p-3 font-semibold">الرمز والشركة</th>
-                        <th className="p-3 font-semibold">نوع الإجراء / التوزيع</th>
-                        <th className="p-3 font-semibold">تاريخ الاستحقاق (Eligibility)</th>
-                        <th className="p-3 font-semibold">تاريخ الإعلان والتوصية</th>
-                        <th className="p-3 font-semibold">رأس المال السابق</th>
-                        <th className="p-3 font-semibold">رأس المال الجديد</th>
-                        <th className="p-3 font-semibold">التصنيف المحاسبي</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {corporateActions.map((act) => (
-                        <tr key={act.id} className="border-t border-[#E5E7EB] hover:bg-[#F3F4F6]">
-                          <td className="p-3 font-bold text-[#1A1A1A]">
-                            <Link href={`/rebh/${act.symbol}`} className="text-[#8C3B32] hover:underline ml-1.5">{act.symbol}</Link>
-                            <span>{act.company_name}</span>
-                          </td>
-                          <td className="p-3 font-bold text-[#1A1A1A]">
-                            <span className={`px-2 py-0.5 rounded-[4px] text-[11px] ${act.issue_type?.includes("Bonus") || act.issue_type?.includes("منحة") ? "bg-[#F0FDF4] text-[#16A34A] border border-[#BBF7D0]" : act.issue_type?.includes("Reduction") || act.issue_type?.includes("تخفيض") ? "bg-[#FFFBEB] text-[#B45309] border border-[#FDE68A]" : "bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE]"}`}>
-                              {act.issue_type}
-                            </span>
-                          </td>
-                          <td className="p-3 font-bold text-[#8C3B32] font-mono tabular-nums">{act.eligibility_date || "—"}</td>
-                          <td className="p-3 text-[#6B7280] font-mono tabular-nums">{act.announcement_date || "—"}</td>
-                          <td className="p-3 text-[#6B7280] font-mono tabular-nums">{act.previous_capital ? `${(act.previous_capital / 1_000_000).toLocaleString()}M` : "—"}</td>
-                          <td className="p-3 text-[#1A1A1A] font-bold font-mono tabular-nums">{act.new_capital ? `${(act.new_capital / 1_000_000).toLocaleString()}M` : "—"}</td>
-                          <td className="p-3">
-                            <span className="text-[10px] text-[#6B7280] font-mono px-2 py-0.5 bg-white border border-[#E5E7EB] rounded">
-                              {act.classification}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                      {corporateActions.length === 0 && (
-                        <tr>
-                          <td colSpan={7} className="p-6 text-center text-[#6B7280]">جاري جلب سجل إجراءات الشركات من قاعدة البيانات...</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {/* Sub-tab 2: Statutory CMA Deadlines */}
-              {calendarSubTab === "cma_deadlines" && (
-                <div className={`${SUBCARD} overflow-x-auto`}>
-                  <table className="w-full text-xs text-right border-collapse">
-                    <thead>
-                      <tr className="text-[#6B7280] bg-[#F3F4F6] border-b border-[#E5E7EB]">
-                        <th className="p-3 font-semibold">الرمز والشركة</th>
-                        <th className="p-3 font-semibold">القطاع</th>
-                        <th className="p-3 font-semibold">الفترة المعلنة</th>
-                        <th className="p-3 font-semibold">نهاية الفترة الفعلية</th>
-                        <th className="p-3 font-semibold">الموعد الأقصى النظامي (نهاية + 45/90 يوم)</th>
-                        <th className="p-3 font-semibold">ربحية السهم السابقة EPS</th>
-                        <th className="p-3 font-semibold">الحالة والمهلة</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {calendarItems.map(item => (
-                        <tr key={item.sym} className="border-t border-[#E5E7EB] hover:bg-[#F3F4F6]">
-                          <td className="p-3 font-bold text-[#1A1A1A]">
-                            <Link href={`/rebh/${item.sym}`} className="text-[#8C3B32] hover:underline ml-1.5">{item.sym}</Link>
-                            <span>{item.name}</span>
-                          </td>
-                          <td className="p-3 text-[#6B7280]">{item.sec}</td>
-                          <td className="p-3 text-[#1A1A1A]">{item.period}</td>
-                          <td className="p-3 text-[#6B7280] tabular-nums">{item.periodEnd}</td>
-                          <td className="p-3 font-bold text-[#8C3B32] tabular-nums">{item.expectedDate}</td>
-                          <td className="p-3 text-[#1A1A1A] tabular-nums">{item.lastEps} ر.س</td>
-                          <td className="p-3">
-                            <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${item.statusColor}`}>
-                              {item.status} ({item.daysLeft > 0 ? `متبقي ${item.daysLeft} يوم` : `انتهت المهلة منذ ${Math.abs(item.daysLeft)} يوم`})
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                      {calendarItems.length === 0 && (
-                        <tr>
-                          <td colSpan={7} className="p-6 text-center text-[#6B7280]">لا توجد بيانات كافية لعرض الرزنامة حالياً.</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
+          <EarningsCalendarTab
+            corporateActions={corporateActions}
+            calendarSubTab={calendarSubTab}
+            setCalendarSubTab={setCalendarSubTab}
+            calendarItems={calendarItems}
+          />
         )}
 
         {/* Tab 5: Market Monitor Component */}

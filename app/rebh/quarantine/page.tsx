@@ -28,7 +28,15 @@ interface CompanyUniverseItem {
     roe?: number;
     fresh: boolean;
     flags?: string[];
-    bs_ok?: boolean;
+    bs_ok?: boolean | null;
+}
+
+interface QuarantineMetaResponse {
+    source?: string;
+    count?: number;
+    quarantined_companies?: any[];
+    generated_at?: string;
+    total_universe?: number;
 }
 
 type QuarantineReasonKind =
@@ -69,18 +77,57 @@ const fmt = (v: number | null | undefined, d = 1) =>
             minimumFractionDigits: 0,
         });
 
-// Reason severity colors kept to the design system's two semantic colors:
-// warning-class reasons use the amber-ish "caution" treatment, and
-// corruption/other (the more severe class) uses the error red.
+const SECTOR_AR: Record<string, string> = {
+    "Energy": "الطاقة",
+    "Materials": "المواد الأساسية",
+    "Capital Goods": "السلع الرأسمالية",
+    "Commercial & Professional Services": "الخدمات التجارية والمهنية",
+    "Transportation": "النقل",
+    "Consumer Durables & Apparel": "السلع المعمرة والملابس",
+    "Consumer Services": "خدمات المستهلك",
+    "Media and Entertainment": "الإعلام والترفيه",
+    "Consumer Discretionary Distribution & Retail": "تجزئة السلع الكمالية",
+    "Consumer Staples Distribution & Retail": "تجزئة الأغذية والسلع الأساسية",
+    "Food & Staples Retailing": "تجزئة السلع الأساسية",
+    "Food & Beverages": "الأغذية والمشروبات",
+    "Health Care Equipment & Services": "الرعاية الصحية والمعدات",
+    "Pharmaceuticals, Biotechnology & Life Sciences": "الأدوية والعلوم الحيوية",
+    "Banks": "البنوك",
+    "Financial Services": "الخدمات المالية",
+    "Insurance": "التأمين",
+    "Software & Services": "البرمجيات والخدمات",
+    "Telecommunication Services": "الاتصالات",
+    "Utilities": "المرافق العامة",
+    "Real Estate Management & Development": "إدارة وتطوير العقارات",
+    "REITs": "صناديق الاستثمار العقارية المتداولة (ريت)",
+};
+
+function translateSector(sec?: string | null): string {
+    if (!sec) return "—";
+    // Check direct match
+    if (SECTOR_AR[sec]) return SECTOR_AR[sec];
+    // Check if format is "Sector | Industry"
+    const parts = sec.split("|").map(p => p.trim());
+    const mainSector = parts[0];
+    if (SECTOR_AR[mainSector]) {
+        return parts.length > 1 ? `${SECTOR_AR[mainSector]} (${parts[1]})` : SECTOR_AR[mainSector];
+    }
+    return sec;
+}
+
+// Reason severity — 3 visual tiers:
+//   info  (blue-gray): no-filings, stale       — data is absent/delayed, not corrupted
+//   amber (caution):   empty-statement          — filing exists but income stmt is hollow
+//   red   (error):     corruption, other        — forensic flag or unknown critical issue
 const REASON_META: Record<
     QuarantineReasonKind,
     { icon: typeof AlertTriangle; color: string; bg: string; border: string; chip: string }
 > = {
     "no-filings": {
         icon: FileQuestion,
-        color: "#B45309",
-        bg: "#FFFBEB",
-        border: "#FDE68A",
+        color: "#374151",
+        bg: "#F3F4F6",
+        border: "#D1D5DB",
         chip: "لا توجد إفصاحات",
     },
     "empty-statement": {
@@ -92,9 +139,9 @@ const REASON_META: Record<
     },
     stale: {
         icon: RefreshCw,
-        color: "#B45309",
-        bg: "#FFFBEB",
-        border: "#FDE68A",
+        color: "#374151",
+        bg: "#F3F4F6",
+        border: "#D1D5DB",
         chip: "بيانات قديمة",
     },
     corruption: {
@@ -113,12 +160,15 @@ const REASON_META: Record<
     },
 };
 
+const ROW_GRID = "md:grid-cols-[1.4fr_1fr_1fr_1fr_2.4fr_auto]";
+
 const FILTERS: { key: QuarantineReasonKind | "all"; label: string }[] = [
     { key: "all", label: "الكل" },
     { key: "no-filings", label: "لا توجد إفصاحات" },
     { key: "empty-statement", label: "قائمة دخل فارغة" },
     { key: "stale", label: "بيانات قديمة" },
     { key: "corruption", label: "تلاعب في البيانات" },
+    { key: "other", label: "تنبيهات وملاحظات" },
 ];
 
 /* ---------------------------------------------------------------------- */
@@ -137,7 +187,7 @@ export default function QuarantinePage() {
     >("all");
     const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-    const [quarantineMeta, setQuarantineMeta] = useState<any>(null);
+    const [quarantineMeta, setQuarantineMeta] = useState<QuarantineMetaResponse | null>(null);
 
     async function load() {
         setLoading(true);
@@ -154,8 +204,8 @@ export default function QuarantinePage() {
                 const qData = await quarRes.json();
                 setQuarantineMeta(qData);
             }
-        } catch (e: any) {
-            setError(e?.message || "Failed to load quarantine data");
+        } catch (e: unknown) {
+            setError(e instanceof Error ? e.message : "Failed to load quarantine data");
         } finally {
             setLoading(false);
         }
@@ -186,7 +236,7 @@ export default function QuarantinePage() {
                     px: q.price || 0,
                     mc: q.market_cap || 0,
                     fresh: false,
-                    bs_ok: q.balance_identity_valid ?? true,
+                    bs_ok: q.balance_identity_valid ?? null,
                     flags: q.flags || []
                 };
 
@@ -219,13 +269,14 @@ export default function QuarantinePage() {
                 (r) =>
                     r.item.sym.toUpperCase().includes(q) ||
                     (r.item.n || "").toUpperCase().includes(q) ||
-                    (r.item.sec || "").toUpperCase().includes(q)
+                    (r.item.sec || "").toUpperCase().includes(q) ||
+                    translateSector(r.item.sec).toUpperCase().includes(q)
             );
         }
         return list;
     }, [rows, activeFilter, query]);
 
-    const totalUniverse = universe?.length ?? 0;
+    const totalUniverse = (quarantineMeta?.total_universe ?? universe?.length) ?? 0;
     const counts = useMemo(() => {
         const c: Record<QuarantineReasonKind, number> = {
             "no-filings": 0,
@@ -272,6 +323,11 @@ export default function QuarantinePage() {
                                         <span className="w-1.5 h-1.5 rounded-full bg-[#16A34A]" />
                                         {quarantineMeta.source || "بوابة REBH للتحليل الجنائي"}
                                     </span>
+                                    {quarantineMeta.generated_at && (
+                                        <span className="px-2 py-0.5 rounded bg-[#F7F8FA] border border-[#E5E7EB] text-[11px] font-mono text-[#6B7280]" title={quarantineMeta.generated_at}>
+                                            {new Date(quarantineMeta.generated_at).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
+                                        </span>
+                                    )}
                                     <span className="px-2 py-0.5 rounded bg-[#FEF2F2] border border-[#FECACA] text-[11px] font-bold text-[#DC2626]">
                                         {quarantineMeta.count ?? rows.length} شركة محجورة
                                     </span>
@@ -291,8 +347,18 @@ export default function QuarantinePage() {
             </header>
 
             <main className="px-6 md:px-9 pt-6 max-w-[1200px] mx-auto">
+                {/* Honesty-mark legend */}
+                <div className={`${SUBCARD} flex flex-wrap items-center gap-x-4 gap-y-1.5 px-3.5 py-2 mb-4 text-[10.5px] text-[#6B7280]`}>
+                    <span className="font-semibold text-[#1A1A1A] shrink-0">مفتاح علامات الأمانة:</span>
+                    <span>° قائمة دخل مجتزأة أو غير مكتملة</span>
+                    <span>≈ تقدير تقريبي (TTM محسوب)</span>
+                    <span>⚑ علم تحذير جنائي</span>
+                    <span>⚠ تنبيه بيانات</span>
+                    <span>🔌 مصدر بيانات ناقص</span>
+                </div>
+
                 {/* Summary KPIs */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
                     <KpiCard
                         value={loading ? "…" : fmt(rows.length, 0)}
                         label={`في الحجر (من أصل ${totalUniverse || "—"})`}
@@ -300,7 +366,7 @@ export default function QuarantinePage() {
                     />
                     <KpiCard
                         value={loading ? "…" : fmt(counts["no-filings"], 0)}
-                        label="لا توجد إفصاحات من المصدر"
+                        label="لا توجد إفصاحات"
                     />
                     <KpiCard
                         value={loading ? "…" : fmt(counts["empty-statement"], 0)}
@@ -308,12 +374,17 @@ export default function QuarantinePage() {
                     />
                     <KpiCard
                         value={loading ? "…" : fmt(counts.stale, 0)}
-                        label="بيانات قديمة — لم تُسعَّر بعد"
+                        label="بيانات قديمة"
                     />
                     <KpiCard
                         value={loading ? "…" : fmt(counts.corruption, 0)}
-                        label="تلاعب جسيم في البيانات ⚑"
+                        label="تلاعب جسيم ⚑"
                         color="#DC2626"
+                    />
+                    <KpiCard
+                        value={loading ? "…" : fmt(counts.other, 0)}
+                        label="تنبيهات وملاحظات"
+                        color="#B45309"
                     />
                 </div>
 
@@ -327,19 +398,19 @@ export default function QuarantinePage() {
                     <div className="relative flex-1 max-w-xs">
                         <Search
                             size={14}
-                            className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]"
                         />
                         <input
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             placeholder="بحث بالرمز أو الاسم أو القطاع…"
-                            className={`${INPUT} w-full pl-8 pr-8 py-2`}
+                            className={`${INPUT} w-full pr-8 pl-8 py-2`}
                         />
                         {query && (
                             <button
                                 onClick={() => setQuery("")}
                                 aria-label="مسح البحث"
-                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#DC2626] transition"
+                                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#DC2626] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8C3B32]/60 rounded-sm"
                             >
                                 <X size={14} />
                             </button>
@@ -347,24 +418,32 @@ export default function QuarantinePage() {
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                        {FILTERS.map((f) => (
-                            <button
-                                key={f.key}
-                                onClick={() => setActiveFilter(f.key)}
-                                className={`px-3 py-1.5 rounded-full text-[11.5px] font-semibold border transition-colors ${activeFilter === f.key
-                                    ? "border-[#8C3B32] text-[#8C3B32] bg-[#8C3B32]/5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
-                                    : "bg-white border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] hover:text-[#1A1A1A]"
-                                    }`}
-                            >
-                                {f.label}
-                            </button>
-                        ))}
+                        {FILTERS.map((f) => {
+                            const count = f.key === "all" ? rows.length : counts[f.key];
+                            return (
+                                <button
+                                    key={f.key}
+                                    onClick={() => setActiveFilter(f.key)}
+                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11.5px] font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8C3B32]/60 ${activeFilter === f.key
+                                        ? "border-[#8C3B32] text-[#8C3B32] bg-[#8C3B32]/5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+                                        : "bg-white border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] hover:text-[#1A1A1A]"
+                                        }`}
+                                >
+                                    <span>{f.label}</span>
+                                    {!loading && count > 0 && (
+                                        <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono tabular-nums ${activeFilter === f.key ? "bg-[#8C3B32] text-white" : "bg-[#F3F4F6] text-[#6B7280]"}`}>
+                                            {count}
+                                        </span>
+                                    )}
+                                </button>
+                            );
+                        })}
                     </div>
 
                     <button
                         onClick={load}
                         disabled={loading}
-                        className="sm:mr-auto flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] text-[11.5px] font-semibold border border-[#E5E7EB] bg-white text-[#6B7280] hover:border-[#8C3B32] hover:text-[#8C3B32] disabled:opacity-50 transition"
+                        className="sm:mr-auto flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] text-[11.5px] font-semibold border border-[#E5E7EB] bg-white text-[#6B7280] hover:border-[#8C3B32] hover:text-[#8C3B32] disabled:opacity-50 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8C3B32]/60"
                     >
                         <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
                         تحديث
@@ -372,30 +451,32 @@ export default function QuarantinePage() {
                 </div>
 
                 {/* Content states */}
-                {error && (
-                    <div className="rounded-[4px] border border-[#FECACA] bg-[#FEF2F2] p-4 text-[12.5px] text-[#DC2626] mb-6 flex items-center gap-2">
-                        <AlertTriangle size={15} />
-                        {error} — يرجى التحقق من اتصال واجهة البرمجة (API) والمحاولة مرة أخرى.
-                    </div>
-                )}
+                <div aria-live="polite" aria-atomic="false">
+                    {error && (
+                        <div className="rounded-[4px] border border-[#FECACA] bg-[#FEF2F2] p-4 text-[12.5px] text-[#DC2626] mb-6 flex items-center gap-2">
+                            <AlertTriangle size={15} />
+                            {error} — يرجى التحقق من اتصال واجهة البرمجة (API) والمحاولة مرة أخرى.
+                        </div>
+                    )}
 
-                {loading && !error && (
-                    <div className={`${CARD} p-10 text-center text-[#6B7280] text-[13px]`}>
-                        جارٍ تحميل قاعدة الشركات…
-                    </div>
-                )}
+                    {loading && !error && (
+                        <div className={`${CARD} p-10 text-center text-[#6B7280] text-[13px]`}>
+                            جارى تحميل قاعدة الشركات…
+                        </div>
+                    )}
 
-                {!loading && !error && filteredRows.length === 0 && (
-                    <div className={`${CARD} p-10 text-center text-[#6B7280] text-[13px] flex flex-col items-center gap-2`}>
-                        <CheckCircle2 size={20} className="text-[#16A34A]" />
-                        لا توجد شركات مطابقة لهذا الفلتر.
-                    </div>
-                )}
+                    {!loading && !error && filteredRows.length === 0 && (
+                        <div className={`${CARD} p-10 text-center text-[#6B7280] text-[13px] flex flex-col items-center gap-2`}>
+                            <CheckCircle2 size={20} className="text-[#16A34A]" />
+                            لا توجد شركات مطابقة لهذا الفلتر.
+                        </div>
+                    )}
+                </div>
 
                 {!loading && !error && filteredRows.length > 0 && (
                     <div className={`${CARD} overflow-hidden`}>
                         {/* Table header (desktop) */}
-                        <div className="hidden md:grid grid-cols-[1.4fr_1fr_1fr_1fr_2.4fr_auto] gap-3 px-5 py-3 border-b border-[#E5E7EB] bg-[#F3F4F6] text-[10px] uppercase tracking-wider text-[#6B7280] font-semibold">
+                        <div className={`hidden md:grid ${ROW_GRID} gap-3 px-5 py-3 border-b border-[#E5E7EB] bg-[#F3F4F6] text-[10px] uppercase tracking-wider text-[#6B7280] font-semibold`}>
                             <span>الشركة</span>
                             <span className="text-right">القطاع</span>
                             <span className="text-right">القيمة السوقية</span>
@@ -430,7 +511,8 @@ export default function QuarantinePage() {
                     <b className="text-[#8C3B32]">مسارات الخروج (ملخص المطورين P0):</b>{" "}
                     إصلاح رابط بيانات قائمة الدخل يُخرج فئة "قائمة الدخل الفارغة" فوراً
                     (بما فيها أرامكو — سابك ضمن فئة البيانات القديمة)؛ محلل IFRS-17
-                    يُخرج 27 شركة تأمين من فئة البيانات القديمة؛ إصلاح قائمة المستوردين
+                    {/* TODO: replace with computed count from backend */}
+                    يُخرج ≈27 شركة تأمين من فئة البيانات القديمة؛ إصلاح قائمة المستوردين
                     يضيف الرموز الغائبة؛ إلزامية ضبط المقياس عند الاستيراد تُنهي فئة
                     التلاعب في البيانات.
                 </div>
@@ -485,7 +567,7 @@ function QuarantineRowItem({
 
     return (
         <div className="px-5 py-3.5 hover:bg-[#F3F4F6] transition-colors">
-            <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr_1fr_1fr_2.4fr_auto] gap-2 md:gap-3 items-center">
+            <div className={`grid grid-cols-1 ${ROW_GRID} gap-2 md:gap-3 items-center`}>
                 {/* Company */}
                 <div className="flex items-center gap-2">
                     <Icon size={14} style={{ color: meta.color }} className="shrink-0" />
@@ -499,15 +581,18 @@ function QuarantineRowItem({
                     </div>
                 </div>
 
-                <div className="text-[11px] text-[#6B7280] md:text-right">
-                    {item.sec || "—"}
+                <div className="text-[11px] text-[#6B7280] md:text-right" title={item.sec || undefined}>
+                    <span className="md:hidden text-[9px] text-[#6B7280] uppercase mr-1">القطاع</span>
+                    {translateSector(item.sec)}
                 </div>
 
                 <div className="text-[12.5px] text-[#1A1A1A] tabular-nums md:text-right">
+                    <span className="md:hidden text-[9px] text-[#6B7280] uppercase mr-1">القيمة السوقية</span>
                     {fmt(item.mc, 0)}
                 </div>
 
                 <div className="text-[12.5px] text-[#1A1A1A] tabular-nums md:text-right">
+                    <span className="md:hidden text-[9px] text-[#6B7280] uppercase mr-1">السعر</span>
                     {item.px ? fmt(item.px, 2) : "—"}
                 </div>
 
@@ -517,7 +602,7 @@ function QuarantineRowItem({
                         const m = REASON_META[r.kind];
                         return (
                             <span
-                                key={i}
+                                key={r.kind + i}
                                 className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border"
                                 style={{
                                     color: m.color,
@@ -543,7 +628,7 @@ function QuarantineRowItem({
                 <div className="flex justify-end">
                     <button
                         onClick={onToggle}
-                        className="text-[#6B7280] hover:text-[#8C3B32] p-1 transition"
+                        className="text-[#6B7280] hover:text-[#8C3B32] p-1 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8C3B32]/60 rounded-sm"
                         aria-label="عرض التفاصيل"
                     >
                         <ArrowUpRight
@@ -561,7 +646,7 @@ function QuarantineRowItem({
                         const m = REASON_META[r.kind];
                         return (
                             <div
-                                key={i}
+                                key={r.kind + i}
                                 className="text-[11.5px] text-[#6B7280] flex items-start gap-2"
                             >
                                 <span
@@ -572,9 +657,14 @@ function QuarantineRowItem({
                             </div>
                         );
                     })}
-                    {!item.bs_ok && (
-                        <div className="text-[10.5px] text-[#6B7280] pt-1">
+                    {item.bs_ok === false && (
+                        <div className="text-[10.5px] text-[#DC2626] pt-1">
                             فحص هوية الميزانية: فشل°
+                        </div>
+                    )}
+                    {item.bs_ok == null && (
+                        <div className="text-[10.5px] text-[#B45309] pt-1">
+                            فحص هوية الميزانية: 🔌 مصدر غير متوفر
                         </div>
                     )}
                 </div>
@@ -582,12 +672,3 @@ function QuarantineRowItem({
         </div>
     );
 }
-
-/*
-UX note (not implemented, flagged for follow-up):
-- The reason-severity color mapping only has two tiers (amber for
-  no-filings/empty-statement/stale, red for corruption/other) even though
-  five distinct reasons exist — "no filings" and "severe corruption" read
-  as equally urgent in a quick scan of the amber group. Worth a third tone
-  if these need to be told apart at a glance.
-*/

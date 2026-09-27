@@ -138,13 +138,14 @@ function toHorizontal(arr: number[]): (number | null)[] {
 // ─── Statement Row ────────────────────────────────────────────────────────────
 function StatRow({
   label, values, periods, unit = "M", isTotal = false, indent = false,
-  source, verdict, onClick, analysisMode, baseValues,
+  source, verdict, onClick, analysisMode, baseValues, ttmValue,
 }: {
   label: string; values: number[]; periods: string[]; unit?: string;
   isTotal?: boolean; indent?: boolean; source?: string; verdict?: "green"|"amber"|"red"|"neutral";
   onClick?: () => void;
   analysisMode?: AnalysisMode;
-  baseValues?: number[]; // Revenue for common-size reference
+  baseValues?: number[]; // Revenue / TotalAssets / CFO for common-size reference
+  ttmValue?: number | null; // raw TTM value (absolute) — transformed here based on mode
 }) {
   const [showNote, setShowNote] = useState(false);
 
@@ -158,20 +159,51 @@ function StatRow({
     return values;
   }, [values, analysisMode, baseValues]);
 
+  // Compute displayed TTM value according to analysisMode
+  const displayTTM: number | null = useMemo(() => {
+    if (ttmValue == null) return null;
+    if (!analysisMode || analysisMode === "absolute") return ttmValue;
+    if (analysisMode === "common_size" && baseValues?.length) {
+      // Use the last base value as denominator (same column as TTM)
+      const lastBase = baseValues[baseValues.length - 1];
+      if (!lastBase) return null;
+      return +((ttmValue / Math.abs(lastBase)) * 100).toFixed(1);
+    }
+    if (analysisMode === "horizontal") {
+      const base = values.find(v => v !== 0) ?? null;
+      if (base === null) return null;
+      return +(((ttmValue - base) / Math.abs(base)) * 100).toFixed(1);
+    }
+    return null;
+  }, [ttmValue, analysisMode, baseValues, values]);
+
   const displayUnit = analysisMode === "absolute" ? unit : "%";
+  const isAbsolute  = !analysisMode || analysisMode === "absolute";
 
   if (!values || values.every(v => v === 0)) return null;
+
+  // YoY change column — only meaningful in absolute mode
   const latest = displayValues[displayValues.length - 1] ?? 0;
   const prev   = displayValues[displayValues.length - 2] ?? 0;
-  const chg    = analysisMode === "absolute" && prev !== 0
+  const chg    = isAbsolute && prev !== 0
     ? ((latest - prev) / Math.abs(prev)) * 100 : null;
   const isUp   = chg !== null && chg >= 0;
+
+  const renderVal = (v: number | null) =>
+    v == null
+      ? <span className="text-[#CBD5E1]">—</span>
+      : <span className={!isAbsolute ? (v > 0 ? "text-[#16A34A]" : v < 0 ? "text-[#DC2626]" : "") : ""}>
+          {!isAbsolute && v > 0 ? "+" : ""}
+          {v.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+          {displayUnit === "%" ? "%" : ""}
+        </span>;
 
   return (
     <tr
       className={`border-b border-[#F1F5F9] hover:bg-[#F8FAFC] group cursor-pointer ${isTotal ? "bg-[#F8FAFC]" : ""}`}
       onClick={onClick}
     >
+      {/* Label cell */}
       <td className={`p-2 text-right text-xs ${isTotal ? "font-black text-[#0F172A]" : indent ? "pl-6 text-[#374151] font-medium" : "font-semibold text-[#0F172A]"}`}>
         <div className="flex items-center gap-1.5">
           {verdict && <span className={`w-2 h-2 rounded-full shrink-0 ${LIGHT_DOT[verdict]}`} />}
@@ -192,27 +224,34 @@ function StatRow({
           </div>
         )}
       </td>
+
+      {/* Period value cells */}
       {displayValues.map((v, i) => (
         <td key={i} className={`p-2 text-right font-mono text-xs ${
           isTotal ? "font-black text-[#0F172A]" : "text-[#1E293B]"
         } ${i === displayValues.length - 1 ? "bg-[#FFFBF5]" : ""}`}>
-          {v == null ? <span className="text-[#CBD5E1]">—</span> : (
-            <span className={analysisMode !== "absolute" ? (v > 0 ? "text-[#16A34A]" : v < 0 ? "text-[#DC2626]" : "") : ""}>
-              {analysisMode !== "absolute" && v > 0 ? "+" : ""}
-              {v.toLocaleString(undefined, { maximumFractionDigits: 1 })}
-              {displayUnit === "%" ? "%" : ""}
-            </span>
-          )}
+          {renderVal(v)}
         </td>
       ))}
-      <td className="p-2 text-right text-[11px] font-mono">
-        {chg != null ? (
-          <span className={`inline-flex items-center gap-0.5 ${isUp ? "text-[#16A34A]" : "text-[#DC2626]"}`}>
-            {isUp ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
-            {Math.abs(chg).toFixed(1)}%
-          </span>
-        ) : <span className="text-[#CBD5E1]">—</span>}
-      </td>
+
+      {/* TTM cell — always rendered but value depends on mode */}
+      {ttmValue !== undefined && (
+        <td className="p-2 text-right font-mono text-xs bg-[#FFF8EE] text-[#D97706] font-bold">
+          {renderVal(displayTTM)}
+        </td>
+      )}
+
+      {/* YoY change column — hidden in non-absolute modes to avoid clutter */}
+      {isAbsolute && (
+        <td className="p-2 text-right text-[11px] font-mono">
+          {chg != null ? (
+            <span className={`inline-flex items-center gap-0.5 ${isUp ? "text-[#16A34A]" : "text-[#DC2626]"}`}>
+              {isUp ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
+              {Math.abs(chg).toFixed(1)}%
+            </span>
+          ) : <span className="text-[#CBD5E1]">—</span>}
+        </td>
+      )}
     </tr>
   );
 }
@@ -645,26 +684,32 @@ export default function RebhAnalystPage() {
                       {(viewMode === "annual" ? isData.periods || [] : data.quarters?.periods || []).map((p: string, i: number) => (
                         <th key={i} className="p-2.5 text-right font-mono font-bold text-[#475569] whitespace-nowrap min-w-[90px]">{p}</th>
                       ))}
-                      <th className="p-2.5 text-right font-mono font-bold text-[#D97706] whitespace-nowrap">TTM</th>
-                      <th className="p-2.5 text-right font-bold text-[#475569] w-16">
-                        {analysisMode === "absolute" ? "تغيّر" : "—"}
-                      </th>
+                      {/* TTM header: always shown in annual mode */}
+                      {viewMode === "annual" && (
+                        <th className="p-2.5 text-right font-mono font-bold text-[#D97706] whitespace-nowrap bg-[#FFF8EE]">
+                          TTM {analysisMode !== "absolute" && <span className="text-[9px] text-[#D97706]/70">%</span>}
+                        </th>
+                      )}
+                      {/* YoY change column — only in absolute mode */}
+                      {analysisMode === "absolute" && (
+                        <th className="p-2.5 text-right font-bold text-[#475569] w-16">تغيّر</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#F1F5F9]">
                     {viewMode === "annual" ? <>
-                      <StatRow label="الإيرادات / المبيعات" values={isData.rev || []}   periods={isData.periods||[]} source="قائمة الدخل XBRL" verdict={classifyRatio("g_rev", ratios?.g_rev ?? null)} isTotal analysisMode={analysisMode} baseValues={isData.rev||[]} onClick={() => router.push(`/rebh/studio/${symbol}?preset=revenue_margin_health`)} />
-                      <StatRow label="تكلفة المبيعات (COGS)" values={isData.cogs||[]}   periods={isData.periods||[]} source="قائمة الدخل" indent analysisMode={analysisMode} baseValues={isData.rev||[]} />
-                      <StatRow label="إجمالي الربح" values={isData.gp || []}    periods={isData.periods||[]} source="الإيرادات − تكلفة المبيعات" verdict="green" isTotal analysisMode={analysisMode} baseValues={isData.rev||[]} />
-                      <StatRow label="المصاريف العمومية والإدارية" values={isData.ga||[]}  periods={isData.periods||[]} source="قائمة الدخل XBRL" indent analysisMode={analysisMode} baseValues={isData.rev||[]} />
-                      <StatRow label="الربح التشغيلي (EBIT)" values={isData.op || []}  periods={isData.periods||[]} source="إجمالي الربح − المصاريف" isTotal analysisMode={analysisMode} baseValues={isData.rev||[]} onClick={() => router.push(`/rebh/studio/${symbol}?preset=profitability_divergence`)} />
-                      <StatRow label="تكاليف التمويل والفوائد" values={isData.fin_cost||[]} periods={isData.periods||[]} source="قائمة الدخل XBRL" indent analysisMode={analysisMode} baseValues={isData.rev||[]} />
+                      <StatRow label="الإيرادات / المبيعات" values={isData.rev||[]}        periods={isData.periods||[]} source="قائمة الدخل XBRL" verdict={classifyRatio("g_rev", ratios?.g_rev ?? null)} isTotal analysisMode={analysisMode} baseValues={isData.rev||[]} ttmValue={isTTM.rev ?? null} onClick={() => router.push(`/rebh/studio/${symbol}?preset=revenue_margin_health`)} />
+                      <StatRow label="تكلفة المبيعات (COGS)" values={isData.cogs||[]}      periods={isData.periods||[]} source="قائمة الدخل" indent analysisMode={analysisMode} baseValues={isData.rev||[]} />
+                      <StatRow label="إجمالي الربح"           values={isData.gp||[]}        periods={isData.periods||[]} source="الإيرادات − تكلفة المبيعات" verdict="green" isTotal analysisMode={analysisMode} baseValues={isData.rev||[]} ttmValue={isTTM.gp ?? null} />
+                      <StatRow label="المصاريف العمومية والإدارية" values={isData.ga||[]}   periods={isData.periods||[]} source="قائمة الدخل XBRL" indent analysisMode={analysisMode} baseValues={isData.rev||[]} />
+                      <StatRow label="الربح التشغيلي (EBIT)"  values={isData.op||[]}        periods={isData.periods||[]} source="إجمالي الربح − المصاريف" isTotal analysisMode={analysisMode} baseValues={isData.rev||[]} onClick={() => router.push(`/rebh/studio/${symbol}?preset=profitability_divergence`)} />
+                      <StatRow label="تكاليف التمويل والفوائد" values={isData.fin_cost||[]}  periods={isData.periods||[]} source="قائمة الدخل XBRL" indent analysisMode={analysisMode} baseValues={isData.rev||[]} />
                       <StatRow label="حصة الشركات التابعة والمشتركة" values={isData.jv||[]} periods={isData.periods||[]} source="قائمة الدخل XBRL" indent analysisMode={analysisMode} baseValues={isData.rev||[]} />
-                      <StatRow label="الدخل (المصروف) الآخر" values={isData.other_inc||[]} periods={isData.periods||[]} source="قائمة الدخل XBRL" indent analysisMode={analysisMode} baseValues={isData.rev||[]} />
+                      <StatRow label="الدخل (المصروف) الآخر"  values={isData.other_inc||[]}  periods={isData.periods||[]} source="قائمة الدخل XBRL" indent analysisMode={analysisMode} baseValues={isData.rev||[]} />
                       <StatRow label="الربح قبل الزكاة والضريبة (PBT)" values={isData.pbt||[]} periods={isData.periods||[]} source="مشتق — قبل الزكاة" isTotal analysisMode={analysisMode} baseValues={isData.rev||[]} />
-                      <StatRow label="مصروف الزكاة والضريبة" values={isData.zakat||[]} periods={isData.periods||[]} source="قائمة الدخل XBRL" indent analysisMode={analysisMode} baseValues={isData.rev||[]} />
-                      <StatRow label="صافي الربح للفترة" values={isData.net||[]} periods={isData.periods||[]} source="PBT − الزكاة" verdict={classifyRatio("nm", ratios?.nm ?? null)} isTotal analysisMode={analysisMode} baseValues={isData.rev||[]} onClick={() => router.push(`/rebh/studio/${symbol}?preset=profitability_divergence`)} />
-                      <StatRow label="ربحية السهم (EPS)" values={isData.eps||[]} periods={isData.periods||[]} source="صافي الربح ÷ عدد الأسهم" unit="SAR" />
+                      <StatRow label="مصروف الزكاة والضريبة"  values={isData.zakat||[]}     periods={isData.periods||[]} source="قائمة الدخل XBRL" indent analysisMode={analysisMode} baseValues={isData.rev||[]} />
+                      <StatRow label="صافي الربح للفترة"       values={isData.net||[]}       periods={isData.periods||[]} source="PBT − الزكاة" verdict={classifyRatio("nm", ratios?.nm ?? null)} isTotal analysisMode={analysisMode} baseValues={isData.rev||[]} ttmValue={isTTM.net ?? null} onClick={() => router.push(`/rebh/studio/${symbol}?preset=profitability_divergence`)} />
+                      <StatRow label="ربحية السهم (EPS)"       values={isData.eps||[]}      periods={isData.periods||[]} source="صافي الربح ÷ عدد الأسهم" unit="SAR" ttmValue={isTTM.eps ?? null} />
                     </> : <>
                       <StatRow label="الإيرادات الربعية"     values={data.quarters?.rev||[]} periods={data.quarters?.periods||[]} isTotal />
                       <StatRow label="إجمالي الربح الربعي"   values={data.quarters?.gp||[]}  periods={data.quarters?.periods||[]} />

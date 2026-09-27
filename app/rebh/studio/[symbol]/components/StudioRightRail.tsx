@@ -31,7 +31,7 @@ export const StudioRightRail: React.FC<StudioRightRailProps> = ({
   const lastFc = fcArr.length ? fcArr[fcArr.length - 1] : null;
   const coverage = (lastOp !== null && lastFc !== null && lastFc > 0) 
     ? (lastOp / lastFc).toFixed(1) 
-    : (engineData?.coverage ? Number(engineData.coverage).toFixed(1) : "—");
+    : (lastFc === 0 ? "بدون تكلفة تمويل" : (engineData?.coverage ? Number(engineData.coverage).toFixed(1) : "—"));
 
   // Next quarter net forecast
   const qNet = q_d?.net || [];
@@ -40,26 +40,28 @@ export const StudioRightRail: React.FC<StudioRightRailProps> = ({
   const estLow = Math.round(estNextQ * (1 - 0.185));
   const estHigh = Math.round(estNextQ * (1 + 0.185));
 
-  // Factor grades
-  const factorGrades = engineData?.factor_grades || {
-    valuation: "B",
-    growth: "B+",
-    profitability: "A",
-    balance: "B",
-    cash: "C+",
-  };
+  // Extract real Factor Grades from engineData.grades or engineData.factor_grades
+  // Supported engine shape: { Cash: { g: "B" }, Balance: { g: "A+" }, ... } or { cash: "B", ... }
+  const rawGrades = engineData?.grades || engineData?.factor_grades || null;
+  const factorGrades: Record<string, string> | null = rawGrades ? {
+    valuation: rawGrades.Valuation?.g || rawGrades.valuation?.g || rawGrades.valuation || "—",
+    growth: rawGrades.Growth?.g || rawGrades.growth?.g || rawGrades.growth || "—",
+    profitability: rawGrades.Profitability?.g || rawGrades.profitability?.g || rawGrades.Safety?.g || rawGrades.safety?.g || "—",
+    balance: rawGrades.Balance?.g || rawGrades.balance?.g || rawGrades.balance || "—",
+    cash: rawGrades.Cash?.g || rawGrades.cash?.g || rawGrades.cash || "—",
+  } : null;
 
   const getGradeColor = (g: string) => {
-    if (!g) return "bg-gray-100 text-gray-700";
+    if (!g || g === "—") return "bg-gray-50 text-gray-400 border-gray-200";
     if (g.startsWith("A")) return "bg-[#DCFCE7] text-[#15803D] border-[#86EFAC]";
     if (g.startsWith("B")) return "bg-[#EFF6FF] text-[#1D4ED8] border-[#93C5FD]";
     if (g.startsWith("C")) return "bg-[#FEF9C3] text-[#A16207] border-[#FDE047]";
     return "bg-[#FEE2E2] text-[#B91C1C] border-[#FCA5A5]";
   };
 
-  // Fair value range
-  const price = engineData?.price || data?.price || 20.0;
-  const fairValue = engineData?.fair_value || (price * 1.08);
+  // Fair value: only show authentic engine fair value, never invent via 1.08
+  const price = engineData?.price || data?.price || data?.px || null;
+  const fairValue = engineData?.fair_value || engineData?.fv || null;
 
   return (
     <aside className="w-full xl:w-72 space-y-4 shrink-0">
@@ -115,7 +117,7 @@ export const StudioRightRail: React.FC<StudioRightRailProps> = ({
             { key: "balance", label: "BAL" },
             { key: "cash", label: "CASH" },
           ].map(f => {
-            const g = factorGrades[f.key] || "B";
+            const g = factorGrades ? factorGrades[f.key] || "—" : "—";
             return (
               <div key={f.key} className="flex flex-col items-center gap-1">
                 <div className={`w-8 h-8 rounded border flex items-center justify-center font-black text-xs font-mono ${getGradeColor(g)}`}>
@@ -139,18 +141,24 @@ export const StudioRightRail: React.FC<StudioRightRailProps> = ({
           ≈ {estNextQ > 0 ? estNextQ.toLocaleString() : "—"}M SAR
         </div>
         <p className="text-[10.5px] text-[#475569] leading-tight">
-          النطاق المتوقع ({estLow.toLocaleString()} – {estHigh.toLocaleString()}) بناءً على نسبة الخطأ التاريخية المحققة (±18.5%).
+          {estNextQ > 0 
+            ? `النطاق المتوقع (${estLow.toLocaleString()} – ${estHigh.toLocaleString()}) بهامش تقديري (±18.5%).`
+            : "البيانات الربعية الأخيرة غير كافية لحساب التقدير."}
         </p>
-        <span className="inline-block text-[9.5px] text-[#8C3B32] bg-[#FFF1EF] px-2 py-0.5 rounded font-mono font-semibold">
-          ← مرسوم كمخروط تقدير على الشارت الربعي
-        </span>
+        {estNextQ > 0 && (
+          <span className="inline-block text-[9.5px] text-[#8C3B32] bg-[#FFF1EF] px-2 py-0.5 rounded font-mono font-semibold">
+            ← مرسوم كمخروط تقدير على الشارت الربعي
+          </span>
+        )}
       </div>
 
       {/* ── Fair Value Mini ── */}
       <div className="bg-white border border-[#E5E7EB] rounded-[6px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] space-y-2">
         <div className="flex items-center justify-between">
-          <h4 className="text-xs font-bold text-[#1A1A1A]">القيمة العادلة المصغرة · Fair Value</h4>
-          <span className="text-xs font-mono font-bold text-[#16A34A]">{Number(fairValue).toFixed(2)} SAR</span>
+          <h4 className="text-xs font-bold text-[#1A1A1A]">القيمة العادلة · Fair Value</h4>
+          <span className="text-xs font-mono font-bold text-[#16A34A]">
+            {fairValue ? `${Number(fairValue).toFixed(2)} SAR` : "غير محددة ⚑"}
+          </span>
         </div>
         <div className="relative pt-2 pb-1">
           <div className="w-full h-2 bg-[#F1F5F9] rounded-full overflow-hidden flex">
@@ -160,7 +168,9 @@ export const StudioRightRail: React.FC<StudioRightRailProps> = ({
           </div>
           <div className="flex justify-between text-[9px] font-mono text-[#94A3B8] mt-1">
             <span>منخفض</span>
-            <span className="text-[#1A1A1A] font-bold">السعر: {Number(price).toFixed(2)}</span>
+            <span className="text-[#1A1A1A] font-bold">
+              {price ? `السعر: ${Number(price).toFixed(2)}` : "السعر: —"}
+            </span>
             <span>مرتفع</span>
           </div>
         </div>

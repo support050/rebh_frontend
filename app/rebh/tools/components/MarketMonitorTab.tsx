@@ -15,20 +15,7 @@ import {
   Cell,
 } from "recharts";
 import { API_BASE_URL } from "@/lib/api/config";
-
-interface CompanyItem {
-  sym: string;
-  n: string;
-  sec: string;
-  px: number;
-  mc: number;
-  pe?: number;
-  pb?: number;
-  roe?: number;
-  g_net?: number;
-  g_rev?: number;
-  fresh?: boolean;
-}
+import type { CompanyItem } from "../types";
 
 interface MarketMonitorTabProps {
   universe: CompanyItem[];
@@ -46,19 +33,19 @@ export default function MarketMonitorTab({ universe }: MarketMonitorTabProps) {
   }, [fresh]);
 
   const medPe = useMemo(() => {
-    if (!pes.length) return 13.6;
+    if (!pes.length) return null;
     return pes[Math.floor(pes.length / 2)];
   }, [pes]);
 
   const pbs = useMemo(() => {
     return fresh.filter(c => c.pb && c.pb > 0).map(c => c.pb as number).sort((a, b) => a - b);
   }, [fresh]);
-  const medPb = useMemo(() => (pbs.length ? pbs[Math.floor(pbs.length / 2)] : 1.85), [pbs]);
+  const medPb = useMemo(() => (pbs.length ? pbs[Math.floor(pbs.length / 2)] : null), [pbs]);
 
   const roes = useMemo(() => {
     return fresh.filter(c => c.roe != null).map(c => c.roe as number).sort((a, b) => a - b);
   }, [fresh]);
-  const medRoe = useMemo(() => (roes.length ? roes[Math.floor(roes.length / 2)] : 12.4), [roes]);
+  const medRoe = useMemo(() => (roes.length ? roes[Math.floor(roes.length / 2)] : null), [roes]);
 
   const totMc = useMemo(() => fresh.reduce((sum, c) => sum + (c.mc || 0), 0), [fresh]);
 
@@ -112,9 +99,9 @@ export default function MarketMonitorTab({ universe }: MarketMonitorTabProps) {
       .sort((a, b) => b.count - a.count);
   }, [fresh]);
 
-  // Bond vs Earnings Yield Gate
-  const ey = medPe > 0 ? 1 / medPe : 0;
-  const eyRatio = ey > 0 ? (bondAnchor / 100) / ey : 0;
+  // Bond vs Earnings Yield Gate — null-safe
+  const ey = medPe != null && medPe > 0 ? 1 / medPe : null;
+  const eyRatio = ey != null && ey > 0 ? (bondAnchor / 100) / ey : null;
 
   // Lynch Opportunity Gauge
   const cheapCount = fresh.filter(c => c.pe && c.pe > 0 && c.pe < 15 && c.pb && c.pb > 0 && c.pb < 2).length;
@@ -154,7 +141,7 @@ export default function MarketMonitorTab({ universe }: MarketMonitorTabProps) {
     }
   };
 
-  const eyStatus = getEyStatus(eyRatio);
+  const eyStatus = eyRatio != null ? getEyStatus(eyRatio) : null;
 
   // Coverage percentage
   const totalUniverseCount = universe.length || 1;
@@ -196,6 +183,9 @@ export default function MarketMonitorTab({ universe }: MarketMonitorTabProps) {
         <p className="text-xs text-[#6B7280]">
           خريطة توزيع مكررات الأرباح ومؤشرات تاسي وبوابة عائد السندات مقابل الأسهم وعتبات العائد (1 / 1.5 / 2) مع لوحة الاقتصاد الكلي.
         </p>
+        <p className="text-[11px] text-[#9CA3AF] mt-1">
+          ملاحظة منهجية: يُستثنى من حساب وسيط مكرر الربحية (Median P/E) جميع الشركات التي تكون فيها P/E ≤ 0 (خسائر أو قيمة سالبة) أو P/E &gt; 80 (مكررات شاذة لا تعكس التقييم الحقيقي).
+        </p>
       </div>
 
       {/* KPI Cards */}
@@ -211,15 +201,33 @@ export default function MarketMonitorTab({ universe }: MarketMonitorTabProps) {
           <div className={KPI_LABEL}>القيمة السوقية المغطاة</div>
         </div>
         <div className={`${CARD} p-3.5`}>
-          <div className="text-xl font-black text-[#16A34A]">{medPe.toFixed(1)}x</div>
+          {universe.length === 0 ? (
+            <div className="text-sm text-[#9CA3AF] animate-pulse">جاري التحميل...</div>
+          ) : medPe != null ? (
+            <div className="text-xl font-black text-[#16A34A]">{medPe.toFixed(1)}x</div>
+          ) : (
+            <div className="text-sm text-[#DC2626] font-semibold">بيانات غير كافية</div>
+          )}
           <div className={KPI_LABEL}>وسيط مكرر الربحية Median P/E</div>
         </div>
         <div className={`${CARD} p-3.5`}>
-          <div className="text-xl font-black text-[#1A1A1A]">{medPb.toFixed(2)}x</div>
+          {universe.length === 0 ? (
+            <div className="text-sm text-[#9CA3AF] animate-pulse">جاري التحميل...</div>
+          ) : medPb != null ? (
+            <div className="text-xl font-black text-[#1A1A1A]">{medPb.toFixed(2)}x</div>
+          ) : (
+            <div className="text-sm text-[#DC2626] font-semibold">بيانات غير كافية</div>
+          )}
           <div className={KPI_LABEL}>وسيط القيمة الدفترية Median P/B</div>
         </div>
         <div className={`${CARD} p-3.5`}>
-          <div className="text-xl font-black text-[#16A34A]">{medRoe.toFixed(1)}%</div>
+          {universe.length === 0 ? (
+            <div className="text-sm text-[#9CA3AF] animate-pulse">جاري التحميل...</div>
+          ) : medRoe != null ? (
+            <div className="text-xl font-black text-[#16A34A]">{medRoe.toFixed(1)}%</div>
+          ) : (
+            <div className="text-sm text-[#DC2626] font-semibold">بيانات غير كافية</div>
+          )}
           <div className={KPI_LABEL}>وسيط العائد على الملكية Median ROE</div>
         </div>
       </div>
@@ -250,24 +258,34 @@ export default function MarketMonitorTab({ universe }: MarketMonitorTabProps) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-          <div className="p-3 bg-[#F7F8FA] rounded-[4px] border border-[#E5E7EB]">
-            <span className="text-[#6B7280] block mb-1">عائد أرباح السوق الوسيط (Earnings Yield):</span>
-            <b className="text-base text-[#1A1A1A]">{(ey * 100).toFixed(2)}%</b>
-            <span className="text-[10px] text-[#6B7280] block mt-1">1 / وسيط مكرر الربحية ({medPe.toFixed(1)}x)</span>
+        {medPe == null ? (
+          <div className="py-6 text-center text-sm text-[#9CA3AF]">
+            {universe.length === 0 ? "جاري تحميل بيانات السوق..." : "لا تتوفر بيانات كافية لحساب بوابة السوق حالياً."}
           </div>
-          <div className="p-3 bg-[#F7F8FA] rounded-[4px] border border-[#E5E7EB]">
-            <span className="text-[#6B7280] block mb-1">نسبة السندات للأرباح (Bond/EY Ratio):</span>
-            <b className="text-base text-[#8C3B32] font-black">{eyRatio.toFixed(2)}x</b>
-            <span className="text-[10px] text-[#6B7280] block mt-1">عائد السندات ÷ عائد الأسهم</span>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+            <div className="p-3 bg-[#F7F8FA] rounded-[4px] border border-[#E5E7EB]">
+              <span className="text-[#6B7280] block mb-1">عائد أرباح السوق الوسيط (Earnings Yield):</span>
+              <b className="text-base text-[#1A1A1A]">{ey != null ? (ey * 100).toFixed(2) : "—"}%</b>
+              <span className="text-[10px] text-[#6B7280] block mt-1">1 / وسيط مكرر الربحية ({medPe.toFixed(1)}x)</span>
+            </div>
+            <div className="p-3 bg-[#F7F8FA] rounded-[4px] border border-[#E5E7EB]">
+              <span className="text-[#6B7280] block mb-1">نسبة السندات للأرباح (Bond/EY Ratio):</span>
+              <b className="text-base text-[#8C3B32] font-black">{eyRatio != null ? eyRatio.toFixed(2) : "—"}x</b>
+              <span className="text-[10px] text-[#6B7280] block mt-1">عائد السندات ÷ عائد الأسهم</span>
+            </div>
+            <div className="p-3 bg-[#F7F8FA] rounded-[4px] border border-[#E5E7EB] flex flex-col justify-center">
+              <span className="text-[#6B7280] block mb-1">التصنيف المنهجي للعتبة:</span>
+              {eyStatus ? (
+                <span className={`px-2.5 py-1 rounded text-xs font-bold border text-center ${eyStatus.badge}`}>
+                  {eyStatus.label}
+                </span>
+              ) : (
+                <span className="text-[#9CA3AF] text-xs">—</span>
+              )}
+            </div>
           </div>
-          <div className="p-3 bg-[#F7F8FA] rounded-[4px] border border-[#E5E7EB] flex flex-col justify-center">
-            <span className="text-[#6B7280] block mb-1">التصنيف المنهجي للعتبة:</span>
-            <span className={`px-2.5 py-1 rounded text-xs font-bold border text-center ${eyStatus.badge}`}>
-              {eyStatus.label}
-            </span>
-          </div>
-        </div>
+        )}
 
         {/* Lynch Opportunity Gauge */}
         <div className="pt-3 border-t border-[#E5E7EB] flex flex-wrap items-center justify-between gap-2 text-xs">
@@ -345,7 +363,7 @@ export default function MarketMonitorTab({ universe }: MarketMonitorTabProps) {
                     </span>
                   </div>
                   <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE]">
-                    مكرر تاسي المغطى ({medPe.toFixed(1)}x) مقابل S&amp;P 500 ({sp.pe_ratio.toFixed(1)}x)
+                    مكرر تاسي المغطى ({medPe != null ? `${medPe.toFixed(1)}x` : "—"}) مقابل S&amp;P 500 ({sp.pe_ratio.toFixed(1)}x)
                   </span>
                 </div>
 
@@ -383,7 +401,7 @@ export default function MarketMonitorTab({ universe }: MarketMonitorTabProps) {
               توزيع مكررات الأرباح في السوق — P/E DISTRIBUTION (0–80×)
             </h3>
             <span className="text-[10px] bg-[#F1F5F9] text-[#475569] font-mono px-2 py-0.5 rounded border border-[#E2E8F0]">
-              وسيط السوق: {medPe.toFixed(1)}x
+              وسيط السوق: {medPe != null ? `${medPe.toFixed(1)}x` : "—"}
             </span>
           </div>
           <span className="text-[10px] text-[#6B7280] font-mono">{pes.length} شركة في العينة الحية</span>
@@ -437,7 +455,7 @@ export default function MarketMonitorTab({ universe }: MarketMonitorTabProps) {
               >
                 {bins.map((entry, index) => {
                   // Highlight the bin containing the market median
-                  const isMedianBin = medPe >= entry.lo && medPe < entry.hi;
+                  const isMedianBin = medPe != null && medPe >= entry.lo && medPe < entry.hi;
                   return (
                     <Cell
                       key={`cell-${index}`}

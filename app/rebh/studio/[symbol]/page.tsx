@@ -353,10 +353,14 @@ function StudioInner() {
 
   // ── Historical company median (reference line on chart) ──────────────────────
   const selfMedian = useMemo(() => {
-    const d = primary?.data || [];
+    const d = (primary?.data || []).filter((v: any) => typeof v === "number" && !isNaN(v));
     if (!d.length) return null;
     const sorted = [...d].sort((a, b) => a - b);
-    return sorted[Math.floor(sorted.length / 2)];
+    const mid = Math.floor(sorted.length / 2);
+    if (sorted.length % 2 === 0) {
+      return Math.round(((sorted[mid - 1] + sorted[mid]) / 2) * 10) / 10;
+    }
+    return Math.round(sorted[mid] * 10) / 10;
   }, [primary]);
 
   // ── Real sector median (from /api/rebh/sector-stats-full) ─────────────────────
@@ -843,10 +847,10 @@ function StudioInner() {
                         }}
                       />
                       {showHistoricalMedian && selfMedian != null && (
-                        <ReferenceLine yAxisId="left" y={selfMedian} stroke="#D97706" strokeDasharray="4 3" />
+                        <ReferenceLine yAxisId="left" y={selfMedian} stroke="#D97706" strokeDasharray="4 3" label={{ value: `وسيط الشركة: ${selfMedian}`, fill: "#D97706", fontSize: 10 }} />
                       )}
                       {showSectorMedian && currentSectorMedian != null && (
-                        <ReferenceLine yAxisId="left" y={currentSectorMedian.value} stroke="#16A34A" strokeDasharray="4 2" />
+                        <ReferenceLine yAxisId="left" y={currentSectorMedian.value} stroke="#16A34A" strokeDasharray="4 2" label={{ value: `وسيط القطاع: ${currentSectorMedian.value}`, fill: "#16A34A", fontSize: 10 }} />
                       )}
                       {/* ── Estimate Cone on Quarterly Net Profit (±18.5% backtested error) ── */}
                       {timeframe === "quarterly" && primary.id === "net" && (
@@ -896,10 +900,10 @@ function StudioInner() {
                         }}
                       />
                       {showHistoricalMedian && selfMedian != null && (
-                        <ReferenceLine yAxisId="left" y={selfMedian} stroke="#D97706" strokeDasharray="4 3" />
+                        <ReferenceLine yAxisId="left" y={selfMedian} stroke="#D97706" strokeDasharray="4 3" label={{ value: `وسيط الشركة: ${selfMedian}`, fill: "#D97706", fontSize: 10 }} />
                       )}
                       {showSectorMedian && currentSectorMedian != null && (
-                        <ReferenceLine yAxisId="left" y={currentSectorMedian.value} stroke="#16A34A" strokeDasharray="4 2" />
+                        <ReferenceLine yAxisId="left" y={currentSectorMedian.value} stroke="#16A34A" strokeDasharray="4 2" label={{ value: `وسيط القطاع: ${currentSectorMedian.value}`, fill: "#16A34A", fontSize: 10 }} />
                       )}
                       {/* ── Estimate Cone on Quarterly Net Profit (±18.5% backtested error) ── */}
                       {timeframe === "quarterly" && primary.id === "net" && (

@@ -315,9 +315,9 @@ export default function Navbar() {
             {
               en: 'Alhussain', href: '#',
               items: [
-                // { en: 'Alhussain', href: '/screeners/alhussain' },
+                { en: 'Alhussain', href: '/screeners/alhussain' },
                 // { en: 'A/D Rating', href: '/screeners/ad-rating' },
-                { en: 'Minervini Trend', href: '/minervini-trend' },
+                // { en: 'Minervini Trend', href: '/minervini-trend' },
               ],
             },
           ],
