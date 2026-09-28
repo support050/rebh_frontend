@@ -4,7 +4,7 @@ import React, { useEffect, useState, useMemo, useRef, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
-  BarChart3, TrendingUp, Search, Printer, AlertTriangle,
+  BarChart3, TrendingUp, Search, FileDown, Loader2, AlertTriangle,
   Layers, ArrowUpRight, ArrowDownRight, Sparkles,
   CandlestickChart, Activity, RefreshCw, Table2,
   CheckCircle2, XCircle, ChevronDown, Minus
@@ -26,6 +26,7 @@ import {
   Customized,
 } from "recharts";
 import { API_BASE_URL } from "@/lib/api/config";
+import { buildCanvasPdf } from "@/lib/rebh/pdf";
 import { InteractiveStatementTable } from "./components/InteractiveStatementTable";
 import { StudioRightRail } from "./components/StudioRightRail";
 
@@ -398,12 +399,12 @@ function StudioInner() {
   ];
 
   // ─── Loading / Error ────────────────────────────────────────────────────────
+  const [exportingPdf, setExportingPdf] = useState(false);
+
   if (loading) return (
     <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center p-6">
       <div className="text-center space-y-3 max-w-sm">
         <div className="w-11 h-11 border-[3px] border-[#8C3B32] border-t-transparent rounded-full animate-spin mx-auto" />
-        <h2 className="text-sm font-bold text-[#1A1A1A]">جاري تحميل بيانات الاستوديو</h2>
-        <p className="text-xs text-[#6B7280]">استدعاء القوائم المالية والأسعار التاريخية…</p>
       </div>
     </div>
   );
@@ -424,10 +425,10 @@ function StudioInner() {
             إعادة المحاولة
           </button>
           <Link
-            href="/rebh/studio"
+            href="/rebh/studio/2222"
             className="px-4 py-2 bg-[#8C3B32] text-white text-xs font-semibold rounded-[4px] hover:bg-[#752f28]"
           >
-            اختر رمزاً آخر
+            اختر رمزاً آخر (2222)
           </Link>
         </div>
       </div>
@@ -445,6 +446,27 @@ function StudioInner() {
   const latestChg       = prevPrimary !== 0 ? ((latestPrimary - prevPrimary) / Math.abs(prevPrimary)) * 100 : 0;
   const isUp            = latestChg >= 0;
 
+  // ── PDF export (canvas capture via the unified REBH pipeline) ──────────────
+  const handleExportPdf = async () => {
+    if (exportingPdf) return;
+    const node = document.getElementById("studio-report-content");
+    if (!node) return;
+    try {
+      setExportingPdf(true);
+      const dateStr = new Date().toISOString().split("T")[0];
+      await buildCanvasPdf({
+        node,
+        filename: `REBH_Studio_${symbol}_${dateStr}.pdf`,
+        header: { symbol, title: name, subtitle: `استوديو الرسوم البيانية - ${sector}` },
+      });
+    } catch (err) {
+      console.error("Failed to export studio PDF:", err);
+      alert("حدث خطأ أثناء إنشاء ملف الـ PDF. يرجى المحاولة مرة أخرى.");
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] pb-28">
@@ -452,7 +474,7 @@ function StudioInner() {
       {/* ── TOP BAR ──────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 bg-white border-b border-[#E5E7EB] px-5 py-2.5 flex items-center justify-between flex-wrap gap-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="flex items-center gap-3">
-          <Link href="/rebh/studio">
+          <Link href="/rebh/studio/2222">
             <span className="px-2 py-1 rounded bg-[#8C3B32] text-white font-mono font-black text-xs cursor-pointer hover:bg-[#752f28]">
               STUDIO
             </span>
@@ -477,10 +499,11 @@ function StudioInner() {
             <button type="submit" className="px-2.5 py-1.5 bg-[#F3F4F6] hover:bg-[#E5E7EB] border border-[#D1D5DB] rounded-[4px] text-xs font-semibold">عرض</button>
           </form>
           <button
-            onClick={() => window.print()}
-            className="flex items-center gap-1 px-3 py-1.5 bg-[#8C3B32] hover:bg-[#752f28] text-white rounded-[4px] text-xs font-semibold"
+            onClick={handleExportPdf}
+            disabled={exportingPdf}
+            className="flex items-center gap-1 px-3 py-1.5 bg-[#8C3B32] hover:bg-[#752f28] text-white rounded-[4px] text-xs font-semibold disabled:opacity-60"
           >
-            <Printer size={13} />طباعة
+            {exportingPdf ? (<><Loader2 size={13} className="animate-spin" />جاري التصدير...</>) : (<><FileDown size={13} />تصدير (PDF)</>)}
           </button>
         </div>
       </header>
@@ -613,7 +636,7 @@ function StudioInner() {
       </section>
 
       {/* ── MAIN CANVAS ──────────────────────────────────────────────────── */}
-      <main className="max-w-[96%] mx-auto px-6 py-6 space-y-6">
+      <main id="studio-report-content" className="max-w-[96%] mx-auto px-6 py-6 space-y-6">
 
         {/* ━━ FUNDAMENTAL MODE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {mode === "fundamental" && primary && (
@@ -622,7 +645,7 @@ function StudioInner() {
             <div className="flex-1 w-full space-y-5">
 
             {/* METRIC PICKER */}
-            <div className="bg-white border border-[#E5E7EB] rounded-[6px] p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] space-y-4">
+            <div className="pdf-exclude bg-white border border-[#E5E7EB] rounded-[6px] p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] space-y-4">
 
               {/* Controls row */}
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F1F5F9] pb-3">
@@ -696,7 +719,7 @@ function StudioInner() {
               </div>
 
               {/* Secondary dropdown */}
-              <div className="pt-2 border-t border-[#F1F5F9] flex items-center justify-between flex-wrap gap-2 text-xs text-[#64748B]">
+              <div className="pdf-exclude pt-2 border-t border-[#F1F5F9] flex items-center justify-between flex-wrap gap-2 text-xs text-[#64748B]">
                 <div className="flex items-center gap-2">
                   <Layers size={13} className="text-[#8C3B32]" />
                   <span>مقارنة ثانوية (Dual-Wave):</span>
@@ -983,7 +1006,7 @@ function StudioInner() {
         {mode === "price_action" && (
           <div className="space-y-5">
             <div className="bg-white border border-[#E5E7EB] rounded-[6px] p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] space-y-4">
-              <div className="flex items-center justify-between flex-wrap gap-3 border-b border-[#E5E7EB] pb-3">
+              <div className="pdf-exclude flex items-center justify-between flex-wrap gap-3 border-b border-[#E5E7EB] pb-3">
                 <div className="flex items-center gap-2">
                   <TrendingUp size={14} className="text-[#8C3B32]" />
                   <span className="text-xs font-bold text-[#1A1A1A]">مسار السعر اليومي ({priceHistory.length} يوم)</span>

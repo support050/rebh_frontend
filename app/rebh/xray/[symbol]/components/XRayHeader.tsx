@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Search, FileDown, RefreshCw, Loader2 } from "lucide-react";
+import { buildCanvasPdf } from "@/lib/rebh/pdf";
 import { XRayStory, SIG_COLOR } from "./types";
 
 interface HeaderProps {
@@ -48,12 +49,11 @@ export function XRayHeader({
 }: HeaderProps) {
   const [isExportingPdf, setIsExportingPdf] = useState(false);
 
-  // ── Direct PDF download (no browser print dialog) ─────────────────────
+  // ── Direct PDF download (unified REBH pipeline) ────────────────────────────
   // Captures the report body — everything wrapped in the element with
-  // id="xray-report-content" in the page (page.tsx), i.e. the company
-  // snapshot, the narrative strip and every chart/table section below it —
-  // as a set of rendered canvases, then stitches them into a multi-page
-  // PDF with jsPDF, mirroring the approach used in industry-groups/page.tsx.
+  // id="xray-report-content" in the page (page.tsx) — via html2canvas (scale 2),
+  // then embeds it into a multi-page A4 PDF carrying the unified maroon REBH
+  // header and the disclaimer footer on every page.
   const handleExportPdf = async () => {
     if (isExportingPdf) return;
     const node = document.getElementById("xray-report-content");
@@ -66,41 +66,16 @@ export function XRayHeader({
 
     setIsExportingPdf(true);
     try {
-      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
-        import("html2canvas"),
-        import("jspdf"),
-      ]);
-
-      const canvas = await html2canvas(node, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-        ignoreElements: (el) => el.classList?.contains("pdf-exclude"),
-      });
-
-      const pageWidth = 210; // A4 mm, portrait
-      const pageHeight = 297;
-      const imgWidth = pageWidth;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      const doc = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
-      const imgData = canvas.toDataURL("image/png", 1.0);
-
-      let heightLeft = imgHeight;
-      let position = 0;
-
-      doc.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
-        doc.addPage();
-        doc.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-      }
-
       const dateStr = new Date().toISOString().split("T")[0];
-      doc.save(`XRay_Report_${symbol}_${dateStr}.pdf`);
+      await buildCanvasPdf({
+        node,
+        filename: `REBH_XRay_${symbol}_${dateStr}.pdf`,
+        header: {
+          symbol,
+          title: name,
+          subtitle: `تشريح السردية المالية - ${sector}`,
+        },
+      });
     } catch (err) {
       console.error("XRay PDF export failed", err);
     } finally {

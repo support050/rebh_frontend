@@ -3,11 +3,12 @@
 import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import {
-  CheckCircle2, ShieldCheck, Award, Star, Printer,
+  CheckCircle2, ShieldCheck, Award, Star, FileDown, Loader2,
   Copy, Check, FileText, ChevronRight, BarChart2, BookOpen,
   CheckSquare, AlertTriangle, Filter, ChevronDown
 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api/config";
+import { generateScorecardPdf, ScorecardPdfData } from "./components/exportpdf";
 
 // ─── 35 Advisor Rows ──────────────────────────────────────────────────────────
 type School =
@@ -342,6 +343,7 @@ export default function RebhCouncilScorecardPage() {
   const [copied, setCopied] = useState(false);
   const [filter, setFilter] = useState<School | "all">("all");
   const [search, setSearch] = useState("");
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   useEffect(() => {
     async function fetchScorecard() {
@@ -385,6 +387,26 @@ export default function RebhCouncilScorecardPage() {
     }, {} as Record<string, number>)
     , []);
 
+  // ── PDF export (direct jsPDF generator, replaces legacy window.print) ──────
+  const handleExportPdf = async () => {
+    if (exportingPdf) return;
+    try {
+      setExportingPdf(true);
+      const groups = (Object.keys(SCHOOL_META) as School[]).map((k) => ({
+        label: SCHOOL_META[k].label,
+        labelEn: SCHOOL_META[k].labelEn,
+        rows: ADVISORS.filter((a) => a.school === k),
+      }));
+      const payload: ScorecardPdfData = { groups, liveData: liveData ?? null };
+      await generateScorecardPdf(payload);
+    } catch (err) {
+      console.error("Failed to generate scorecard PDF:", err);
+      alert("حدث خطأ أثناء إنشاء ملف الـ PDF. يرجى المحاولة مرة أخرى.");
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] pb-28 print:bg-white">
 
@@ -399,8 +421,8 @@ export default function RebhCouncilScorecardPage() {
             {copied ? <Check size={13} className="text-[#16A34A]" /> : <Copy size={13} />}
             {copied ? "تم" : "نسخ"}
           </button>
-          <button onClick={() => window.print()} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#8C3B32] hover:bg-[#752f28] text-white rounded-[4px] text-xs font-semibold">
-            <Printer size={13} />طباعة
+          <button onClick={handleExportPdf} disabled={exportingPdf} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#8C3B32] hover:bg-[#752f28] text-white rounded-[4px] text-xs font-semibold disabled:opacity-60">
+            {exportingPdf ? (<><Loader2 size={13} className="animate-spin" />جاري التصدير...</>) : (<><FileDown size={13} />تصدير (PDF)</>)}
           </button>
         </div>
       </header>

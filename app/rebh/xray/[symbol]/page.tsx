@@ -488,10 +488,6 @@ export default function RebhStoryXRayPage() {
       <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center p-6">
         <div className="text-center space-y-3 max-w-xs">
           <div className="w-11 h-11 border-[3px] border-[#8C3B32] border-t-transparent rounded-full animate-spin mx-auto" />
-          <h2 className="text-sm font-bold text-[#1A1A1A]">جاري تشغيل محرك X-Ray</h2>
-          <p className="text-xs text-[#6B7280]">
-            استخراج القوائم · حساب النسب · بناء القصة المالية…
-          </p>
         </div>
       </div>
     );

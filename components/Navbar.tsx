@@ -426,6 +426,40 @@ export default function Navbar() {
 
       ],
     },
+    rebh: {
+      en: 'REBH',
+      href: '/rebh',
+      items: [
+        { en: 'Overview (Home Hub)', href: '/rebh' },
+        {
+          en: 'Company Analysis', href: '#',
+          items: [
+            { en: 'Company Analysis (ONE ∞)', href: '/rebh/company/2222' },
+            { en: 'Chart Studio', href: '/rebh/studio/2222' },
+            { en: 'Statements · Analyst', href: '/rebh/analyst/2222' },
+            { en: 'Story X-Ray', href: '/rebh/xray/2222' },
+            { en: 'Analytical Report', href: '/rebh/report/2222' },
+          ],
+        },
+        {
+          en: 'Tools & Screening', href: '#',
+          items: [
+            { en: 'Watchlist & Filters', href: '/rebh/watchlist' },
+            { en: 'Tools & Labs', href: '/rebh/tools' },
+            { en: 'Too-Hard Pile (Quarantine)', href: '/rebh/quarantine' },
+            { en: 'Discipline Journal', href: '/rebh/journal' },
+          ],
+        },
+        {
+          en: 'Governance & Reports', href: '#',
+          items: [
+            { en: 'The Council (31 Rules)', href: '/rebh/council' },
+            { en: 'Council Scorecard (10/10)', href: '/rebh/score' },
+            { en: 'Course Reports (10 Companies)', href: '/rebh/course-reports' },
+          ],
+        },
+      ],
+    },
     Terminal: {
       en: 'Terminal',
       href: '#',

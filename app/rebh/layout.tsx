@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Home, Building2, BarChart2, ShieldAlert, BookOpen,
   CheckSquare, Activity, Search, Menu, X, FileText,
-  PanelRightClose, PanelRightOpen, Layers, FileSpreadsheet,
+  ChevronLeft, ChevronRight, Layers, FileSpreadsheet,
   Film, LineChart, Award
 } from "lucide-react";
 
@@ -15,8 +15,6 @@ interface NavItem {
   nameEn: string;
   path: string;
   icon: React.ComponentType<{ className?: string }>;
-  tag?: string;
-  tagColor?: string;
 }
 
 const NAV_ITEMS: { group: string; items: NavItem[] }[] = [
@@ -24,25 +22,25 @@ const NAV_ITEMS: { group: string; items: NavItem[] }[] = [
     group: "المنصة والتحليل",
     items: [
       { name: "الرئيسية (Overview)", nameEn: "Home Hub", path: "/rebh", icon: Home },
-      { name: "فحص وتحليل الشركات (ONE ∞)", nameEn: "Company Analysis", path: "/rebh/company/2222", icon: Building2, tag: "ONE", tagColor: "text-[#8C3B32] bg-[#FBEAE8] border-[#F0CFC9]" },
-      { name: "استوديو الرسوم (Chart Studio)", nameEn: "Chart Studio", path: "/rebh/studio/2222", icon: LineChart, tag: "Studio", tagColor: "text-[#2563EB] bg-[#EFF6FF] border-[#BFDBFE]" },
-      { name: "القوائم المالية (Statements · Analyst)", nameEn: "Analyst", path: "/rebh/analyst/2222", icon: FileSpreadsheet, tag: "XBRL", tagColor: "text-[#2563EB] bg-[#EFF6FF] border-[#BFDBFE]" },
-      { name: "تشريح السردية (Story · X-Ray)", nameEn: "Story X-Ray", path: "/rebh/xray/2222", icon: Film, tag: "River", tagColor: "text-[#B45309] bg-[#FFFBEB] border-[#FDE68A]" },
-      { name: "أدوات ومختبرات الدورة", nameEn: "Tools & Labs", path: "/rebh/tools", icon: BarChart2, tag: "18 Labs", tagColor: "text-[#16A34A] bg-[#F0FDF4] border-[#BBF7D0]" },
+      { name: "فحص وتحليل الشركات (ONE ∞)", nameEn: "Company Analysis", path: "/rebh/company/2222", icon: Building2 },
+      { name: "استوديو الرسوم (Chart Studio)", nameEn: "Chart Studio", path: "/rebh/studio/2222", icon: LineChart },
+      { name: "القوائم المالية (Statements · Analyst)", nameEn: "Analyst", path: "/rebh/analyst/2222", icon: FileSpreadsheet },
+      { name: "تشريح السردية (Story · X-Ray)", nameEn: "Story X-Ray", path: "/rebh/xray/2222", icon: Film },
+      { name: "أدوات ومختبرات الدورة", nameEn: "Tools & Labs", path: "/rebh/tools", icon: BarChart2 },
     ]
   },
   {
     group: "أدوات المستثمر الذكي",
     items: [
-      { name: "قائمة المتابعة والفلترة", nameEn: "Watchlist", path: "/rebh/watchlist", icon: Search, tag: "270 Cos", tagColor: "text-[#2563EB] bg-[#EFF6FF] border-[#BFDBFE]" },
-      { name: "سلة مونجر (Quarantine)", nameEn: "Too-Hard Pile", path: "/rebh/quarantine", icon: ShieldAlert, tag: "48 Gap", tagColor: "text-[#B45309] bg-[#FFFBEB] border-[#FDE68A]" },
+      { name: "قائمة المتابعة والفلترة", nameEn: "Watchlist", path: "/rebh/watchlist", icon: Search },
+      { name: "سلة مونجر (Quarantine)", nameEn: "Too-Hard Pile", path: "/rebh/quarantine", icon: ShieldAlert },
       { name: "سجل الصفقات (Journal)", nameEn: "Discipline", path: "/rebh/journal", icon: BookOpen },
       { name: "لجنة الفحص والرقابة (31)", nameEn: "The Council", path: "/rebh/council", icon: CheckSquare },
-      { name: "بطاقة اعتماد المنصة (10/10)", nameEn: "Council Scorecard", path: "/rebh/score", icon: Award, tag: "10/10", tagColor: "text-[#16A34A] bg-[#F0FDF4] border-[#BBF7D0]" },
-      { name: "التقرير التحليلي", nameEn: "Abu Saad Report", path: "/rebh/report/2222", icon: FileText, tag: "PDF ⎙", tagColor: "text-[#8C3B32] bg-[#FBEAE8] border-[#F0CFC9]" },
-      { name: "تقارير الدورة (10 شركات)", nameEn: "Course Reports", path: "/rebh/course-reports", icon: BookOpen, tag: "10+8", tagColor: "text-[#8C3B32] bg-[#FBEAE8] border-[#F0CFC9]" },
-      { name: "محطة التداول والتحليل", nameEn: "Terminal Suite", path: "/terminal", icon: BarChart2, tag: "Terminal", tagColor: "text-[#2563EB] bg-[#EFF6FF] border-[#BFDBFE]" },
-      // { name: "صحة وتدقيق البيانات", nameEn: "Data Health", path: "/rebh/health", icon: Activity, tag: "Audited", tagColor: "text-[#16A34A] bg-[#F0FDF4] border-[#BBF7D0]" },
+      { name: "بطاقة اعتماد المنصة (10/10)", nameEn: "Council Scorecard", path: "/rebh/score", icon: Award },
+      { name: "التقرير التحليلي", nameEn: "Abu Saad Report", path: "/rebh/report/2222", icon: FileText },
+      { name: "تقارير الدورة (10 شركات)", nameEn: "Course Reports", path: "/rebh/course-reports", icon: BookOpen },
+      { name: "محطة التداول والتحليل", nameEn: "Terminal Suite", path: "/terminal", icon: BarChart2 },
+      // { name: "صحة وتدقيق البيانات", nameEn: "Data Health", path: "/rebh/health", icon: Activity },
     ]
   }
 ];
@@ -52,7 +50,7 @@ export default function RebhLayout({ children }: { children: React.ReactNode }) 
   const router = useRouter();
   const [quickQuery, setQuickQuery] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
-  // NEW: desktop collapse state
+  // desktop collapse state
   const [collapsed, setCollapsed] = useState(false);
 
   const handleQuickJump = (e: React.FormEvent) => {
@@ -127,9 +125,9 @@ export default function RebhLayout({ children }: { children: React.ReactNode }) 
 
       {/* Desktop Persistent Sidebar */}
       <aside className={`
-        fixed inset-y-0 right-0 z-50 bg-white border-l border-[#E5E7EB] flex flex-col transition-all duration-200
+        fixed inset-y-0 right-0 z-50 bg-white border-l border-[#E5E7EB] flex flex-col transition-all duration-300 ease-in-out
         md:static md:translate-x-0 ${mobileOpen ? "translate-x-0" : "translate-x-full md:translate-x-0"}
-        ${collapsed ? "md:w-16" : "md:w-64"} w-64
+        ${collapsed ? "md:w-0 md:overflow-hidden md:opacity-0 md:pointer-events-none md:border-l-0" : "md:w-64 md:opacity-100"} w-64
       `}>
         {/* Brand Header */}
         <div className="p-4 border-b border-[#E5E7EB] flex items-center justify-between gap-2">
@@ -142,15 +140,6 @@ export default function RebhLayout({ children }: { children: React.ReactNode }) 
               EVERYTHING · AND HONEST ABOUT THE REST
             </div>
           </Link>
-
-          {/* Collapse toggle - desktop only */}
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            title={collapsed ? "فتح القائمة" : "طي القائمة"}
-            className="hidden md:flex shrink-0 p-1.5 text-[#6B7280] hover:text-[#8C3B32] rounded-[4px] bg-[#F3F4F6] border border-[#E5E7EB] hover:border-[#F0CFC9] transition-colors"
-          >
-            {collapsed ? <PanelRightOpen className="w-4 h-4" /> : <PanelRightClose className="w-4 h-4" />}
-          </button>
         </div>
 
         {/* Quick Command Palette */}
@@ -166,9 +155,6 @@ export default function RebhLayout({ children }: { children: React.ReactNode }) 
               />
             </div>
           </form>
-          <div className="text-[9.5px] font-mono text-[#9CA3AF] mt-1 px-1">
-            اكتب الرمز واضغط Enter للانتقال
-          </div>
         </div>
 
         {/* Navigation Sections */}
@@ -217,11 +203,6 @@ export default function RebhLayout({ children }: { children: React.ReactNode }) 
                       <span className={`truncate min-w-0 flex-1 ${collapsed ? "md:hidden" : ""}`}>
                         {item.name}
                       </span>
-                      {item.tag && (
-                        <span className={`shrink-0 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full border whitespace-nowrap ${item.tagColor} ${collapsed ? "md:hidden" : ""}`}>
-                          {item.tag}
-                        </span>
-                      )}
                     </Link>
                   );
                 })}
@@ -241,6 +222,16 @@ export default function RebhLayout({ children }: { children: React.ReactNode }) 
           </div>
         </div>
       </aside>
+
+      {/* Sidebar toggle - desktop only (floating tab on the sidebar edge) */}
+      <button
+        onClick={() => setCollapsed(!collapsed)}
+        className="hidden md:flex fixed top-1/2 -translate-y-1/2 z-50 items-center justify-center w-5 h-14 bg-white border border-[#E5E7EB] border-l-0 rounded-r-md shadow-sm text-[#6B7280] hover:text-[#1A1A1A] hover:bg-[#F3F4F6] transition-all duration-300 ease-in-out cursor-pointer outline-none focus:ring-0"
+        style={{ left: collapsed ? "0px" : "256px" }}
+        title={collapsed ? "فتح القائمة" : "طي القائمة"}
+      >
+        {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+      </button>
 
       {/* Mobile overlay when nav is open */}
       {mobileOpen && (

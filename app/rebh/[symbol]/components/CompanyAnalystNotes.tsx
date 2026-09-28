@@ -161,7 +161,6 @@ export default function CompanyAnalystNotes({ symbol }: CompanyAnalystNotesProps
       {loading ? (
         <div className="py-4 text-center text-xs text-[#9CA3AF] flex items-center justify-center gap-2">
           <Loader2 className="w-3.5 h-3.5 animate-spin text-[#8C3B32]" />
-          <span>جاري تحميل الملاحظات...</span>
         </div>
       ) : isEditing ? (
         /* Edit Mode: Textarea + Action Buttons */

@@ -29,7 +29,6 @@ export function TableStatusRow({
             <tr>
                 <td colSpan={colSpan} className="px-4 py-16 text-center text-[#6B7280]">
                     <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin text-[#8C3B32]" />
-                    جاري تحميل بيانات الشركات…
                 </td>
             </tr>
         );

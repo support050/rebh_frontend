@@ -207,7 +207,6 @@ export default function CourseReportsPage() {
       <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center">
         <div className="flex items-center gap-2 text-xs text-[#6B7280]">
           <Loader2 className="w-4 h-4 animate-spin text-[#8C3B32]" />
-          <span>جاري تحميل تقارير شركات الدورة...</span>
         </div>
       </div>
     }>

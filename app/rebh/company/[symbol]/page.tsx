@@ -7,9 +7,11 @@ import {
   Building2, ArrowUpRight, ArrowDownRight, ShieldCheck,
   AlertTriangle, CheckCircle2, TrendingUp, BarChart3,
   Layers, FileText, Search, Activity, Cpu, Percent, HelpCircle,
-  Clock, ShieldAlert, Sparkles, Edit3, X, Check
+  Clock, ShieldAlert, Sparkles, Edit3, X, Check, FileDown, Loader2
 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api/config";
+import { generateCompanyMemoPdf, CompanyMemoPdfData } from "../components/exportpdf";
+import { buildCanvasPdf } from "@/lib/rebh/pdf";
 import RebhRadarScore from "../../[symbol]/components/RebhRadarScore";
 import SectorPeersTable from "../../[symbol]/components/SectorPeersTable";
 import QuarterlyEngineRoom from "../../[symbol]/components/QuarterlyEngineRoom";
@@ -34,6 +36,8 @@ export default function RebhCompanyOfficialPage() {
 
   // 7-Pillar Classification Dynamic Data
   const [classData, setClassData] = useState<any>(null);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportingPagePdf, setExportingPagePdf] = useState(false);
 
   useEffect(() => {
     async function fetchCompany() {
@@ -91,7 +95,6 @@ export default function RebhCompanyOfficialPage() {
       <div className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="w-10 h-10 border-2 border-[#8C3B32] border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-sm text-[#6B7280]">جاري تشغيل محرك REBH واستخراج القوائم المالية الموحدة...</p>
         </div>
       </div>
     );
@@ -184,6 +187,89 @@ export default function RebhCompanyOfficialPage() {
       : null
   );
 
+  const handleExportPdf = async () => {
+    if (exportingPdf) return;
+    try {
+      setExportingPdf(true);
+      const localNote = typeof window !== "undefined" ? localStorage.getItem(`rebh_note_${symbol}`) : null;
+
+      const pdfPayload: CompanyMemoPdfData = {
+        symbol,
+        name,
+        sector: classData?.sector || sec,
+        industryClass: indClass,
+        currency,
+        price: px,
+        marketCap: mc,
+        pe,
+        pb,
+        roe,
+        netMargin,
+        fcfYield,
+        fScore: f_score,
+        grades,
+        rebhScoreOverride: company.rebh_score,
+        marketRank: company.market_rank,
+        sectorRank: company.sector_rank,
+        isFresh,
+        staleReason,
+        quarantineReason,
+        balanceIdentity,
+        buyGate,
+        capitalStructure: company.capital_structure,
+        zones,
+        irrDecision,
+        reverseDcf,
+        buildUp,
+        safety,
+        marginOfSafety,
+        bankMetrics,
+        cyclicalBands,
+        psLadder,
+        redFlags,
+        shariah,
+        classData,
+        quarterly,
+        currentQName,
+        qoqDelta,
+        yoyDelta,
+        note: localNote,
+      };
+
+      await generateCompanyMemoPdf(pdfPayload);
+    } catch (err) {
+      console.error("Failed to generate PDF memo:", err);
+      alert("حدث خطأ أثناء إنشاء ملف الـ PDF. يرجى المحاولة مرة أخرى.");
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
+  // ── Full-page PDF export (canvas capture of the analytical page) ───────────
+  const handleExportPagePdf = async () => {
+    if (exportingPagePdf) return;
+    const node = document.getElementById("company-page-content");
+    if (!node) return;
+    try {
+      setExportingPagePdf(true);
+      const dateStr = new Date().toISOString().split("T")[0];
+      await buildCanvasPdf({
+        node,
+        filename: `REBH_Company_${symbol}_${dateStr}.pdf`,
+        header: {
+          symbol,
+          title: name,
+          subtitle: `الصفحة التحليلية الشاملة - ${classData?.sector || sec}`,
+        },
+      });
+    } catch (err) {
+      console.error("Failed to export company page PDF:", err);
+      alert("حدث خطأ أثناء إنشاء ملف الـ PDF. يرجى المحاولة مرة أخرى.");
+    } finally {
+      setExportingPagePdf(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] pb-16">
       {/* Top Command Bar */}
@@ -240,10 +326,28 @@ export default function RebhCompanyOfficialPage() {
             <span>نسخ الأطروحة</span>
           </button>
           <button
-            onClick={() => window.print()}
-            className="flex items-center gap-1 px-3 py-1.5 bg-[#8C3B32] hover:bg-[#752f28] text-white rounded-[4px] text-xs font-semibold shadow-sm"
+            onClick={handleExportPdf}
+            disabled={exportingPdf}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#8C3B32] hover:bg-[#752f28] disabled:opacity-60 text-white rounded-[4px] text-xs font-semibold shadow-sm transition-colors"
           >
-            <span>طباعة المذكرة ⎙</span>
+            {exportingPdf ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>جاري التصدير...</span>
+              </>
+            ) : (
+              <>
+                <FileDown className="w-3.5 h-3.5" />
+                <span>تصدير المذكرة (PDF)</span>
+              </>
+            )}
+          </button>
+          <button
+            onClick={handleExportPagePdf}
+            disabled={exportingPagePdf}
+            className="flex items-center gap-1 px-3 py-1.5 bg-white hover:bg-[#F9FAFB] border border-[#D1D5DB] text-[#374151] rounded-[4px] text-xs font-semibold shadow-sm disabled:opacity-60"
+          >
+            {exportingPagePdf ? (<><Loader2 className="w-3.5 h-3.5 animate-spin" />جاري التصدير...</>) : (<><FileDown className="w-3.5 h-3.5" />تصدير الصفحة (PDF)</>)}
           </button>
         </div>
       </header>
@@ -323,7 +427,7 @@ export default function RebhCompanyOfficialPage() {
       )}
 
       {/* Main Container */}
-      <main className="max-w-7xl mx-auto px-6 py-6 space-y-6">
+      <main id="company-page-content" className="max-w-7xl mx-auto px-6 py-6 space-y-6">
         {/* 1. Investment Thesis & Buy Gate Verdict */}
         <InvestmentThesisBuyGate buyGate={buyGate} />
 

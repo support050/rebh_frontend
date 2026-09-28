@@ -1,8 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, ExternalLink } from "lucide-react";
+import { ArrowUpRight, ExternalLink, FileDown, Loader2 } from "lucide-react";
+import { generateCourseReportPdf, CourseReportPdfData } from "./exportpdf";
 
 interface ReportData {
   sym: string;
@@ -151,11 +152,12 @@ function TTM(vals: (number | null)[]): number | null {
 }
 
 export default function CompanyReportView({ meta, data, loading }: Props) {
+  const [exportingPdf, setExportingPdf] = useState(false);
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 h-64 text-[#6B7280] text-xs">
         <div className="w-8 h-8 border-2 border-[#8C3B32] border-t-transparent rounded-full animate-spin" />
-        <span>جاري تحميل بيانات الشركة...</span>
       </div>
     );
   }
@@ -212,6 +214,66 @@ export default function CompanyReportView({ meta, data, loading }: Props) {
   const shariaDeAssets = data?.de_assets;
   const shariaOk = shariaDeAssets != null && shariaDeAssets < 33;
 
+  // ── PDF export (direct jsPDF generator, replaces legacy window.print) ──────
+  const handleExportPdf = async () => {
+    if (exportingPdf) return;
+    if (!data) return;
+    try {
+      setExportingPdf(true);
+      const qRows: { label: string; vals: (number | null)[]; ttm: number | null }[] = [];
+      if (qPeriods.length > 0) {
+        qRows.push({ label: "الإيرادات", vals: qRev, ttm: ttmRev });
+        if (qGp.length > 0) qRows.push({ label: "إجمالي الربح", vals: qGp, ttm: null });
+        if (qOp.length > 0) qRows.push({ label: "التشغيلي", vals: qOp, ttm: ttmOp });
+        qRows.push({ label: "صافي الربح", vals: qNet, ttm: ttmNet });
+      }
+      const verdict = meta.type === "bank"
+        ? "بنك يُقرأ بعدة البنوك (NII/NIM/CASA) — القرار رهن اكتمال البيانات."
+        : zone === "ذهبية" ? "سعر ذهبي أدنى من القيمة بلا نمو — هامش أمان ممتاز."
+        : zone === "فضية" ? "منطقة فضية — يستحق المتابعة والتحليل التفصيلي."
+        : zone === "برونزية" ? "منطقة برونزية — السعر يقترب من العادل وفق GS."
+        : "تحليل تعليمي وفق منهجية الدورة وليس توصية استثمارية.";
+      const payload: CourseReportPdfData = {
+        sym: meta.sym,
+        name: data.n || meta.name,
+        sec: data.sec || "—",
+        typeLabel: meta.label,
+        type: meta.type,
+        px: data.px ?? null,
+        pe: data.pe ?? null,
+        pb: data.pb ?? null,
+        roe: data.roe ?? null,
+        deAssets: data.de_assets ?? null,
+        de: data.de ?? null,
+        shariaOk: shariaDeAssets != null ? shariaOk : null,
+        porterItems: porter.items,
+        porterTotal: porter.total,
+        porterComp: porter.comp,
+        porterLabel: porter.label,
+        quarters: { periods: qPeriods, rows: qRows },
+        gNet: data.g_net ?? null,
+        gs: GS,
+        safetyItems: safetyItems.map((it) => ({ label: it.label, v: it.v ?? null, score: it.score, limits: it.labels[0] })),
+        totalSafety,
+        safetyComp,
+        buildUp: { porterWeight, safetyWeight, bondRate, r: R },
+        gl: GL,
+        n: N,
+        epv: data.epv ?? null,
+        zone,
+        verdict,
+        warnings: data.wl || [],
+        isBank: meta.type === "bank",
+      };
+      await generateCourseReportPdf(payload);
+    } catch (err) {
+      console.error("Failed to generate course report PDF:", err);
+      alert("حدث خطأ أثناء إنشاء ملف الـ PDF. يرجى المحاولة مرة أخرى.");
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Header Card */}
@@ -232,10 +294,11 @@ export default function CompanyReportView({ meta, data, loading }: Props) {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => window.print()}
-            className="flex items-center gap-1 text-[11px] text-[#1A1A1A] bg-[#F3F4F6] hover:bg-[#E5E7EB] border border-[#E5E7EB] px-3 py-1.5 rounded-[4px] font-bold transition print:hidden"
+            onClick={handleExportPdf}
+            disabled={exportingPdf}
+            className="flex items-center gap-1 text-[11px] text-[#1A1A1A] bg-[#F3F4F6] hover:bg-[#E5E7EB] border border-[#E5E7EB] px-3 py-1.5 rounded-[4px] font-bold transition disabled:opacity-60"
           >
-            <span>طباعة / PDF ⎙</span>
+            {exportingPdf ? (<><Loader2 size={13} className="animate-spin" />جاري التصدير...</>) : (<><FileDown size={13} />تصدير (PDF)</>)}
           </button>
           <Link href={`/rebh/${meta.sym}`} className="flex items-center gap-1.5 text-[11px] text-[#8C3B32] hover:text-[#1A1A1A] border border-[#8C3B32]/30 px-3 py-1.5 rounded-[4px] hover:bg-[#8C3B32]/10 transition">
             <span>فحص الشركة الكامل ONE ∞</span><ArrowUpRight className="w-3.5 h-3.5" />

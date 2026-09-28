@@ -4,10 +4,11 @@ import React, { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
-  Printer, ArrowRight, Shield, Award, CheckCircle2,
+  FileDown, Loader2, ArrowRight, Shield, Award, CheckCircle2,
   AlertCircle, FileText, Scale, Edit3, Save, AlertTriangle
 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api/config";
+import { generateOfficialReportPdf, OfficialReportPdfData } from "./components/exportpdf";
 
 const SECTION_TITLE = "text-xs font-bold text-[#8C3B32] uppercase tracking-wide mb-2 border-b border-[#E5E7EB] pb-1";
 const TABLE_HEAD = "bg-[#F3F4F6] border-b border-[#E5E7EB]";
@@ -20,6 +21,7 @@ export default function RebhReportPage() {
   const [error, setError] = useState<string | null>(null);
   const [userNotes, setUserNotes] = useState<string>("");
   const [savedNotes, setSavedNotes] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   useEffect(() => {
     async function fetchCompany() {
@@ -86,16 +88,11 @@ export default function RebhReportPage() {
     setTimeout(() => setSavedNotes(false), 2000);
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] flex items-center justify-center p-8">
         <div className="text-center space-y-3">
           <div className="w-8 h-8 border-2 border-[#8C3B32] border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-sm text-[#6B7280]">جاري إنشاء التقرير المالي الرسمي لـ {symbol} من محرك REBH...</p>
         </div>
       </div>
     );
@@ -157,6 +154,76 @@ export default function RebhReportPage() {
   const rRates = [0.06, 0.08, 0.10, 0.12];
   const gsRates = [0.02, 0.04, 0.06, 0.08];
 
+  // ── PDF export (direct jsPDF generator, replaces legacy window.print) ──────
+  const safetyNarrative = `تسجل الشركة عائداً على حقوق المساهمين قدره ${roe != null ? `${roe}%` : "—"} وعائداً على الأصول يبلغ ${roa != null ? `${roa}%` : "—"}.` +
+    (isCyclical
+      ? " وبما أن الشركة تنتمي للقطاع الدوري، فإن القرار الاستثماري المنهجي يُشتق من مكررات القمة والقاع الدورية مع تجنب فخ انخفاض مكرر الأرباح عند الذروة."
+      : isBank
+        ? " وتخضع لمؤشرات التحليل المصرفي (NIM على متوسط الأصول المدرة، ونسبة CASA، وسلامة LDR)."
+        : " وتخضع الشركة لتقييم التدفقات والأرباح الدائمة مع هامش أمان متطلب لا يقل عن 15%.");
+
+  const reverseDcfNote = impliedGrowthPct && impliedGrowthPct > 10
+    ? "السوق يسعر نمواً مرتفعاً جداً في السهم، مما يجعله مسعراً بإتقان ويقلل من هامش الأمان للمستثمر."
+    : "السوق يسعر نمواً متواضعاً أو محافظاً، مما يمنح المستثمر فرصة إذا تجاوز الأداء الفعلي التوقعات الهادئة.";
+
+  const handleExportPdf = async () => {
+    if (exportingPdf) return;
+    try {
+      setExportingPdf(true);
+      const payload: OfficialReportPdfData = {
+        symbol,
+        name,
+        sector: sec,
+        category: companyCategory,
+        asOf,
+        px,
+        mc,
+        pe: pe ?? null,
+        fScore: f_score,
+        eps: eps ?? null,
+        de: de ?? null,
+        debtToAssetsPct: debtToAssetsPct ?? null,
+        current: current ?? null,
+        roe: roe ?? null,
+        roa: roa ?? null,
+        requiredReturnPct,
+        buildUpFormula: buildUp?.formula_display ?? null,
+        buildUpSource: buildUp ? `${buildUp.rate_source} (${buildUp.risk_free_rate_pct}%)` : null,
+        ttm: company.TTM ? {
+          quartersCount: company.TTM.discrete_quarters_count || 4,
+          isComplete: Boolean(company.TTM.is_complete),
+          revenue: company.TTM.revenue ?? null,
+          netProfit: company.TTM.net_profit ?? null,
+        } : null,
+        safetyNarrative,
+        nineBox: company.nine_box ? {
+          glPct: company.nine_box.gl_pct ?? 3,
+          gsPct: company.nine_box.gs_pct ?? 6,
+          earnings: company.nine_box.earnings ?? null,
+          fcfNetDebt: company.nine_box.fcf_net_debt ?? null,
+          dividends: company.nine_box.dividends ?? null,
+        } : null,
+        zones: company.zones ? {
+          goldMax: company.zones.gold_max ?? 0,
+          silverMax: company.zones.silver_max ?? 0,
+          bronzeMax: company.zones.bronze_max ?? 0,
+          currentZone: company.zones.current_zone ?? "—",
+        } : null,
+        impliedGrowthPct: impliedGrowthPct ?? null,
+        reverseDcfNote,
+        userNotes: userNotes || null,
+        rRates,
+        gsRates,
+      };
+      await generateOfficialReportPdf(payload);
+    } catch (err) {
+      console.error("Failed to generate official report PDF:", err);
+      alert("حدث خطأ أثناء إنشاء ملف الـ PDF. يرجى المحاولة مرة أخرى.");
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F7F8FA] py-8 text-[#1A1A1A] font-sans print:bg-white print:py-0 antialiased" dir="rtl">
       {/* Print Controls & Navigation (Hidden on Print) */}
@@ -174,11 +241,21 @@ export default function RebhReportPage() {
             {savedNotes ? "تم الحفظ ✓" : "حفظ الملاحظات"}
           </button>
           <button
-            onClick={handlePrint}
-            className="px-4 py-2 bg-[#8C3B32] text-white rounded-[4px] text-xs font-bold flex items-center gap-2 hover:bg-[#7a332b] transition shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+            onClick={handleExportPdf}
+            disabled={exportingPdf}
+            className="px-4 py-2 bg-[#8C3B32] text-white rounded-[4px] text-xs font-bold flex items-center gap-2 hover:bg-[#7a332b] transition shadow-[0_1px_3px_rgba(0,0,0,0.06)] disabled:opacity-60"
           >
-            <Printer className="w-4 h-4" />
-            طباعة / تصدير PDF ⎙
+            {exportingPdf ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                جاري التصدير...
+              </>
+            ) : (
+              <>
+                <FileDown className="w-4 h-4" />
+                تصدير التقرير (PDF)
+              </>
+            )}
           </button>
         </div>
       </div>

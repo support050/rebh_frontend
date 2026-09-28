@@ -5,11 +5,12 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   FileSpreadsheet, Search, ArrowUpRight, ArrowDownRight,
-  BarChart3, Printer, AlertTriangle, ShieldCheck, RefreshCw,
+  BarChart3, FileDown, Loader2, AlertTriangle, ShieldCheck, RefreshCw,
   Info, ChevronRight, CheckCircle2, XCircle, Minus,
   TrendingUp, Layers, Activity, BookOpen
 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api/config";
+import { generateAnalystPdf, AnalystPdfData, AnalystRatioItem } from "./components/exportpdf";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Tab = "is" | "bs" | "cf" | "ratios";
@@ -344,6 +345,7 @@ export default function RebhAnalystPage() {
   const [showFormulas, setShowFormulas] = useState(false);
   const [viewMode, setViewMode] = useState<"annual" | "quarterly">("annual");
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>("absolute");
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   // Fetch
   useEffect(() => {
@@ -442,8 +444,6 @@ export default function RebhAnalystPage() {
     <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center">
       <div className="text-center space-y-3">
         <div className="w-11 h-11 border-[3px] border-[#8C3B32] border-t-transparent rounded-full animate-spin mx-auto" />
-        <p className="text-sm font-bold text-[#1A1A1A]">جاري تحليل القوائم المالية…</p>
-        <p className="text-xs text-[#6B7280]">استخراج البيانات من XBRL · حساب النسب · تدقيق المصادر</p>
       </div>
     </div>
   );
@@ -478,6 +478,89 @@ export default function RebhAnalystPage() {
   const safetyPass  = ratios && (ratios.de ?? 0) <= 2 && (ratios.cur ?? 0) >= 1;
   const qualityPass = ratios && (ratios.roe ?? 0) >= 10 && (ratios.nm ?? 0) >= 5;
 
+  // ── PDF export (direct jsPDF generator, replaces legacy window.print) ──────
+  const handleExportPdf = async () => {
+    if (exportingPdf) return;
+    try {
+      setExportingPdf(true);
+      const R = (id: string, label: string, unit: string): AnalystRatioItem => ({
+        id, label, value: ratios?.[id] ?? null, unit,
+      });
+      const groups: AnalystPdfData["groups"] = [
+        {
+          title: "الربحية (Profitability)",
+          rows: [
+            R("roe", "العائد على حقوق المساهمين (ROE)", "%"),
+            R("nm", "هامش صافي الربح", "%"),
+            R("gm", "هامش إجمالي الربح", "%"),
+            R("opm", "هامش التشغيل (EBIT)", "%"),
+          ],
+        },
+        {
+          title: "النمو (Growth - YoY)",
+          rows: [
+            R("g_net", "نمو صافي الربح (YoY)", "%"),
+            R("g_rev", "نمو الإيرادات (YoY)", "%"),
+            R("peg", "مضاعف النمو (PEG)", "\u00D7"),
+          ],
+        },
+        {
+          title: "التقييم (Valuation)",
+          rows: [
+            R("pe", "مضاعف السعر/الربح (P/E)", "\u00D7"),
+            R("pb", "مضاعف السعر/الدفاتر (P/B)", "\u00D7"),
+          ],
+        },
+      ];
+      if (!isBank) {
+        groups.push({
+          title: "السيولة والملاءة (Liquidity / Leverage)",
+          rows: [
+            R("cur", "نسبة التداول (Current Ratio)", "\u00D7"),
+            R("de", "الدين / حقوق الملكية", "\u00D7"),
+            R("cfo_nm", "تحويل الأرباح إلى كاش (CFO/NI)", "%"),
+          ],
+        });
+        const wc = [
+          R("dso", "أيام تحصيل الذمم (DSO)", "\u064A\u0648\u0645"),
+          R("dio", "أيام دوران المخزون (DIO)", "\u064A\u0648\u0645"),
+          R("dpo", "أيام سداد الموردين (DPO)", "\u064A\u0648\u0645"),
+          R("ccc", "دورة تحويل النقد (CCC)", "\u064A\u0648\u0645"),
+        ].filter((r) => r.value != null);
+        if (wc.length > 0) {
+          groups.push({ title: "دوران رأس المال العامل (Working Capital Efficiency)", rows: wc });
+        }
+      }
+      const peersRaw: any[] = data?.peers?.peers?.roe || [];
+      const payload: AnalystPdfData = {
+        symbol,
+        name,
+        nameEn,
+        sector,
+        isBank: Boolean(isBank),
+        templateLabel: SECTOR_TEMPLATES[template].label,
+        templateNotes: SECTOR_TEMPLATES[template].notes,
+        groups,
+        safetyPass: safetyPass ?? null,
+        qualityPass: qualityPass ?? null,
+        ttm: isTTM && (isTTM.rev != null || isTTM.net != null) ? {
+          rev: isTTM.rev ?? null,
+          gp: isTTM.gp ?? null,
+          net: isTTM.net ?? null,
+          eps: isTTM.eps ?? null,
+        } : null,
+        peers: peersRaw.slice(0, 8).map(([sym, peerName, roe]: any) => ({ sym, name: peerName, roe })),
+        peersCount: data?.peers?.n_sec || 0,
+      };
+      await generateAnalystPdf(payload);
+    } catch (err) {
+      console.error("Failed to generate analyst PDF:", err);
+      alert("حدث خطأ أثناء إنشاء ملف الـ PDF. يرجى المحاولة مرة أخرى.");
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   const TAB_LIST: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
     { id: "is",     label: "قائمة الدخل",         icon: <TrendingUp size={13} /> },
     { id: "bs",     label: "الميزانية العمومية",   icon: <Layers size={13} /> },
@@ -507,8 +590,8 @@ export default function RebhAnalystPage() {
             />
             <button type="submit" className="px-2.5 py-1.5 bg-[#F3F4F6] hover:bg-[#E5E7EB] border border-[#D1D5DB] rounded-[4px] text-xs font-semibold">عرض</button>
           </form>
-          <button onClick={() => window.print()} className="flex items-center gap-1 px-3 py-1.5 bg-[#8C3B32] hover:bg-[#752f28] text-white rounded-[4px] text-xs font-semibold">
-            <Printer size={13} />طباعة
+          <button onClick={handleExportPdf} disabled={exportingPdf} className="flex items-center gap-1 px-3 py-1.5 bg-[#8C3B32] hover:bg-[#752f28] text-white rounded-[4px] text-xs font-semibold disabled:opacity-60">
+            {exportingPdf ? (<><Loader2 size={13} className="animate-spin" />جاري التصدير...</>) : (<><FileDown size={13} />تصدير (PDF)</>)}
           </button>
         </div>
       </header>
