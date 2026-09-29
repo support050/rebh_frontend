@@ -17,7 +17,6 @@ import SectorPeersTable from "../../[symbol]/components/SectorPeersTable";
 import QuarterlyEngineRoom from "../../[symbol]/components/QuarterlyEngineRoom";
 import InvestmentThesisBuyGate from "../../[symbol]/components/InvestmentThesisBuyGate";
 import StatementDiagnosticsDiff from "../../[symbol]/components/StatementDiagnosticsDiff";
-import ExemplarDeepDivePortals from "../../[symbol]/components/ExemplarDeepDivePortals";
 import FactorScoreboard from "../../[symbol]/components/FactorScoreboard";
 import ValuationBandsAndMos from "../../[symbol]/components/ValuationBandsAndMos";
 import CapitalStructureCard from "../../[symbol]/components/CapitalStructureCard";
@@ -699,17 +698,13 @@ export default function RebhCompanyOfficialPage() {
           yoyDelta={yoyDelta}
         />
 
-        {/* Exemplar Deep-Dive Navigation Portals */}
-        <ExemplarDeepDivePortals symbol={symbol} />
 
         {/* Sector Peers Comparison Table */}
-        <SectorPeersTable currentSymbol={symbol} sector={classData?.sector || sec} />
+        {/* Pass the stable primary sector (`sec`, available right after the company fetch)
+            instead of `classData?.sector || sec`, so the table does not re-fetch when the
+            async classification data arrives and changes the sector string. */}
+        <SectorPeersTable currentSymbol={symbol} sector={sec} />
 
-        {/* Disclaimer Footer */}
-        <footer className="text-center text-[11px] text-[#9CA3AF] pt-6 border-t border-[#E5E7EB] space-y-1">
-          <p>منصة REBH — أداة تعليمية وتحليلية وفق منهجية مشعل الخرفشي · لا تقدم أي توصيات بيع أو شراء مباشرة.</p>
-          <p className="font-mono text-[10px]">علامات الشفافية: ° محسوب آلياً · ≈ تقدير معلن بسببه · ⚑ إشارة رقابية</p>
-        </footer>
       </main>
     </div>
   );

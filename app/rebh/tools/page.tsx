@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   Sliders, BarChart3, Layers, Calendar,
@@ -39,24 +39,35 @@ export default function RebhToolsPage() {
   const [corporateActions, setCorporateActions] = useState<any[]>([]);
   const [calendarSubTab, setCalendarSubTab] = useState<"cma_deadlines" | "corporate_actions">("corporate_actions");
 
+  // In-flight control for the market-universe fetch: abort on unmount and
+  // ignore stale responses when a newer request (or retry) has started.
+  const universeAbortRef = useRef<AbortController | null>(null);
+  const universeReqIdRef = useRef(0);
+
   const loadUniverse = async () => {
+    universeAbortRef.current?.abort();
+    const controller = new AbortController();
+    universeAbortRef.current = controller;
+    const reqId = ++universeReqIdRef.current;
+    const isStale = () => reqId !== universeReqIdRef.current || controller.signal.aborted;
     try {
       setLoadingUniverse(true);
       setUniverseError(null);
-      const res = await fetch(`${API_BASE_URL}/api/rebh/universe`);
+      const res = await fetch(`${API_BASE_URL}/api/rebh/universe`, { signal: controller.signal });
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data)) {
+        if (!isStale() && Array.isArray(data)) {
           setUniverse(data);
         }
-      } else {
+      } else if (!isStale()) {
         setUniverseError(`تعذر جلب بيانات السوق (${res.status})`);
       }
     } catch (err: any) {
+      if (err?.name === "AbortError") return;
       console.error("Failed to load market universe:", err);
-      setUniverseError("تعذر الاتصال بخادم بيانات السوق المالي");
+      if (!isStale()) setUniverseError("تعذر الاتصال بخادم بيانات السوق المالي");
     } finally {
-      setLoadingUniverse(false);
+      if (!isStale()) setLoadingUniverse(false);
     }
   };
 
@@ -76,6 +87,10 @@ export default function RebhToolsPage() {
     }
     loadUniverse();
     loadCorporateActions();
+    return () => {
+      universeAbortRef.current?.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // FV Lab State

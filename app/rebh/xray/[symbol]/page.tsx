@@ -41,25 +41,22 @@ function buildStory(metrics: AlignedMetrics): XRayStory {
   // ── Margin story ──────────────────────────────────────────────────────────
   let marginText: string, marginSignal: "green" | "amber" | "red";
   if (nm != null && nm >= 15) {
-    marginText = `هامش صافي ربح قوي ${nm.toFixed(1)}% (إجمالي: ${gm?.toFixed(1) ?? "—"}%). ${
-      nmPrev != null
-        ? nmPrev >= 0
-          ? `تحسّن ${nmPrev.toFixed(1)}% عن العام الماضي.`
-          : `تراجع ${Math.abs(nmPrev).toFixed(1)}% — مؤشر انضغاط يستحق المتابعة.`
-        : ""
-    }`;
+    marginText = `هامش صافي ربح قوي ${nm.toFixed(1)}% (إجمالي: ${gm?.toFixed(1) ?? "—"}%). ${nmPrev != null
+      ? nmPrev >= 0
+        ? `تحسّن ${nmPrev.toFixed(1)}% عن العام الماضي.`
+        : `تراجع ${Math.abs(nmPrev).toFixed(1)}% — مؤشر انضغاط يستحق المتابعة.`
+      : ""
+      }`;
     marginSignal = "green";
   } else if (nm != null && nm >= 5) {
-    marginText = `هامش صافي ربح متوسط ${nm.toFixed(1)}%. ${
-      nmPrev != null && nmPrev < 0
-        ? `الهامش في منحنى تراجع (${nmPrev.toFixed(1)}% YoY) — راجع تكاليف المبيعات وضغط التسعير.`
-        : "الهامش مستقر في النطاق المقبول."
-    }`;
+    marginText = `هامش صافي ربح متوسط ${nm.toFixed(1)}%. ${nmPrev != null && nmPrev < 0
+      ? `الهامش في منحنى تراجع (${nmPrev.toFixed(1)}% YoY) — راجع تكاليف المبيعات وضغط التسعير.`
+      : "الهامش مستقر في النطاق المقبول."
+      }`;
     marginSignal = "amber";
   } else if (nm != null) {
-    marginText = `هامش صافي ربح ضعيف ${nm.toFixed(1)}%. قد يعكس ضغطاً تسعيرياً أو ارتفاعاً في التكاليف. الإجمالي ${
-      gm?.toFixed(1) ?? "—"
-    }% — الفارق بين الإجمالي والصافي يكشف حجم المصاريف التشغيلية.`;
+    marginText = `هامش صافي ربح ضعيف ${nm.toFixed(1)}%. قد يعكس ضغطاً تسعيرياً أو ارتفاعاً في التكاليف. الإجمالي ${gm?.toFixed(1) ?? "—"
+      }% — الفارق بين الإجمالي والصافي يكشف حجم المصاريف التشغيلية.`;
     marginSignal = "red";
   } else {
     marginText = "لا تتوفر بيانات كافية لحساب هوامش الربح.";
@@ -85,20 +82,17 @@ function buildStory(metrics: AlignedMetrics): XRayStory {
   // ── Quality story ─────────────────────────────────────────────────────────
   let qualityText: string, qualitySignal: "green" | "amber" | "red";
   if (piotroski != null && piotroski >= 7) {
-    qualityText = `جودة مالية عالية — Piotroski F-Score ${piotroski}/9. ${
-      beneish != null
-        ? `Beneish M-Score ${beneish.toFixed(2)} — ${
-            beneish < -1.78
-              ? "لا دلائل على تلاعب محاسبي (< −1.78)."
-              : "أعلى من عتبة الخطر −1.78 — راجع مكونات الأرباح بعناية."
-          }`
-        : ""
-    }`;
+    qualityText = `جودة مالية عالية — Piotroski F-Score ${piotroski}/9. ${beneish != null
+      ? `Beneish M-Score ${beneish.toFixed(2)} — ${beneish < -1.78
+        ? "لا دلائل على تلاعب محاسبي (< −1.78)."
+        : "أعلى من عتبة الخطر −1.78 — راجع مكونات الأرباح بعناية."
+      }`
+      : ""
+      }`;
     qualitySignal = "green";
   } else if (piotroski != null && piotroski >= 4) {
-    qualityText = `جودة مالية متوسطة — Piotroski F-Score ${piotroski}/9. ${
-      beneish != null ? `Beneish M-Score ${beneish.toFixed(2)}.` : ""
-    } تحسن الربحية والكفاءة يعزز الدرجة.`;
+    qualityText = `جودة مالية متوسطة — Piotroski F-Score ${piotroski}/9. ${beneish != null ? `Beneish M-Score ${beneish.toFixed(2)}.` : ""
+      } تحسن الربحية والكفاءة يعزز الدرجة.`;
     qualitySignal = "amber";
   } else if (piotroski != null) {
     qualityText = `إشارات ضعف مالي — Piotroski F-Score ${piotroski}/9. قد يعكس تراجع الربحية أو تدهور السيولة. إشارة ضعف تستحق المراجعة.`;
@@ -106,11 +100,10 @@ function buildStory(metrics: AlignedMetrics): XRayStory {
   } else {
     qualityText =
       cfoNi != null
-        ? `CFO/NI = ${cfoNi.toFixed(0)}% — ${
-            cfoNi >= 100
-              ? "أرباح محاسبية مُترجَمة لكاش حقيقي (جودة عالية)."
-              : "فجوة بين الأرباح والكاش — راجع الذمم المدينة والمخزون."
-          }`
+        ? `CFO/NI = ${cfoNi.toFixed(0)}% — ${cfoNi >= 100
+          ? "أرباح محاسبية مُترجَمة لكاش حقيقي (جودة عالية)."
+          : "فجوة بين الأرباح والكاش — راجع الذمم المدينة والمخزون."
+        }`
         : "بيانات Piotroski غير متاحة.";
     qualitySignal = cfoNi != null && cfoNi >= 80 ? "green" : "amber";
   }
@@ -127,9 +120,8 @@ function buildStory(metrics: AlignedMetrics): XRayStory {
     fundingText = `الشركة تعتمد على الاقتراض (${borr.toFixed(0)} M) لتمويل عمليات أو فجوة تدفق نقدي — تدفق حر سلبي (${fcf.toFixed(0)} M). إشارة تحذيرية.`;
     fundingSignal = "red";
   } else {
-    fundingText = `بيانات التمويل: CFF ${cff.toFixed(0)} M. الشركة في مرحلة ${
-      cff > 0 ? "استقطاب تمويل" : "سداد أو توزيع"
-    }.`;
+    fundingText = `بيانات التمويل: CFF ${cff.toFixed(0)} M. الشركة في مرحلة ${cff > 0 ? "استقطاب تمويل" : "سداد أو توزيع"
+      }.`;
     fundingSignal = cff < 0 ? "green" : "amber";
   }
 
@@ -201,13 +193,14 @@ export default function RebhStoryXRayPage() {
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     async function load() {
       setLoading(true);
       setError(null);
       try {
         const [stmtRes, engRes] = await Promise.allSettled([
-          fetch(`${API_BASE_URL}/api/rebh/statements/${symbol}`),
-          fetch(`${API_BASE_URL}/api/rebh/company/${symbol}`),
+          fetch(`${API_BASE_URL}/api/rebh/statements/${symbol}`, { signal: controller.signal }),
+          fetch(`${API_BASE_URL}/api/rebh/company/${symbol}`, { signal: controller.signal }),
         ]);
 
         let merged: any = {};
@@ -263,6 +256,7 @@ export default function RebhStoryXRayPage() {
     load();
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [symbol, retryCount]);
 
@@ -312,8 +306,8 @@ export default function RebhStoryXRayPage() {
     bsPeriods.indexOf(activePeriod) >= 0
       ? bsPeriods.indexOf(activePeriod)
       : activePeriodIndex < bsPeriods.length
-      ? activePeriodIndex
-      : bsPeriods.length - 1;
+        ? activePeriodIndex
+        : bsPeriods.length - 1;
 
   const valueAtBs = (values: any[] = []) => {
     if (!values || !values.length) return 0;
@@ -348,9 +342,9 @@ export default function RebhStoryXRayPage() {
   const nmPrev =
     (is.net || []).length >= 2
       ? (((is.net || [])[activePeriodIndex] ?? (is.net || []).at(-1) ?? 0) -
-          ((is.net || [])[Math.max(0, activePeriodIndex - 1)] ?? 0)) /
-        Math.abs((is.net || [])[Math.max(0, activePeriodIndex - 1)] || 1) *
-        100
+        ((is.net || [])[Math.max(0, activePeriodIndex - 1)] ?? 0)) /
+      Math.abs((is.net || [])[Math.max(0, activePeriodIndex - 1)] || 1) *
+      100
       : null;
 
   // Build story with exactly aligned, unified metrics
@@ -613,39 +607,7 @@ export default function RebhStoryXRayPage() {
           wcTrend={wcTrend}
           flags={flags}
         />
-
-        {/* ── CROSS-LINK SECTION ────────────────────────────────────────── */}
-        <div className="bg-white border border-[#E5E7EB] rounded-[8px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs pdf-exclude">
-          <div>
-            <p className="font-bold text-[#0F172A]">تعمّق أكثر</p>
-            <p className="text-[#6B7280] mt-0.5">القوائم التفصيلية أو الرسوم البيانية التفاعلية</p>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap shrink-0">
-            <Link
-              href={`/rebh/analyst/${symbol}`}
-              className="px-3 py-1.5 bg-[#F3F4F6] hover:bg-[#E5E7EB] border border-[#D1D5DB] rounded-[6px] font-semibold text-[#374151] focus:outline-none focus:ring-2 focus:ring-[#8C3B32]/30 transition-all"
-            >
-              القوائم المالية ←
-            </Link>
-            <Link
-              href={`/rebh/studio/${symbol}?preset=fcf_conversion`}
-              className="px-3 py-1.5 bg-[#F3F4F6] hover:bg-[#E5E7EB] border border-[#D1D5DB] rounded-[6px] font-semibold text-[#374151] focus:outline-none focus:ring-2 focus:ring-[#8C3B32]/30 transition-all"
-            >
-              استوديو الرسوم ←
-            </Link>
-            <Link
-              href={`/rebh/company/${symbol}`}
-              className="px-3 py-1.5 bg-[#8C3B32] hover:bg-[#752f28] text-white rounded-[6px] font-semibold focus:outline-none focus:ring-2 focus:ring-[#8C3B32] focus:ring-offset-2 transition-all"
-            >
-              صفحة الشركة ←
-            </Link>
-          </div>
-        </div>
       </main>
-
-      <footer className="text-center text-[11px] text-[#9CA3AF] pt-6 border-t border-[#E5E7EB]">
-        منصة REBH — Story · X-Ray · {symbol} · {name} · القصة مُشتقة آلياً من البيانات
-      </footer>
     </div>
   );
 }

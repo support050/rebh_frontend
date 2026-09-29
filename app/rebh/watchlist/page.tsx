@@ -568,13 +568,24 @@ export default function RebhWatchlistPage() {
         );
     }
 
+    // In-flight control for the market-universe fetch: abort on unmount and
+    // ignore stale responses when a newer request (or retry) has started.
+    const universeAbortRef = useRef<AbortController | null>(null);
+    const universeReqIdRef = useRef(0);
+
     async function loadUniverse() {
+        universeAbortRef.current?.abort();
+        const controller = new AbortController();
+        universeAbortRef.current = controller;
+        const reqId = ++universeReqIdRef.current;
+        const isStale = () => reqId !== universeReqIdRef.current || controller.signal.aborted;
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch(`${API_BASE_URL}/api/rebh/universe`);
+            const res = await fetch(`${API_BASE_URL}/api/rebh/universe`, { signal: controller.signal });
             if (!res.ok) throw new Error(`فشل الطلب (${res.status})`);
             const data = await res.json();
+            if (isStale()) return;
             // FIX #3: apply shape guard before casting
             const raw: unknown[] = Array.isArray(data) ? data : (data.companies ?? []);
             const list: CompanyUniverseItem[] = raw.filter(isValidUniverseItem);
@@ -586,14 +597,18 @@ export default function RebhWatchlistPage() {
                 })
             );
         } catch (e) {
-            setError(e instanceof Error ? e.message : "تعذر تحميل بيانات الشركات.");
+            if ((e as any)?.name === "AbortError") return;
+            if (!isStale()) setError(e instanceof Error ? e.message : "تعذر تحميل بيانات الشركات.");
         } finally {
-            setLoading(false);
+            if (!isStale()) setLoading(false);
         }
     }
 
     useEffect(() => {
         loadUniverse();
+        return () => {
+            universeAbortRef.current?.abort();
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 

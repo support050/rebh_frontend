@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
     AlertTriangle,
     ShieldAlert,
@@ -189,30 +189,46 @@ export default function QuarantinePage() {
 
     const [quarantineMeta, setQuarantineMeta] = useState<QuarantineMetaResponse | null>(null);
 
+    // In-flight control: abort on unmount, ignore stale responses across retries.
+    const loadAbortRef = useRef<AbortController | null>(null);
+    const loadReqIdRef = useRef(0);
+
     async function load() {
+        loadAbortRef.current?.abort();
+        const controller = new AbortController();
+        loadAbortRef.current = controller;
+        const reqId = ++loadReqIdRef.current;
+        const isStale = () => reqId !== loadReqIdRef.current || controller.signal.aborted;
         setLoading(true);
         setError(null);
         try {
             const [uniRes, quarRes] = await Promise.all([
-                fetch(`${API_BASE_URL}/api/rebh/universe`, { cache: "no-store" }),
-                fetch(`${API_BASE_URL}/api/rebh/quarantine`, { cache: "no-store" })
+                fetch(`${API_BASE_URL}/api/rebh/universe`, { cache: "no-store", signal: controller.signal }),
+                fetch(`${API_BASE_URL}/api/rebh/quarantine`, { cache: "no-store", signal: controller.signal })
             ]);
+            if (isStale()) return;
             if (!uniRes.ok) throw new Error(`Universe request failed (${uniRes.status})`);
             const uniData: CompanyUniverseItem[] = await uniRes.json();
+            if (isStale()) return;
             setUniverse(uniData);
             if (quarRes.ok) {
                 const qData = await quarRes.json();
-                setQuarantineMeta(qData);
+                if (!isStale()) setQuarantineMeta(qData);
             }
         } catch (e: unknown) {
-            setError(e instanceof Error ? e.message : "Failed to load quarantine data");
+            if ((e as any)?.name === "AbortError") return;
+            if (!isStale()) setError(e instanceof Error ? e.message : "Failed to load quarantine data");
         } finally {
-            setLoading(false);
+            if (!isStale()) setLoading(false);
         }
     }
 
     useEffect(() => {
         load();
+        return () => {
+            loadAbortRef.current?.abort();
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const rows: QuarantineRow[] = useMemo(() => {

@@ -74,12 +74,12 @@ function saveTemplates(tpls: SavedTemplate[]) {
 
 // ─── Presets ─────────────────────────────────────────────────────────────────
 const PRESETS: Record<string, { mode: ModeType; tf: Timeframe; primary: string; secondary: string | null; style: ChartStyle }> = {
-  profitability_divergence: { mode: "fundamental", tf: "annual",    primary: "net",  secondary: "cfo",    style: "line" },
-  revenue_margin_health:    { mode: "fundamental", tf: "quarterly", primary: "rev",  secondary: "npm",    style: "bar"  },
-  fcf_conversion:           { mode: "fundamental", tf: "annual",    primary: "fcf",  secondary: "capex",  style: "bar"  },
-  price_trend:              { mode: "price_action",tf: "annual",    primary: "px",   secondary: null,     style: "line" },
-  balance_strength:         { mode: "fundamental", tf: "annual",    primary: "roe",  secondary: "nd",     style: "line" },
-  valuation_bands:          { mode: "fundamental", tf: "annual",    primary: "pe",   secondary: "pb",     style: "line" },
+  profitability_divergence: { mode: "fundamental", tf: "annual", primary: "net", secondary: "cfo", style: "line" },
+  revenue_margin_health: { mode: "fundamental", tf: "quarterly", primary: "rev", secondary: "npm", style: "bar" },
+  fcf_conversion: { mode: "fundamental", tf: "annual", primary: "fcf", secondary: "capex", style: "bar" },
+  price_trend: { mode: "price_action", tf: "annual", primary: "px", secondary: null, style: "line" },
+  balance_strength: { mode: "fundamental", tf: "annual", primary: "roe", secondary: "nd", style: "line" },
+  valuation_bands: { mode: "fundamental", tf: "annual", primary: "pe", secondary: "pb", style: "line" },
 };
 
 // ─── SVG chart helpers ────────────────────────────────────────────────────────
@@ -233,7 +233,7 @@ function StudioInner() {
   const cfData = data?.cf || {};
   // Statements API exposes the standardized balance sheet under `bs`.
   const bsData = data?.bs || data?.balance_sheet || {};
-  const qData  = data?.quarters || {};
+  const qData = data?.quarters || {};
   const priceHistory: any[] = data?.price_history || [];
 
   const periods: string[] = timeframe === "annual"
@@ -259,73 +259,73 @@ function StudioInner() {
     const isBank = Boolean(data?.is_bank || String(symbol).startsWith("10") || String(symbol).startsWith("11") || String(data?.sec).includes("بنوك") || String(data?.sec).toLowerCase().includes("bank"));
 
     if (timeframe === "annual") {
-      const rev   = get("rev",   isData);
-      const gp    = get("gp",    isData);
-      const op    = get("op",    isData);
-      const net   = get("net",   isData);
-      const eps   = (isData.eps || []).map((v: any) => Number(v) || 0);
-      const cfo   = get("cfo",   cfData);
-      const fcf   = get("fcf",   cfData);
+      const rev = get("rev", isData);
+      const gp = get("gp", isData);
+      const op = get("op", isData);
+      const net = get("net", isData);
+      const eps = (isData.eps || []).map((v: any) => Number(v) || 0);
+      const cfo = get("cfo", cfData);
+      const fcf = get("fcf", cfData);
       const capex = get("capex", cfData).map(Math.abs);
-      const ta    = get("total_assets", bsData);
-      const eq    = (bsData.equity || bsData.total_equity || []).map((v: any) => Number(v) || 0);
-      const nd    = (bsData.net_debt || []).map((v: any) => Number(v) || 0);
+      const ta = get("total_assets", bsData);
+      const eq = (bsData.equity || bsData.total_equity || []).map((v: any) => Number(v) || 0);
+      const nd = (bsData.net_debt || []).map((v: any) => Number(v) || 0);
 
-      const npm  = rev.map((r, i) => r > 0 ? +((net[i]  / r) * 100).toFixed(1) : 0);
-      const gpm  = rev.map((r, i) => r > 0 ? +((gp[i]   / r) * 100).toFixed(1) : 0);
-      const opm  = rev.map((r, i) => r > 0 ? +((op[i]   / r) * 100).toFixed(1) : 0);
-      const roe  = ta.map((_, i) => (eq[i] && eq[i] > 0) ? +((net[i]  / eq[i]) * 100).toFixed(1) : 0);
+      const npm = rev.map((r, i) => r > 0 ? +((net[i] / r) * 100).toFixed(1) : 0);
+      const gpm = rev.map((r, i) => r > 0 ? +((gp[i] / r) * 100).toFixed(1) : 0);
+      const opm = rev.map((r, i) => r > 0 ? +((op[i] / r) * 100).toFixed(1) : 0);
+      const roe = ta.map((_, i) => (eq[i] && eq[i] > 0) ? +((net[i] / eq[i]) * 100).toFixed(1) : 0);
       const roic = ta.map((a, i) => {
         const invested = (eq[i] || 0) + Math.max(0, nd[i] || 0);
         return invested > 0 ? +((op[i] / invested) * 100).toFixed(1) : (a > 0 ? +((op[i] / a) * 100).toFixed(1) : 0);
       });
 
       // Valuation from latest price × shares — fallback to data.pe/pb if present
-      const pe  = (data?.valuation_annual?.pe  || []).map((v: any) => Number(v) || 0);
-      const pb  = (data?.valuation_annual?.pb  || []).map((v: any) => Number(v) || 0);
+      const pe = (data?.valuation_annual?.pe || []).map((v: any) => Number(v) || 0);
+      const pb = (data?.valuation_annual?.pb || []).map((v: any) => Number(v) || 0);
       const div = (data?.valuation_annual?.div || []).map((v: any) => Number(v) || 0);
 
       const list: MetricSeries[] = [
-        { id:"rev",   name: isBank ? "دخل العمليات / التمويل" : "الإيرادات",           nameEn: isBank ? "Financing Income" : "Revenue",         group:"income",    unit:"M SAR", color:"#2563EB", data:rev,   yoy: toYoY(rev)   },
-        { id:"gp",    name: isBank ? "صافي دخل التمويل (NII)" : "إجمالي الربح",         nameEn: isBank ? "Net Financing Income" : "Gross Profit",    group:"income",    unit:"M SAR", color:"#16A34A", data:gp,    yoy: toYoY(gp)    },
-        { id:"op",    name: isBank ? "إجمالي دخل العمليات" : "الربح التشغيلي",       nameEn: isBank ? "Operating Income" : "EBIT",            group:"income",    unit:"M SAR", color:"#8C3B32", data:op,    yoy: toYoY(op)    },
-        { id:"net",   name:"صافي الربح",           nameEn:"Net Income",      group:"income",    unit:"M SAR", color:"#DC2626", data:net,   yoy: toYoY(net)   },
-        { id:"eps",   name:"ربحية السهم (EPS)",    nameEn:"EPS",             group:"income",    unit:"SAR",   color:"#7C3AED", data:eps,   yoy: toYoY(eps)   },
-        { id:"cfo",   name:"التدفق التشغيلي",      nameEn:"CFO",             group:"cash",      unit:"M SAR", color:"#059669", data:cfo,   yoy: toYoY(cfo)   },
-        { id:"fcf",   name:"التدفق الحر (FCF)",    nameEn:"FCF",             group:"cash",      unit:"M SAR", color:"#0D9488", data:fcf,   yoy: toYoY(fcf)   },
-        { id:"capex", name:"الإنفاق الرأسمالي",    nameEn:"CapEx",           group:"cash",      unit:"M SAR", color:"#D97706", data:capex, yoy: toYoY(capex) },
-        { id:"nd",    name: isBank ? "صافي الالتزامات المالية" : "صافي الدين",           nameEn: isBank ? "Net Liabilities" : "Net Debt",        group:"balance",   unit:"M SAR", color:"#9333EA", data:nd,    yoy: toYoY(nd)    },
-        { id:"roe",   name:"عائد حقوق المساهمين (ROE)",  nameEn:"ROE",             group:"balance",   unit:"%",     color:"#0EA5E9", data:roe,   yoy: toYoY(roe)   },
-        { id:"roic",  name:"عائد رأس المال المستثمر (ROIC)",nameEn:"ROIC",          group:"balance",   unit:"%",     color:"#6366F1", data:roic,  yoy: toYoY(roic)  },
-        { id:"npm",   name:"هامش صافي الربح",      nameEn:"Net Margin",      group:"margin",    unit:"%",     color:"#A21CAF", data:npm,   yoy: toYoY(npm)   },
-        { id:"gpm",   name: isBank ? "هامش دخل التمويل (NII Margin)" : "هامش إجمالي الربح",    nameEn: isBank ? "NII Margin" : "Gross Margin",    group:"margin",    unit:"%",     color:"#10B981", data:gpm,   yoy: toYoY(gpm)   },
-        { id:"opm",   name:"هامش التشغيل",         nameEn:"EBIT Margin",     group:"margin",    unit:"%",     color:"#EA580C", data:opm,   yoy: toYoY(opm)   },
+        { id: "rev", name: isBank ? "دخل العمليات / التمويل" : "الإيرادات", nameEn: isBank ? "Financing Income" : "Revenue", group: "income", unit: "M SAR", color: "#2563EB", data: rev, yoy: toYoY(rev) },
+        { id: "gp", name: isBank ? "صافي دخل التمويل (NII)" : "إجمالي الربح", nameEn: isBank ? "Net Financing Income" : "Gross Profit", group: "income", unit: "M SAR", color: "#16A34A", data: gp, yoy: toYoY(gp) },
+        { id: "op", name: isBank ? "إجمالي دخل العمليات" : "الربح التشغيلي", nameEn: isBank ? "Operating Income" : "EBIT", group: "income", unit: "M SAR", color: "#8C3B32", data: op, yoy: toYoY(op) },
+        { id: "net", name: "صافي الربح", nameEn: "Net Income", group: "income", unit: "M SAR", color: "#DC2626", data: net, yoy: toYoY(net) },
+        { id: "eps", name: "ربحية السهم (EPS)", nameEn: "EPS", group: "income", unit: "SAR", color: "#7C3AED", data: eps, yoy: toYoY(eps) },
+        { id: "cfo", name: "التدفق التشغيلي", nameEn: "CFO", group: "cash", unit: "M SAR", color: "#059669", data: cfo, yoy: toYoY(cfo) },
+        { id: "fcf", name: "التدفق الحر (FCF)", nameEn: "FCF", group: "cash", unit: "M SAR", color: "#0D9488", data: fcf, yoy: toYoY(fcf) },
+        { id: "capex", name: "الإنفاق الرأسمالي", nameEn: "CapEx", group: "cash", unit: "M SAR", color: "#D97706", data: capex, yoy: toYoY(capex) },
+        { id: "nd", name: isBank ? "صافي الالتزامات المالية" : "صافي الدين", nameEn: isBank ? "Net Liabilities" : "Net Debt", group: "balance", unit: "M SAR", color: "#9333EA", data: nd, yoy: toYoY(nd) },
+        { id: "roe", name: "عائد حقوق المساهمين (ROE)", nameEn: "ROE", group: "balance", unit: "%", color: "#0EA5E9", data: roe, yoy: toYoY(roe) },
+        { id: "roic", name: "عائد رأس المال المستثمر (ROIC)", nameEn: "ROIC", group: "balance", unit: "%", color: "#6366F1", data: roic, yoy: toYoY(roic) },
+        { id: "npm", name: "هامش صافي الربح", nameEn: "Net Margin", group: "margin", unit: "%", color: "#A21CAF", data: npm, yoy: toYoY(npm) },
+        { id: "gpm", name: isBank ? "هامش دخل التمويل (NII Margin)" : "هامش إجمالي الربح", nameEn: isBank ? "NII Margin" : "Gross Margin", group: "margin", unit: "%", color: "#10B981", data: gpm, yoy: toYoY(gpm) },
+        { id: "opm", name: "هامش التشغيل", nameEn: "EBIT Margin", group: "margin", unit: "%", color: "#EA580C", data: opm, yoy: toYoY(opm) },
       ];
-      if (pe.length)  list.push({ id:"pe",  name:"مضاعف السعر/الربح",  nameEn:"P/E",  group:"valuation", unit:"×", color:"#F43F5E", data:pe,  yoy: toYoY(pe)  });
-      if (pb.length)  list.push({ id:"pb",  name:"مضاعف السعر/الدفاتر",nameEn:"P/B",  group:"valuation", unit:"×", color:"#EC4899", data:pb,  yoy: toYoY(pb)  });
-      if (div.length) list.push({ id:"div", name:"عائد التوزيعات",     nameEn:"Div%", group:"valuation", unit:"%", color:"#14B8A6", data:div, yoy: toYoY(div) });
+      if (pe.length) list.push({ id: "pe", name: "مضاعف السعر/الربح", nameEn: "P/E", group: "valuation", unit: "×", color: "#F43F5E", data: pe, yoy: toYoY(pe) });
+      if (pb.length) list.push({ id: "pb", name: "مضاعف السعر/الدفاتر", nameEn: "P/B", group: "valuation", unit: "×", color: "#EC4899", data: pb, yoy: toYoY(pb) });
+      if (div.length) list.push({ id: "div", name: "عائد التوزيعات", nameEn: "Div%", group: "valuation", unit: "%", color: "#14B8A6", data: div, yoy: toYoY(div) });
       return list;
     } else {
       // Quarterly
-      const rev  = get("rev",  qData);
-      const gp   = get("gp",   qData);
-      const op   = get("op",   qData);
-      const net  = get("net",  qData);
-      const npm  = rev.map((r, i) => r > 0 ? +((net[i] / r) * 100).toFixed(1) : 0);
-      const gpm  = rev.map((r, i) => r > 0 ? +((gp[i]  / r) * 100).toFixed(1) : 0);
+      const rev = get("rev", qData);
+      const gp = get("gp", qData);
+      const op = get("op", qData);
+      const net = get("net", qData);
+      const npm = rev.map((r, i) => r > 0 ? +((net[i] / r) * 100).toFixed(1) : 0);
+      const gpm = rev.map((r, i) => r > 0 ? +((gp[i] / r) * 100).toFixed(1) : 0);
       // True YoY for quarterly: compare Q vs same Q prior year (step=4)
       return [
-        { id:"rev",  name: isBank ? "دخل التمويل الربعي" : "الإيرادات الربعية",        nameEn: isBank ? "Quarterly Income" : "Quarterly Revenue",  group:"income", unit:"M SAR", color:"#2563EB", data:rev,  yoy: toYoY(rev,  true) },
-        { id:"gp",   name: isBank ? "صافي دخل التمويل الربعي" : "إجمالي الربح الربعي",      nameEn: isBank ? "Quarterly NII" : "Quarterly GP",       group:"income", unit:"M SAR", color:"#16A34A", data:gp,   yoy: toYoY(gp,   true) },
-        { id:"op",   name: isBank ? "دخل العمليات الربعي" : "الربح التشغيلي الربعي",    nameEn: isBank ? "Quarterly Operating Income" : "Quarterly EBIT",     group:"income", unit:"M SAR", color:"#8C3B32", data:op,   yoy: toYoY(op,   true) },
-        { id:"net",  name:"صافي الربح الربعي (YoY)",        nameEn:"Quarterly Net",      group:"income", unit:"M SAR", color:"#DC2626", data:net,  yoy: toYoY(net,  true) },
-        { id:"npm",  name:"هامش الربح الربعي (YoY)",        nameEn:"Quarterly Margin",   group:"margin", unit:"%",     color:"#7C3AED", data:npm,  yoy: toYoY(npm,  true) },
-        { id:"gpm",  name: isBank ? "هامش دخل التمويل الربعي" : "هامش إجمالي الربح الربعي", nameEn: isBank ? "Quarterly NII Margin" : "Quarterly GPM",      group:"margin", unit:"%",     color:"#10B981", data:gpm,  yoy: toYoY(gpm,  true) },
+        { id: "rev", name: isBank ? "دخل التمويل الربعي" : "الإيرادات الربعية", nameEn: isBank ? "Quarterly Income" : "Quarterly Revenue", group: "income", unit: "M SAR", color: "#2563EB", data: rev, yoy: toYoY(rev, true) },
+        { id: "gp", name: isBank ? "صافي دخل التمويل الربعي" : "إجمالي الربح الربعي", nameEn: isBank ? "Quarterly NII" : "Quarterly GP", group: "income", unit: "M SAR", color: "#16A34A", data: gp, yoy: toYoY(gp, true) },
+        { id: "op", name: isBank ? "دخل العمليات الربعي" : "الربح التشغيلي الربعي", nameEn: isBank ? "Quarterly Operating Income" : "Quarterly EBIT", group: "income", unit: "M SAR", color: "#8C3B32", data: op, yoy: toYoY(op, true) },
+        { id: "net", name: "صافي الربح الربعي (YoY)", nameEn: "Quarterly Net", group: "income", unit: "M SAR", color: "#DC2626", data: net, yoy: toYoY(net, true) },
+        { id: "npm", name: "هامش الربح الربعي (YoY)", nameEn: "Quarterly Margin", group: "margin", unit: "%", color: "#7C3AED", data: npm, yoy: toYoY(npm, true) },
+        { id: "gpm", name: isBank ? "هامش دخل التمويل الربعي" : "هامش إجمالي الربح الربعي", nameEn: isBank ? "Quarterly NII Margin" : "Quarterly GPM", group: "margin", unit: "%", color: "#10B981", data: gpm, yoy: toYoY(gpm, true) },
       ];
     }
   }, [data, timeframe, isData, cfData, bsData, qData]);
 
-  const primary   = metrics.find(m => m.id === primaryId)   || metrics[0];
+  const primary = metrics.find(m => m.id === primaryId) || metrics[0];
   const secondary = secondaryId ? metrics.find(m => m.id === secondaryId) : null;
 
   // SMA-20 for price action
@@ -340,13 +340,13 @@ function StudioInner() {
   }, [priceHistory]);
 
   // ── Chart scales ───────────────────────────────────────────────────────────
-  const allVals  = [...(primary?.data || []), ...(secondary?.data || [])];
-  const maxVal   = allVals.length ? Math.max(...allVals, 0.001) : 1;
-  const minVal   = allVals.length ? Math.min(...allVals, 0) : 0;
+  const allVals = [...(primary?.data || []), ...(secondary?.data || [])];
+  const maxVal = allVals.length ? Math.max(...allVals, 0.001) : 1;
+  const minVal = allVals.length ? Math.min(...allVals, 0) : 0;
 
   const pxCloses = priceHistory.map(p => p.close);
-  const maxPx    = pxCloses.length ? Math.max(...priceHistory.map(p => p.high || p.close)) * 1.02 : 100;
-  const minPx    = pxCloses.length ? Math.min(...priceHistory.map(p => p.low  || p.close)) * 0.98 : 0;
+  const maxPx = pxCloses.length ? Math.max(...priceHistory.map(p => p.high || p.close)) * 1.02 : 100;
+  const minPx = pxCloses.length ? Math.min(...priceHistory.map(p => p.low || p.close)) * 0.98 : 0;
 
   const gY = (v: number) => scaleY(v, minVal, maxVal);
   const gX = (i: number, n: number) => scaleX(i, n);
@@ -391,11 +391,11 @@ function StudioInner() {
 
   // ── Group labels for metric picker ─────────────────────────────────────────
   const GROUPS: Array<{ id: string; label: string; color: string }> = [
-    { id: "income",    label: "قائمة الدخل",    color: "#2563EB" },
-    { id: "cash",      label: "التدفقات النقدية", color: "#059669" },
-    { id: "balance",   label: "الميزانية",       color: "#0EA5E9" },
-    { id: "margin",    label: "الهوامش",         color: "#A21CAF" },
-    { id: "valuation", label: "التقييم",         color: "#F43F5E" },
+    { id: "income", label: "قائمة الدخل", color: "#2563EB" },
+    { id: "cash", label: "التدفقات النقدية", color: "#059669" },
+    { id: "balance", label: "الميزانية", color: "#0EA5E9" },
+    { id: "margin", label: "الهوامش", color: "#A21CAF" },
+    { id: "valuation", label: "التقييم", color: "#F43F5E" },
   ];
 
   // ─── Loading / Error ────────────────────────────────────────────────────────
@@ -435,16 +435,16 @@ function StudioInner() {
     </div>
   );
 
-  const name    = data.name || symbol;
-  const nameEn  = data.en   || "";
-  const sector  = data.sec  || "—";
-  const primaryVals   = primary?.data  || [];
+  const name = data.name || symbol;
+  const nameEn = data.en || "";
+  const sector = data.sec || "—";
+  const primaryVals = primary?.data || [];
   const secondaryVals = secondary?.data || [];
 
-  const latestPrimary   = primaryVals[primaryVals.length - 1] ?? 0;
-  const prevPrimary     = primaryVals[primaryVals.length - 2] ?? 0;
-  const latestChg       = prevPrimary !== 0 ? ((latestPrimary - prevPrimary) / Math.abs(prevPrimary)) * 100 : 0;
-  const isUp            = latestChg >= 0;
+  const latestPrimary = primaryVals[primaryVals.length - 1] ?? 0;
+  const prevPrimary = primaryVals[primaryVals.length - 2] ?? 0;
+  const latestChg = prevPrimary !== 0 ? ((latestPrimary - prevPrimary) / Math.abs(prevPrimary)) * 100 : 0;
+  const isUp = latestChg >= 0;
 
   // ── PDF export (canvas capture via the unified REBH pipeline) ──────────────
   const handleExportPdf = async () => {
@@ -564,11 +564,11 @@ function StudioInner() {
           </span>
           {Object.entries({
             profitability_divergence: "NI vs CFO",
-            revenue_margin_health:   "إيراد + هوامش",
-            fcf_conversion:          "FCF vs CapEx",
-            price_trend:             "مسار السعر",
-            balance_strength:        "ROE / ROIC",
-            valuation_bands:         "P/E & P/B",
+            revenue_margin_health: "إيراد + هوامش",
+            fcf_conversion: "FCF vs CapEx",
+            price_trend: "مسار السعر",
+            balance_strength: "ROE / ROIC",
+            valuation_bands: "P/E & P/B",
           }).map(([id, label]) => (
             <button
               key={id}
@@ -644,185 +644,239 @@ function StudioInner() {
             {/* Left/Center Main Area */}
             <div className="flex-1 w-full space-y-5">
 
-            {/* METRIC PICKER */}
-            <div className="pdf-exclude bg-white border border-[#E5E7EB] rounded-[6px] p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] space-y-4">
+              {/* METRIC PICKER */}
+              <div className="pdf-exclude bg-white border border-[#E5E7EB] rounded-[6px] p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] space-y-4">
 
-              {/* Controls row */}
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F1F5F9] pb-3">
-                <span className="text-xs font-bold text-[#1A1A1A]">اختر البند الأساسي:</span>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {/* Timeframe */}
-                  <div className="flex items-center bg-[#F3F4F6] p-0.5 rounded border border-[#E5E7EB] text-[11px] font-semibold">
-                    {(["annual", "quarterly"] as const).map(tf => (
-                      <button key={tf}
-                        onClick={() => { setTimeframe(tf); setPrimaryId("rev"); setSecondaryId(tf === "annual" ? "net" : null); }}
-                        className={`px-3 py-1 rounded transition-colors ${timeframe === tf ? "bg-white text-[#8C3B32] shadow-sm" : "text-[#6B7280]"}`}
-                      >
-                        {tf === "annual" ? "سنوي" : "ربعي منفصل"}
-                      </button>
-                    ))}
+                {/* Controls row */}
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F1F5F9] pb-3">
+                  <span className="text-xs font-bold text-[#1A1A1A]">اختر البند الأساسي:</span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Timeframe */}
+                    <div className="flex items-center bg-[#F3F4F6] p-0.5 rounded border border-[#E5E7EB] text-[11px] font-semibold">
+                      {(["annual", "quarterly"] as const).map(tf => (
+                        <button key={tf}
+                          onClick={() => { setTimeframe(tf); setPrimaryId("rev"); setSecondaryId(tf === "annual" ? "net" : null); }}
+                          className={`px-3 py-1 rounded transition-colors ${timeframe === tf ? "bg-white text-[#8C3B32] shadow-sm" : "text-[#6B7280]"}`}
+                        >
+                          {tf === "annual" ? "سنوي" : "ربعي منفصل"}
+                        </button>
+                      ))}
+                    </div>
+                    {/* Chart style */}
+                    <div className="flex items-center bg-[#F3F4F6] p-0.5 rounded border border-[#E5E7EB] text-[11px] font-semibold">
+                      {(["bar", "line", "area"] as const).map(s => (
+                        <button key={s}
+                          onClick={() => setChartStyle(s)}
+                          className={`px-3 py-1 rounded transition-colors ${chartStyle === s ? "bg-white text-[#8C3B32] shadow-sm" : "text-[#6B7280]"}`}
+                        >
+                          {s === "bar" ? "أعمدة" : s === "line" ? "خطي" : "مساحة"}
+                        </button>
+                      ))}
+                    </div>
+                    {/* YoY toggle */}
+                    <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-semibold text-[#374151]">
+                      <input type="checkbox" checked={showYoY} onChange={e => setShowYoY(e.target.checked)} className="rounded" />
+                      <span>YoY %</span>
+                    </label>
                   </div>
-                  {/* Chart style */}
-                  <div className="flex items-center bg-[#F3F4F6] p-0.5 rounded border border-[#E5E7EB] text-[11px] font-semibold">
-                    {(["bar", "line", "area"] as const).map(s => (
-                      <button key={s}
-                        onClick={() => setChartStyle(s)}
-                        className={`px-3 py-1 rounded transition-colors ${chartStyle === s ? "bg-white text-[#8C3B32] shadow-sm" : "text-[#6B7280]"}`}
-                      >
-                        {s === "bar" ? "أعمدة" : s === "line" ? "خطي" : "مساحة"}
-                      </button>
-                    ))}
-                  </div>
-                  {/* YoY toggle */}
-                  <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-semibold text-[#374151]">
-                    <input type="checkbox" checked={showYoY} onChange={e => setShowYoY(e.target.checked)} className="rounded" />
-                    <span>YoY %</span>
-                  </label>
                 </div>
-              </div>
 
-              {/* Metric buttons grouped */}
-              <div className="space-y-2.5">
-                {GROUPS.map(g => {
-                  const gMetrics = metrics.filter(m => m.group === g.id);
-                  if (!gMetrics.length) return null;
-                  return (
-                    <div key={g.id} className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-[10px] font-bold text-[#94A3B8] w-16 shrink-0 text-right">{g.label}</span>
-                      {gMetrics.map(m => {
-                        const isPrimary = primaryId === m.id;
-                        const isSec    = secondaryId === m.id;
-                        return (
-                          <button key={m.id}
-                            onClick={() => {
-                              if (isSec) { setSecondaryId(null); return; }
-                              if (isPrimary) return;
-                              setPrimaryId(m.id); setActivePreset(null);
-                            }}
-                            onContextMenu={e => { e.preventDefault(); setSecondaryId(isPrimary ? null : m.id); setActivePreset(null); }}
-                            title="نقر = أساسي · نقر يمين = ثانوي"
-                            className={`px-2.5 py-1 rounded-[4px] text-[11px] font-semibold border transition-all flex items-center gap-1.5
+                {/* Metric buttons grouped */}
+                <div className="space-y-2.5">
+                  {GROUPS.map(g => {
+                    const gMetrics = metrics.filter(m => m.group === g.id);
+                    if (!gMetrics.length) return null;
+                    return (
+                      <div key={g.id} className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] font-bold text-[#94A3B8] w-16 shrink-0 text-right">{g.label}</span>
+                        {gMetrics.map(m => {
+                          const isPrimary = primaryId === m.id;
+                          const isSec = secondaryId === m.id;
+                          return (
+                            <button key={m.id}
+                              onClick={() => {
+                                if (isSec) { setSecondaryId(null); return; }
+                                if (isPrimary) return;
+                                setPrimaryId(m.id); setActivePreset(null);
+                              }}
+                              onContextMenu={e => { e.preventDefault(); setSecondaryId(isPrimary ? null : m.id); setActivePreset(null); }}
+                              title="نقر = أساسي · نقر يمين = ثانوي"
+                              className={`px-2.5 py-1 rounded-[4px] text-[11px] font-semibold border transition-all flex items-center gap-1.5
                               ${isPrimary ? "bg-[#8C3B32] text-white border-[#8C3B32]"
-                                : isSec ? "bg-[#EFF6FF] text-[#2563EB] border-[#BFDBFE]"
-                                : "bg-[#F9FAFB] text-[#4B5563] border-[#E5E7EB] hover:bg-[#F3F4F6]"}`}
-                          >
-                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: m.color }} />
-                            {m.name}
-                            {isPrimary && <span className="text-[9px] font-mono bg-white/20 px-1 rounded">●</span>}
-                            {isSec    && <span className="text-[9px] font-mono bg-[#BFDBFE] px-1 rounded">○</span>}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Secondary dropdown */}
-              <div className="pdf-exclude pt-2 border-t border-[#F1F5F9] flex items-center justify-between flex-wrap gap-2 text-xs text-[#64748B]">
-                <div className="flex items-center gap-2">
-                  <Layers size={13} className="text-[#8C3B32]" />
-                  <span>مقارنة ثانوية (Dual-Wave):</span>
-                  <select
-                    value={secondaryId || ""}
-                    onChange={e => setSecondaryId(e.target.value || null)}
-                    className="px-2 py-0.5 text-xs bg-[#F8FAFC] border border-[#D1D5DB] rounded-[4px] outline-none text-[#1A1A1A] font-semibold"
-                  >
-                    <option value="">(بلا مقارنة)</option>
-                    {metrics.filter(m => m.id !== primaryId).map(m => (
-                      <option key={m.id} value={m.id}>{m.name} ({m.unit})</option>
-                    ))}
-                  </select>
+                                  : isSec ? "bg-[#EFF6FF] text-[#2563EB] border-[#BFDBFE]"
+                                    : "bg-[#F9FAFB] text-[#4B5563] border-[#E5E7EB] hover:bg-[#F3F4F6]"}`}
+                            >
+                              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: m.color }} />
+                              {m.name}
+                              {isPrimary && <span className="text-[9px] font-mono bg-white/20 px-1 rounded">●</span>}
+                              {isSec && <span className="text-[9px] font-mono bg-[#BFDBFE] px-1 rounded">○</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
                 </div>
-                <span className="font-mono text-[11px] text-[#9CA3AF]">{periods.length} فترة · XBRL ✓</span>
-              </div>
-            </div>
 
-            {/* CHART PANEL */}
-            <div className="bg-white border border-[#E5E7EB] rounded-[6px] p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] space-y-3">
-              {/* Legend */}
-              <div className="flex items-center justify-between flex-wrap gap-2 border-b border-[#E5E7EB] pb-3">
-                <div className="flex items-center gap-4 flex-wrap">
+                {/* Secondary dropdown */}
+                <div className="pdf-exclude pt-2 border-t border-[#F1F5F9] flex items-center justify-between flex-wrap gap-2 text-xs text-[#64748B]">
                   <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-[2px]" style={{ backgroundColor: primary.color }} />
-                    <span className="text-xs font-bold text-[#0F172A]">{primary.name}</span>
-                    <span className="text-[11px] font-mono text-[#64748B]">({primary.unit})</span>
+                    <Layers size={13} className="text-[#8C3B32]" />
+                    <span>مقارنة ثانوية (Dual-Wave):</span>
+                    <select
+                      value={secondaryId || ""}
+                      onChange={e => setSecondaryId(e.target.value || null)}
+                      className="px-2 py-0.5 text-xs bg-[#F8FAFC] border border-[#D1D5DB] rounded-[4px] outline-none text-[#1A1A1A] font-semibold"
+                    >
+                      <option value="">(بلا مقارنة)</option>
+                      {metrics.filter(m => m.id !== primaryId).map(m => (
+                        <option key={m.id} value={m.id}>{m.name} ({m.unit})</option>
+                      ))}
+                    </select>
                   </div>
-                  {secondary && (
-                    <div className="flex items-center gap-2">
-                      <span className={`w-3 h-3 ${chartStyle === "bar" ? "rounded-[2px]" : "rounded-full border-2"}`} style={chartStyle === "bar" ? { backgroundColor: secondary.color } : { borderColor: secondary.color, backgroundColor: "transparent" }} />
-                      <span className="text-xs font-semibold text-[#0F172A]">{secondary.name}</span>
-                      <span className="text-[11px] font-mono text-[#64748B]">({secondary.unit})</span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {showHistoricalMedian && (
-                    <span className="text-[11px] font-mono text-[#64748B] bg-[#F8FAFC] px-2 py-0.5 rounded border border-[#E2E8F0]">
-                      وسيط الشركة: {selfMedian?.toLocaleString(undefined, { maximumFractionDigits: 1 })} {primary.unit}
-                    </span>
-                  )}
-                  {showSectorMedian && currentSectorMedian && (
-                    <span className="text-[11px] font-mono text-[#166534] bg-[#F0FDF4] px-2 py-0.5 rounded border border-[#BBF7D0]">
-                      وسيط القطاع ({currentSectorMedian.n} شركة): {currentSectorMedian.value.toLocaleString(undefined, { maximumFractionDigits: 1 })} {currentSectorMedian.unit}
-                    </span>
-                  )}
-                  <button
-                    onClick={() => setShowSectorMedian(!showSectorMedian)}
-                    className={`text-[11px] px-2.5 py-0.5 rounded border font-semibold transition-colors ${showSectorMedian ? "bg-[#16A34A] text-white border-[#16A34A]" : "bg-white text-[#374151] border-[#D1D5DB] hover:bg-[#F3F4F6]"}`}
-                    title="عرض خط وسيط القطاع الفعلي المستخرج من شركات القطاع"
-                  >
-                    وسيط القطاع
-                  </button>
-                  <button
-                    onClick={() => setShowHistoricalMedian(!showHistoricalMedian)}
-                    className={`text-[11px] px-2.5 py-0.5 rounded border font-semibold transition-colors ${showHistoricalMedian ? "bg-[#8C3B32] text-white border-[#8C3B32]" : "bg-white text-[#374151] border-[#D1D5DB] hover:bg-[#F3F4F6]"}`}
-                    title="عرض خط الوسيط التاريخي الخاص بالشركة نفسها"
-                  >
-                    وسيط الشركة
-                  </button>
+                  <span className="font-mono text-[11px] text-[#9CA3AF]">{periods.length} فترة · XBRL ✓</span>
                 </div>
               </div>
 
-              {/* Recharts Dynamic Chart Container */}
-              <div className="w-full h-[320px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  {chartStyle === "bar" ? (
-                    <ComposedChart data={periods.map((p: string, i: number) => ({
-                      period: p,
-                      [primary.id]: primaryVals[i] ?? 0,
-                      ...(secondary ? { [secondary.id]: secondaryVals[i] ?? 0 } : {})
-                    }))} margin={{ top: 15, right: secondary ? 50 : 20, left: 10, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
-                      <XAxis dataKey="period" tick={{ fill: "#64748B", fontSize: 11, fontFamily: "monospace" }} />
-                      <YAxis yAxisId="left" tick={{ fill: primary.color, fontSize: 11, fontFamily: "monospace" }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} />
-                      {secondary && <YAxis yAxisId="right" orientation="right" tick={{ fill: secondary.color, fontSize: 11, fontFamily: "monospace" }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} />}
-                      <RechartsTooltip
-                        content={({ active, payload, label }) => {
-                          if (active && payload && payload.length) {
-                            return (
-                              <div className="bg-[#1E293B] text-white text-xs px-3 py-2 rounded shadow-lg font-mono space-y-1">
-                                <div className="font-bold text-[#F8FAFC]">{label}</div>
-                                {payload.map((p: any, idx: number) => (
-                                  <div key={idx} style={{ color: p.color }}>
-                                    {p.name === primary.id ? primary.name : secondary?.name}: {Number(p.value).toLocaleString(undefined, { maximumFractionDigits: 1 })} {p.name === primary.id ? primary.unit : secondary?.unit}
-                                  </div>
-                                ))}
-                              </div>
-                            );
-                          }
-                          return null;
-                        }}
-                      />
-                      {showHistoricalMedian && selfMedian != null && (
-                        <ReferenceLine yAxisId="left" y={selfMedian} stroke="#D97706" strokeDasharray="4 3" label={{ value: `وسيط الشركة: ${selfMedian}`, fill: "#D97706", fontSize: 10 }} />
-                      )}
-                      {showSectorMedian && currentSectorMedian != null && (
-                        <ReferenceLine yAxisId="left" y={currentSectorMedian.value} stroke="#16A34A" strokeDasharray="4 2" label={{ value: `وسيط القطاع: ${currentSectorMedian.value}`, fill: "#16A34A", fontSize: 10 }} />
-                      )}
-                      {/* ── Estimate Cone on Quarterly Net Profit (±18.5% backtested error) ── */}
-                      {timeframe === "quarterly" && primary.id === "net" && (
-                        <>
+              {/* CHART PANEL */}
+              <div className="bg-white border border-[#E5E7EB] rounded-[6px] p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] space-y-3">
+                {/* Legend */}
+                <div className="flex items-center justify-between flex-wrap gap-2 border-b border-[#E5E7EB] pb-3">
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-[2px]" style={{ backgroundColor: primary.color }} />
+                      <span className="text-xs font-bold text-[#0F172A]">{primary.name}</span>
+                      <span className="text-[11px] font-mono text-[#64748B]">({primary.unit})</span>
+                    </div>
+                    {secondary && (
+                      <div className="flex items-center gap-2">
+                        <span className={`w-3 h-3 ${chartStyle === "bar" ? "rounded-[2px]" : "rounded-full border-2"}`} style={chartStyle === "bar" ? { backgroundColor: secondary.color } : { borderColor: secondary.color, backgroundColor: "transparent" }} />
+                        <span className="text-xs font-semibold text-[#0F172A]">{secondary.name}</span>
+                        <span className="text-[11px] font-mono text-[#64748B]">({secondary.unit})</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {showHistoricalMedian && (
+                      <span className="text-[11px] font-mono text-[#64748B] bg-[#F8FAFC] px-2 py-0.5 rounded border border-[#E2E8F0]">
+                        وسيط الشركة: {selfMedian?.toLocaleString(undefined, { maximumFractionDigits: 1 })} {primary.unit}
+                      </span>
+                    )}
+                    {showSectorMedian && currentSectorMedian && (
+                      <span className="text-[11px] font-mono text-[#166534] bg-[#F0FDF4] px-2 py-0.5 rounded border border-[#BBF7D0]">
+                        وسيط القطاع ({currentSectorMedian.n} شركة): {currentSectorMedian.value.toLocaleString(undefined, { maximumFractionDigits: 1 })} {currentSectorMedian.unit}
+                      </span>
+                    )}
+                    <button
+                      onClick={() => setShowSectorMedian(!showSectorMedian)}
+                      className={`text-[11px] px-2.5 py-0.5 rounded border font-semibold transition-colors ${showSectorMedian ? "bg-[#16A34A] text-white border-[#16A34A]" : "bg-white text-[#374151] border-[#D1D5DB] hover:bg-[#F3F4F6]"}`}
+                      title="عرض خط وسيط القطاع الفعلي المستخرج من شركات القطاع"
+                    >
+                      وسيط القطاع
+                    </button>
+                    <button
+                      onClick={() => setShowHistoricalMedian(!showHistoricalMedian)}
+                      className={`text-[11px] px-2.5 py-0.5 rounded border font-semibold transition-colors ${showHistoricalMedian ? "bg-[#8C3B32] text-white border-[#8C3B32]" : "bg-white text-[#374151] border-[#D1D5DB] hover:bg-[#F3F4F6]"}`}
+                      title="عرض خط الوسيط التاريخي الخاص بالشركة نفسها"
+                    >
+                      وسيط الشركة
+                    </button>
+                  </div>
+                </div>
+
+                {/* Recharts Dynamic Chart Container */}
+                <div className="w-full h-[320px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    {chartStyle === "bar" ? (
+                      <ComposedChart data={periods.map((p: string, i: number) => ({
+                        period: p,
+                        [primary.id]: primaryVals[i] ?? 0,
+                        ...(secondary ? { [secondary.id]: secondaryVals[i] ?? 0 } : {})
+                      }))} margin={{ top: 15, right: secondary ? 50 : 20, left: 10, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+                        <XAxis dataKey="period" tick={{ fill: "#64748B", fontSize: 11, fontFamily: "monospace" }} />
+                        <YAxis yAxisId="left" tick={{ fill: primary.color, fontSize: 11, fontFamily: "monospace" }} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
+                        {secondary && <YAxis yAxisId="right" orientation="right" tick={{ fill: secondary.color, fontSize: 11, fontFamily: "monospace" }} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />}
+                        <RechartsTooltip
+                          content={({ active, payload, label }) => {
+                            if (active && payload && payload.length) {
+                              return (
+                                <div className="bg-[#1E293B] text-white text-xs px-3 py-2 rounded shadow-lg font-mono space-y-1">
+                                  <div className="font-bold text-[#F8FAFC]">{label}</div>
+                                  {payload.map((p: any, idx: number) => (
+                                    <div key={idx} style={{ color: p.color }}>
+                                      {p.name === primary.id ? primary.name : secondary?.name}: {Number(p.value).toLocaleString(undefined, { maximumFractionDigits: 1 })} {p.name === primary.id ? primary.unit : secondary?.unit}
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                        {showHistoricalMedian && selfMedian != null && (
+                          <ReferenceLine yAxisId="left" y={selfMedian} stroke="#D97706" strokeDasharray="4 3" label={{ value: `وسيط الشركة: ${selfMedian}`, fill: "#D97706", fontSize: 10 }} />
+                        )}
+                        {showSectorMedian && currentSectorMedian != null && (
+                          <ReferenceLine yAxisId="left" y={currentSectorMedian.value} stroke="#16A34A" strokeDasharray="4 2" label={{ value: `وسيط القطاع: ${currentSectorMedian.value}`, fill: "#16A34A", fontSize: 10 }} />
+                        )}
+                        {/* ── Estimate Cone on Quarterly Net Profit (±18.5% backtested error) ── */}
+                        {timeframe === "quarterly" && primary.id === "net" && (
+                          <>
+                            <ReferenceLine
+                              yAxisId="left"
+                              y={Math.round((primaryVals[primaryVals.length - 1] || 0) * 1.04)}
+                              stroke="#8C3B32"
+                              strokeDasharray="4 3"
+                              label={{
+                                value: `تقدير الربع القادم ≈ ${Math.round((primaryVals[primaryVals.length - 1] || 0) * 1.04).toLocaleString()} (±18.5%)`,
+                                fill: "#8C3B32",
+                                fontSize: 10,
+                                position: "top"
+                              }}
+                            />
+                          </>
+                        )}
+                        <Bar yAxisId="left" dataKey={primary.id} fill={primary.color} radius={[4, 4, 0, 0]} maxBarSize={40} isAnimationActive={true} />
+                        {secondary && (
+                          <Bar yAxisId="right" dataKey={secondary.id} fill={secondary.color} radius={[4, 4, 0, 0]} maxBarSize={40} isAnimationActive={true} />
+                        )}
+                      </ComposedChart>
+                    ) : chartStyle === "area" ? (
+                      <ComposedChart data={periods.map((p: string, i: number) => ({
+                        period: p,
+                        [primary.id]: primaryVals[i] ?? 0,
+                        ...(secondary ? { [secondary.id]: secondaryVals[i] ?? 0 } : {})
+                      }))} margin={{ top: 15, right: secondary ? 50 : 20, left: 10, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+                        <XAxis dataKey="period" tick={{ fill: "#64748B", fontSize: 11, fontFamily: "monospace" }} />
+                        <YAxis yAxisId="left" tick={{ fill: primary.color, fontSize: 11, fontFamily: "monospace" }} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
+                        {secondary && <YAxis yAxisId="right" orientation="right" tick={{ fill: secondary.color, fontSize: 11, fontFamily: "monospace" }} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />}
+                        <RechartsTooltip
+                          content={({ active, payload, label }) => {
+                            if (active && payload && payload.length) {
+                              return (
+                                <div className="bg-[#1E293B] text-white text-xs px-3 py-2 rounded shadow-lg font-mono space-y-1">
+                                  <div className="font-bold text-[#F8FAFC]">{label}</div>
+                                  {payload.map((p: any, idx: number) => (
+                                    <div key={idx} style={{ color: p.color }}>
+                                      {p.name === primary.id ? primary.name : secondary?.name}: {Number(p.value).toLocaleString(undefined, { maximumFractionDigits: 1 })} {p.name === primary.id ? primary.unit : secondary?.unit}
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                        {showHistoricalMedian && selfMedian != null && (
+                          <ReferenceLine yAxisId="left" y={selfMedian} stroke="#D97706" strokeDasharray="4 3" label={{ value: `وسيط الشركة: ${selfMedian}`, fill: "#D97706", fontSize: 10 }} />
+                        )}
+                        {showSectorMedian && currentSectorMedian != null && (
+                          <ReferenceLine yAxisId="left" y={currentSectorMedian.value} stroke="#16A34A" strokeDasharray="4 2" label={{ value: `وسيط القطاع: ${currentSectorMedian.value}`, fill: "#16A34A", fontSize: 10 }} />
+                        )}
+                        {/* ── Estimate Cone on Quarterly Net Profit (±18.5% backtested error) ── */}
+                        {timeframe === "quarterly" && primary.id === "net" && (
                           <ReferenceLine
                             yAxisId="left"
                             y={Math.round((primaryVals[primaryVals.length - 1] || 0) * 1.04)}
@@ -835,161 +889,107 @@ function StudioInner() {
                               position: "top"
                             }}
                           />
-                        </>
-                      )}
-                      <Bar yAxisId="left" dataKey={primary.id} fill={primary.color} radius={[4, 4, 0, 0]} maxBarSize={40} isAnimationActive={true} />
-                      {secondary && (
-                        <Bar yAxisId="right" dataKey={secondary.id} fill={secondary.color} radius={[4, 4, 0, 0]} maxBarSize={40} isAnimationActive={true} />
-                      )}
-                    </ComposedChart>
-                  ) : chartStyle === "area" ? (
-                    <ComposedChart data={periods.map((p: string, i: number) => ({
-                      period: p,
-                      [primary.id]: primaryVals[i] ?? 0,
-                      ...(secondary ? { [secondary.id]: secondaryVals[i] ?? 0 } : {})
-                    }))} margin={{ top: 15, right: secondary ? 50 : 20, left: 10, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
-                      <XAxis dataKey="period" tick={{ fill: "#64748B", fontSize: 11, fontFamily: "monospace" }} />
-                      <YAxis yAxisId="left" tick={{ fill: primary.color, fontSize: 11, fontFamily: "monospace" }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} />
-                      {secondary && <YAxis yAxisId="right" orientation="right" tick={{ fill: secondary.color, fontSize: 11, fontFamily: "monospace" }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} />}
-                      <RechartsTooltip
-                        content={({ active, payload, label }) => {
-                          if (active && payload && payload.length) {
-                            return (
-                              <div className="bg-[#1E293B] text-white text-xs px-3 py-2 rounded shadow-lg font-mono space-y-1">
-                                <div className="font-bold text-[#F8FAFC]">{label}</div>
-                                {payload.map((p: any, idx: number) => (
-                                  <div key={idx} style={{ color: p.color }}>
-                                    {p.name === primary.id ? primary.name : secondary?.name}: {Number(p.value).toLocaleString(undefined, { maximumFractionDigits: 1 })} {p.name === primary.id ? primary.unit : secondary?.unit}
-                                  </div>
-                                ))}
-                              </div>
-                            );
-                          }
-                          return null;
-                        }}
-                      />
-                      {showHistoricalMedian && selfMedian != null && (
-                        <ReferenceLine yAxisId="left" y={selfMedian} stroke="#D97706" strokeDasharray="4 3" label={{ value: `وسيط الشركة: ${selfMedian}`, fill: "#D97706", fontSize: 10 }} />
-                      )}
-                      {showSectorMedian && currentSectorMedian != null && (
-                        <ReferenceLine yAxisId="left" y={currentSectorMedian.value} stroke="#16A34A" strokeDasharray="4 2" label={{ value: `وسيط القطاع: ${currentSectorMedian.value}`, fill: "#16A34A", fontSize: 10 }} />
-                      )}
-                      {/* ── Estimate Cone on Quarterly Net Profit (±18.5% backtested error) ── */}
-                      {timeframe === "quarterly" && primary.id === "net" && (
-                        <ReferenceLine
-                          yAxisId="left"
-                          y={Math.round((primaryVals[primaryVals.length - 1] || 0) * 1.04)}
-                          stroke="#8C3B32"
-                          strokeDasharray="4 3"
-                          label={{
-                            value: `تقدير الربع القادم ≈ ${Math.round((primaryVals[primaryVals.length - 1] || 0) * 1.04).toLocaleString()} (±18.5%)`,
-                            fill: "#8C3B32",
-                            fontSize: 10,
-                            position: "top"
+                        )}
+                        <Area yAxisId="left" type="monotone" dataKey={primary.id} stroke={primary.color} fill={primary.color} fillOpacity={0.2} strokeWidth={2.5} isAnimationActive={true} />
+                        {secondary && (
+                          <Line yAxisId="right" type="monotone" dataKey={secondary.id} stroke={secondary.color} strokeWidth={2.5} strokeDasharray="4 3" dot={{ r: 4, fill: "#fff", stroke: secondary.color, strokeWidth: 2 }} isAnimationActive={true} />
+                        )}
+                      </ComposedChart>
+                    ) : (
+                      <ComposedChart data={periods.map((p: string, i: number) => ({
+                        period: p,
+                        [primary.id]: primaryVals[i] ?? 0,
+                        ...(secondary ? { [secondary.id]: secondaryVals[i] ?? 0 } : {})
+                      }))} margin={{ top: 15, right: secondary ? 50 : 20, left: 10, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+                        <XAxis dataKey="period" tick={{ fill: "#64748B", fontSize: 11, fontFamily: "monospace" }} />
+                        <YAxis yAxisId="left" tick={{ fill: primary.color, fontSize: 11, fontFamily: "monospace" }} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
+                        {secondary && <YAxis yAxisId="right" orientation="right" tick={{ fill: secondary.color, fontSize: 11, fontFamily: "monospace" }} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />}
+                        <RechartsTooltip
+                          content={({ active, payload, label }) => {
+                            if (active && payload && payload.length) {
+                              return (
+                                <div className="bg-[#1E293B] text-white text-xs px-3 py-2 rounded shadow-lg font-mono space-y-1">
+                                  <div className="font-bold text-[#F8FAFC]">{label}</div>
+                                  {payload.map((p: any, idx: number) => (
+                                    <div key={idx} style={{ color: p.color }}>
+                                      {p.name === primary.id ? primary.name : secondary?.name}: {Number(p.value).toLocaleString(undefined, { maximumFractionDigits: 1 })} {p.name === primary.id ? primary.unit : secondary?.unit}
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            }
+                            return null;
                           }}
                         />
-                      )}
-                      <Area yAxisId="left" type="monotone" dataKey={primary.id} stroke={primary.color} fill={primary.color} fillOpacity={0.2} strokeWidth={2.5} isAnimationActive={true} />
-                      {secondary && (
-                        <Line yAxisId="right" type="monotone" dataKey={secondary.id} stroke={secondary.color} strokeWidth={2.5} strokeDasharray="4 3" dot={{ r: 4, fill: "#fff", stroke: secondary.color, strokeWidth: 2 }} isAnimationActive={true} />
-                      )}
-                    </ComposedChart>
-                  ) : (
-                    <ComposedChart data={periods.map((p: string, i: number) => ({
-                      period: p,
-                      [primary.id]: primaryVals[i] ?? 0,
-                      ...(secondary ? { [secondary.id]: secondaryVals[i] ?? 0 } : {})
-                    }))} margin={{ top: 15, right: secondary ? 50 : 20, left: 10, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
-                      <XAxis dataKey="period" tick={{ fill: "#64748B", fontSize: 11, fontFamily: "monospace" }} />
-                      <YAxis yAxisId="left" tick={{ fill: primary.color, fontSize: 11, fontFamily: "monospace" }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} />
-                      {secondary && <YAxis yAxisId="right" orientation="right" tick={{ fill: secondary.color, fontSize: 11, fontFamily: "monospace" }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} />}
-                      <RechartsTooltip
-                        content={({ active, payload, label }) => {
-                          if (active && payload && payload.length) {
-                            return (
-                              <div className="bg-[#1E293B] text-white text-xs px-3 py-2 rounded shadow-lg font-mono space-y-1">
-                                <div className="font-bold text-[#F8FAFC]">{label}</div>
-                                {payload.map((p: any, idx: number) => (
-                                  <div key={idx} style={{ color: p.color }}>
-                                    {p.name === primary.id ? primary.name : secondary?.name}: {Number(p.value).toLocaleString(undefined, { maximumFractionDigits: 1 })} {p.name === primary.id ? primary.unit : secondary?.unit}
-                                  </div>
-                                ))}
-                              </div>
-                            );
-                          }
-                          return null;
-                        }}
-                      />
-                      {showHistoricalMedian && selfMedian != null && (
-                        <ReferenceLine yAxisId="left" y={selfMedian} stroke="#D97706" strokeDasharray="4 3" label={{ value: `وسيط الشركة: ${selfMedian}`, fill: "#D97706", fontSize: 10 }} />
-                      )}
-                      {showSectorMedian && currentSectorMedian != null && (
-                        <ReferenceLine yAxisId="left" y={currentSectorMedian.value} stroke="#16A34A" strokeDasharray="4 2" label={{ value: `وسيط القطاع: ${currentSectorMedian.value}`, fill: "#16A34A", fontSize: 10 }} />
-                      )}
-                      {/* ── Estimate Cone on Quarterly Net Profit (±18.5% backtested error) ── */}
-                      {timeframe === "quarterly" && primary.id === "net" && (
-                        <ReferenceLine
-                          yAxisId="left"
-                          y={Math.round((primaryVals[primaryVals.length - 1] || 0) * 1.04)}
-                          stroke="#8C3B32"
-                          strokeDasharray="4 3"
-                          label={{
-                            value: `تقدير الربع القادم ≈ ${Math.round((primaryVals[primaryVals.length - 1] || 0) * 1.04).toLocaleString()} (±18.5%)`,
-                            fill: "#8C3B32",
-                            fontSize: 10,
-                            position: "top"
-                          }}
-                        />
-                      )}
-                      <Line yAxisId="left" type="monotone" dataKey={primary.id} stroke={primary.color} strokeWidth={2.5} dot={{ r: 4, fill: "#fff", stroke: primary.color, strokeWidth: 2 }} activeDot={{ r: 6 }} isAnimationActive={true} />
-                      {secondary && (
-                        <Line yAxisId="right" type="monotone" dataKey={secondary.id} stroke={secondary.color} strokeWidth={2.5} strokeDasharray="4 3" dot={{ r: 4, fill: "#fff", stroke: secondary.color, strokeWidth: 2 }} isAnimationActive={true} />
-                      )}
-                    </ComposedChart>
-                  )}
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* YoY DELTA TABLE */}
-            {showYoY && primary.yoy && (
-              <div className="bg-white border border-[#E5E7EB] rounded-[6px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-                <h4 className="text-xs font-bold text-[#1A1A1A] mb-3 flex items-center gap-2">
-                  <Activity size={13} className="text-[#8C3B32]" />
-                  نسبة التغيير YoY لـ {primary.name}
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {periods.map((p: string, i: number) => {
-                    const chg = primary.yoy![i];
-                    if (chg == null) return <span key={i} className="text-[11px] font-mono text-[#94A3B8] px-2 py-0.5 rounded bg-[#F8FAFC] border border-[#E2E8F0]">{p}: —</span>;
-                    return (
-                      <span key={i} className={`text-[11px] font-mono px-2.5 py-1 rounded border flex items-center gap-1 ${chg >= 0 ? "bg-[#F0FDF4] text-[#16A34A] border-[#BBF7D0]" : "bg-[#FEF2F2] text-[#DC2626] border-[#FECACA]"}`}>
-                        {chg >= 0 ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
-                        <span>{p}: {chg > 0 ? "+" : ""}{chg.toFixed(1)}%</span>
-                      </span>
-                    );
-                  })}
+                        {showHistoricalMedian && selfMedian != null && (
+                          <ReferenceLine yAxisId="left" y={selfMedian} stroke="#D97706" strokeDasharray="4 3" label={{ value: `وسيط الشركة: ${selfMedian}`, fill: "#D97706", fontSize: 10 }} />
+                        )}
+                        {showSectorMedian && currentSectorMedian != null && (
+                          <ReferenceLine yAxisId="left" y={currentSectorMedian.value} stroke="#16A34A" strokeDasharray="4 2" label={{ value: `وسيط القطاع: ${currentSectorMedian.value}`, fill: "#16A34A", fontSize: 10 }} />
+                        )}
+                        {/* ── Estimate Cone on Quarterly Net Profit (±18.5% backtested error) ── */}
+                        {timeframe === "quarterly" && primary.id === "net" && (
+                          <ReferenceLine
+                            yAxisId="left"
+                            y={Math.round((primaryVals[primaryVals.length - 1] || 0) * 1.04)}
+                            stroke="#8C3B32"
+                            strokeDasharray="4 3"
+                            label={{
+                              value: `تقدير الربع القادم ≈ ${Math.round((primaryVals[primaryVals.length - 1] || 0) * 1.04).toLocaleString()} (±18.5%)`,
+                              fill: "#8C3B32",
+                              fontSize: 10,
+                              position: "top"
+                            }}
+                          />
+                        )}
+                        <Line yAxisId="left" type="monotone" dataKey={primary.id} stroke={primary.color} strokeWidth={2.5} dot={{ r: 4, fill: "#fff", stroke: primary.color, strokeWidth: 2 }} activeDot={{ r: 6 }} isAnimationActive={true} />
+                        {secondary && (
+                          <Line yAxisId="right" type="monotone" dataKey={secondary.id} stroke={secondary.color} strokeWidth={2.5} strokeDasharray="4 3" dot={{ r: 4, fill: "#fff", stroke: secondary.color, strokeWidth: 2 }} isAnimationActive={true} />
+                        )}
+                      </ComposedChart>
+                    )}
+                  </ResponsiveContainer>
                 </div>
               </div>
-            )}
 
-            {/* ── INTERACTIVE FINANCIAL TABLES — Click any row to chart ── */}
-            <InteractiveStatementTable
-              periods={periods}
-              metrics={metrics}
-              primaryId={primaryId}
-              secondaryId={secondaryId}
-              onSelectRow={(metricId) => {
-                if (metricId === primaryId) return; // already primary
-                if (metricId === secondaryId) {
-                  setSecondaryId(null); // toggle off
-                } else {
-                  setSecondaryId(metricId); // set as secondary
-                }
-              }}
-            />
+              {/* YoY DELTA TABLE */}
+              {showYoY && primary.yoy && (
+                <div className="bg-white border border-[#E5E7EB] rounded-[6px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+                  <h4 className="text-xs font-bold text-[#1A1A1A] mb-3 flex items-center gap-2">
+                    <Activity size={13} className="text-[#8C3B32]" />
+                    نسبة التغيير YoY لـ {primary.name}
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {periods.map((p: string, i: number) => {
+                      const chg = primary.yoy![i];
+                      if (chg == null) return <span key={i} className="text-[11px] font-mono text-[#94A3B8] px-2 py-0.5 rounded bg-[#F8FAFC] border border-[#E2E8F0]">{p}: —</span>;
+                      return (
+                        <span key={i} className={`text-[11px] font-mono px-2.5 py-1 rounded border flex items-center gap-1 ${chg >= 0 ? "bg-[#F0FDF4] text-[#16A34A] border-[#BBF7D0]" : "bg-[#FEF2F2] text-[#DC2626] border-[#FECACA]"}`}>
+                          {chg >= 0 ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
+                          <span>{p}: {chg > 0 ? "+" : ""}{chg.toFixed(1)}%</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* ── INTERACTIVE FINANCIAL TABLES — Click any row to chart ── */}
+              <InteractiveStatementTable
+                periods={periods}
+                metrics={metrics}
+                primaryId={primaryId}
+                secondaryId={secondaryId}
+                onSelectRow={(metricId) => {
+                  if (metricId === primaryId) return; // already primary
+                  if (metricId === secondaryId) {
+                    setSecondaryId(null); // toggle off
+                  } else {
+                    setSecondaryId(metricId); // set as secondary
+                  }
+                }}
+              />
 
             </div>{/* end flex-1 left column */}
 
@@ -1037,7 +1037,7 @@ function StudioInner() {
                   {/* Price stats */}
                   <div className="flex flex-wrap gap-4 text-xs font-mono">
                     {[
-                      { label: "آخر إغلاق", val: priceHistory[priceHistory.length-1]?.close?.toFixed(2) },
+                      { label: "آخر إغلاق", val: priceHistory[priceHistory.length - 1]?.close?.toFixed(2) },
                       { label: "أعلى 120 يوم", val: Math.max(...priceHistory.map(p => p.high || p.close)).toFixed(2) },
                       { label: "أدنى 120 يوم", val: Math.min(...priceHistory.map(p => p.low || p.close)).toFixed(2) },
                       { label: "متوسط الحجم", val: Math.round(priceHistory.reduce((a, p) => a + (p.volume || 0), 0) / priceHistory.length).toLocaleString() },
@@ -1154,12 +1154,12 @@ function StudioInner() {
                               if (!payload) return null;
                               const { high, low, open, close, isBull } = payload;
                               const color = isBull ? "#16A34A" : "#DC2626";
-                              
+
                               // Calculate wick coordinates relative to body
                               // The body height represents |close - open|
                               const bodyDiff = Math.max(Math.abs(close - open), 0.001);
                               const pricePerPixel = (height && height > 0) ? (bodyDiff / height) : 0;
-                              
+
                               const candleWidth = Math.max(3, Math.min(10, width * 0.75));
                               const centerX = x + width / 2;
                               const xLeft = centerX - candleWidth / 2;
@@ -1251,28 +1251,7 @@ function StudioInner() {
             <strong>مرجع الوسيط التاريخي:</strong> تُعرض القيمة الوسيطة لأداء الشركة ذاتها عبر الفترات المعروضة كخط مرجعي على الرسم — وليست وسيط القطاع.
           </div>
         )}
-
-        {/* ── CROSS-LINK: ROW-CLICK FROM COMPANY PAGE ───────────────────── */}
-        <div className="bg-white border border-[#E5E7EB] rounded-[6px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-          <div>
-            <p className="font-bold text-[#0F172A]">هل أتيت من صفحة الشركة بالنقر على بند؟</p>
-            <p className="text-[#64748B] mt-0.5">يمكن لأي صفحة ترسلك للاستوديو عبر رابط مثل: <code className="font-mono text-[#8C3B32] bg-[#FFF1EF] px-1 rounded">/rebh/studio/{symbol}?preset=revenue_margin_health</code></p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Link href={`/rebh/company/${symbol}`} className="px-3 py-1.5 bg-[#F3F4F6] hover:bg-[#E5E7EB] border border-[#D1D5DB] rounded-[4px] font-semibold text-[#374151] transition-colors">
-              صفحة الشركة ←
-            </Link>
-            <Link href={`/rebh/analyst/${symbol}`} className="px-3 py-1.5 bg-[#F3F4F6] hover:bg-[#E5E7EB] border border-[#D1D5DB] rounded-[4px] font-semibold text-[#374151] transition-colors">
-              القوائم المالية ←
-            </Link>
-          </div>
-        </div>
-
       </main>
-
-      <footer className="text-center text-[11px] text-[#9CA3AF] pt-6 border-t border-[#E5E7EB]">
-        منصة REBH — Chart Studio Pro · {symbol} · {name}
-      </footer>
     </div>
   );
 }

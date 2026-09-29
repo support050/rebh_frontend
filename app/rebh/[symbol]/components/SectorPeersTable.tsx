@@ -35,29 +35,29 @@ export default function SectorPeersTable({ currentSymbol, sector }: SectorPeersT
   const [query, setQuery] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+
     async function loadPeers() {
       try {
         setLoading(true);
-        const res = await fetch(`${API_BASE_URL}/api/rebh/universe`);
-        if (res.ok) {
+        // Server-side filtered endpoint: returns only same-sector peers sorted by market cap.
+        // No longer downloads the whole market universe for client-side filtering.
+        const url = `${API_BASE_URL}/api/rebh/peers?sector=${encodeURIComponent(sector)}`;
+        const res = await fetch(url, { signal: controller.signal });
+        if (res.ok && !cancelled) {
           const data = await res.json();
           if (Array.isArray(data)) {
-            // Clean sector prefix for robust matching across sub-industry or main sector
-            const cleanTarget = sector.split("|")[0].trim().toLowerCase();
-            const matched = data
-              .filter((c: any) => {
-                if (!c.sec) return false;
-                const secClean = c.sec.split("|")[0].trim().toLowerCase();
-                return c.sec === sector || secClean === cleanTarget;
-              })
-              .sort((a: any, b: any) => (b.mc || 0) - (a.mc || 0));
+            const matched = [...data].sort((a: any, b: any) => (b.mc || 0) - (a.mc || 0));
             setPeers(matched);
           }
         }
       } catch (err) {
-        console.error("Error fetching sector peers:", err);
+        if ((err as any)?.name !== "AbortError") {
+          console.error("Error fetching sector peers:", err);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
     if (sector && sector !== "—") {
@@ -65,6 +65,10 @@ export default function SectorPeersTable({ currentSymbol, sector }: SectorPeersT
     } else {
       setLoading(false);
     }
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, [sector]);
 
   const filteredPeers = useMemo(() => {
