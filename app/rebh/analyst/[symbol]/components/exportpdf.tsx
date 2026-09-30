@@ -45,50 +45,50 @@ export async function generateAnalystPdf(d: AnalystPdfData): Promise<void> {
 
   ctx.drawHeader({
     symbol: d.symbol,
-    title: d.name,
-    subtitle: "القوائم المالية والنسب المحاسبية",
+    title: d.nameEn || d.name,
+    subtitle: "Financial Statements & Accounting Ratios",
   });
 
   // ── 1. TTM snapshot ────────────────────────────────────────────────────────
   if (d.ttm && (has(d.ttm.rev) || has(d.ttm.net))) {
-    ctx.heading("1. ملخص الأداء السنوي المتحرك (TTM)", 5);
+    ctx.heading("1. Trailing Twelve Months (TTM) Performance Summary", 5);
     ctx.kvTable([
-      ["الإيرادات السنوية TTM", has(d.ttm.rev) ? `${(Number(d.ttm.rev) / 1000).toFixed(1)}B ر.س` : "—"],
-      ["إجمالي الربح TTM", has(d.ttm.gp) ? `${(Number(d.ttm.gp) / 1000).toFixed(1)}B ر.س` : "—"],
-      ["صافي الربح TTM", has(d.ttm.net) ? `${(Number(d.ttm.net) / 1000).toFixed(1)}B ر.س` : "—"],
-      ["ربحية السهم TTM (EPS)", has(d.ttm.eps) ? `${Number(d.ttm.eps).toFixed(2)} ر.س` : "—"],
+      ["TTM Revenue", has(d.ttm.rev) ? `SAR ${(Number(d.ttm.rev) / 1000).toFixed(1)}B` : "—"],
+      ["TTM Gross Profit", has(d.ttm.gp) ? `SAR ${(Number(d.ttm.gp) / 1000).toFixed(1)}B` : "—"],
+      ["TTM Net Income", has(d.ttm.net) ? `SAR ${(Number(d.ttm.net) / 1000).toFixed(1)}B` : "—"],
+      ["TTM Earnings per Share (EPS)", has(d.ttm.eps) ? `SAR ${Number(d.ttm.eps).toFixed(2)}` : "—"],
     ]);
   }
 
   // ── 2. Dual verdict ────────────────────────────────────────────────────────
-  ctx.heading("2. الحكم المزدوج للسلامة والجودة (Dual Verdict)", 3);
+  ctx.heading("2. Dual Verdict: Solvency & Earnings Quality", 3);
   ctx.kvTable([
-    ["فحص السلامة المالية (ديون + سيولة)", d.safetyPass == null ? "غير متاح" : d.safetyPass ? "اجتاز الفحص" : "لم يجتز الفحص"],
-    ["فحص جودة الأرباح (ROE + هامش صافي)", d.qualityPass == null ? "غير متاح" : d.qualityPass ? "اجتاز الفحص" : "لم يجتز الفحص"],
+    ["Solvency Verdict (Debt + Liquidity)", d.safetyPass == null ? "N/A" : d.safetyPass ? "Pass" : "Fail"],
+    ["Earnings Quality Verdict (ROE + Net Margin)", d.qualityPass == null ? "N/A" : d.qualityPass ? "Pass" : "Fail"],
   ]);
 
   // ── 3. Ratio groups (sector template) ──────────────────────────────────────
-  ctx.heading("3. لوحة النسب المالية حسب القالب القطاعي", 8);
+  ctx.heading("3. Financial Ratio Dashboard by Sector Template", 8);
   d.groups.forEach((g) => {
     ctx.paragraph(g.title, { bold: true, size: 10.5 });
     ctx.rtlGrid(
-      ["القيمة", "النسبة المالية"],
-      g.rows.map((r) => [fmtVal(r.value, r.unit), r.label])
+      ["Financial Ratio", "Value"],
+      g.rows.map((r) => [r.label, fmtVal(r.value, r.unit)])
     );
   });
 
   // ── 4. Sector template notes ───────────────────────────────────────────────
-  ctx.heading("4. ملاحظات القالب القطاعي", d.templateNotes.length + 1);
-  ctx.paragraph(`القالب المعتمد: ${d.templateLabel}`, { bold: true });
+  ctx.heading("4. Sector Template Notes", d.templateNotes.length + 1);
+  ctx.paragraph(`Applied Template: ${d.templateLabel}`, { bold: true });
   d.templateNotes.forEach((n) => ctx.paragraph(n, { bullet: true, size: 9.5 }));
 
   // ── 5. Peer ROE comparison ─────────────────────────────────────────────────
   if (d.peers.length > 0) {
-    ctx.heading("5. مقارنة ROE بمنافسي القطاع", d.peers.length + 1);
-    ctx.paragraph(`عدد الشركات في قطاع ${d.sector}: ${d.peersCount} شركة`, { size: 9.5 });
+    ctx.heading("5. Return on Equity (ROE) vs. Sector Peers", d.peers.length + 1);
+    ctx.paragraph(`Number of companies in the ${d.sector} sector: ${d.peersCount}`, { size: 9.5 });
     ctx.rtlGrid(
-      ["ROE", "الشركة", "الرمز"],
-      d.peers.map((p) => [`${fmt1(p.roe)}%`, p.name, p.sym])
+      ["Ticker", "Company", "ROE"],
+      d.peers.map((p) => [p.sym, p.name, `${fmt1(p.roe)}%`])
     );
   }
 

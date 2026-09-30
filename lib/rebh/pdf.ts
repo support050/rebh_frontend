@@ -2,15 +2,14 @@
 // Shared REBH PDF infrastructure — mirrors the architecture of
 // rebh/company/components/exportpdf.tsx:
 //  · Amiri fonts served from /public/fonts (regular + bold, base64-cached)
-//  · jsPDF's built-in processArabic() shaping + our own RTL bidi reordering
-//    (keeps Latin/number runs like "12.50 SAR" or "REBH ONE" in LTR order)
+//  · LTR English layout — no bidi/RTL reordering needed
 //  · Unified maroon header band (REBH ONE · symbol/name · date)
 //  · Disclaimer footer with page numbers on every page
 //  · html2canvas capture helpers (scale 2) for chart-heavy pages
 
 export const REBH_MAROON: [number, number, number] = [140, 59, 50];
 export const REBH_DISCLAIMER =
-  "منصة REBH - أداة تعليمية وتحليلية وفق منهجية مشعل الخرفشي - لا تقدم أي توصيات بيع أو شراء مباشرة.";
+  "REBH Platform — Educational and analytical tool based on the Mishaal Al-Kharfashi methodology. Does not provide direct buy or sell recommendations.";
 
 const FONT_REGULAR_URL = "/fonts/Amiri-Regular.ttf";
 const FONT_BOLD_URL = "/fonts/Amiri-Bold.ttf";
@@ -84,8 +83,14 @@ export interface RebhPdfCtx {
 
 export async function createRebhPdf(): Promise<RebhPdfCtx> {
   const [jspdfMod, autoTableMod] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
-  const JsPDF: any = (jspdfMod as any).jsPDF ?? (jspdfMod as any).default;
-  const autoTable: any = (autoTableMod as any).default ?? (autoTableMod as any).autoTable;
+  const JsPDF: any =
+    (jspdfMod as any).jsPDF ??
+    (jspdfMod as any).default?.jsPDF ??
+    (jspdfMod as any).default;
+  const autoTable: any =
+    (autoTableMod as any).default?.autoTable ??
+    (autoTableMod as any).autoTable ??
+    (autoTableMod as any).default;
   const fonts = await loadAmiriFonts();
 
   const doc: any = new JsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -101,57 +106,8 @@ export async function createRebhPdf(): Promise<RebhPdfCtx> {
   const CW = W - M * 2;
   let y = 0;
 
-  // jsPDF's built-in bidi assumes an LTR paragraph, so mixed Arabic/Latin lines
-  // come out in the wrong order. We shape + reorder ourselves (RTL paragraph)
-  // and tell jsPDF the text is already visual (isInputVisual/isOutputVisual).
-  const origText = doc.text.bind(doc);
-  doc.text = (t: any, x: number, yy: number, opts?: any, ...rest: any[]) =>
-    origText(t, x, yy, { ...(opts || {}), isInputVisual: true, isOutputVisual: true }, ...rest);
-
-  const AR_RE = /[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/;
-  const LAT_RE = /[A-Za-z]/;
-  const MIRROR: Record<string, string> = { "(": ")", ")": "(", "[": "]", "]": "[", "{": "}", "}": "{", "<": ">", ">": "<" };
-  const mirrorStr = (str: string) => str.replace(/[()[\]{}<>]/g, (c) => MIRROR[c] ?? c);
-  const revWord = (w: string) =>
-    w
-      .split(/([0-9][0-9.,]*%?|[A-Za-z]+)/)
-      .reverse()
-      .map((part) => (/^([0-9][0-9.,]*%?|[A-Za-z]+)$/.test(part) ? part : mirrorStr(part.split("").reverse().join(""))))
-      .join("");
-
-  const vis = (input: unknown): string => {
-    const s = clean(input);
-    if (!AR_RE.test(s)) return s; // pure Latin/numbers: nothing to reorder
-    const shaped: string = doc.processArabic(s); // contextual letter forms (logical order)
-    const toks = shaped.split(/ +/).filter(Boolean).map((t) => ({
-      t,
-      k: AR_RE.test(t) ? "A" : LAT_RE.test(t) ? "L" : /[0-9]/.test(t) ? "D" : "P",
-    }));
-    const isLtr = (i: number) => i < toks.length && (toks[i].k === "L" || toks[i].k === "D");
-    const units: string[] = [];
-    let i = 0;
-    while (i < toks.length) {
-      if (isLtr(i)) {
-        // keep runs of Latin words / numbers ("12.50 SAR", "REBH ONE") in LTR order
-        const run = [toks[i].t];
-        let j = i;
-        while (true) {
-          if (isLtr(j + 1)) { run.push(toks[j + 1].t); j += 1; }
-          else if (j + 2 < toks.length && toks[j + 1].k === "P" && isLtr(j + 2)) { run.push(toks[j + 1].t, toks[j + 2].t); j += 2; }
-          else break;
-        }
-        units.push(run.join(" "));
-        i = j + 1;
-      } else if (toks[i].k === "A") {
-        units.push(revWord(toks[i].t));
-        i += 1;
-      } else {
-        units.push(mirrorStr(toks[i].t));
-        i += 1;
-      }
-    }
-    return units.reverse().join(" ");
-  };
+  // All text is LTR English — pass through clean() only, no bidi reordering needed.
+  const vis = (input: unknown): string => clean(input);
 
   const setFont = (style: "normal" | "bold", size: number) => {
     doc.setFont("Amiri", style);
@@ -171,11 +127,12 @@ export async function createRebhPdf(): Promise<RebhPdfCtx> {
     doc.setFillColor(243, 244, 246);
     doc.setDrawColor(229, 231, 235);
     doc.rect(M, y, CW, 8, "FD");
+    // Left maroon accent bar
     doc.setFillColor(140, 59, 50);
-    doc.rect(R - 1.4, y, 1.4, 8, "F");
+    doc.rect(M, y, 1.4, 8, "F");
     setFont("bold", 11);
     doc.setTextColor(26, 26, 26);
-    doc.text(vis(title), R - 4, y + 5.6, { align: "right" });
+    doc.text(vis(title), M + 4, y + 5.6, { align: "left" });
     y += 12;
   };
 
@@ -194,9 +151,9 @@ export async function createRebhPdf(): Promise<RebhPdfCtx> {
       ensure(lineH + 1);
       if (o.bullet && i === 0) {
         doc.setFillColor(c[0], c[1], c[2]);
-        doc.circle(R - 1.2, y - 1.2, 0.6, "F");
+        doc.circle(M + 1.2, y - 1.2, 0.6, "F");
       }
-      doc.text(vis(ln), R - indent, y, { align: "right" });
+      doc.text(vis(ln), M + indent, y, { align: "left" });
       y += lineH;
     });
     y += 1.2;
@@ -226,35 +183,35 @@ export async function createRebhPdf(): Promise<RebhPdfCtx> {
 
   const keepTogether = (rowCount: number) => ensure(Math.min((rowCount + 1) * 8.5, H - 60));
 
-  // label (right) / value (left)
+  // label (left, bold) / value (right) — LTR layout
   const kvTable = (rows: [string, any][]) => {
     if (rows.length === 0) return;
     keepTogether(rows.length);
     autoTable(doc, {
       ...tableCommon,
       startY: y,
-      body: rows.map(([k, v]) => [clean(v) || "—", clean(k)]),
+      body: rows.map(([k, v]) => [clean(k), clean(v) || "—"]),
       columnStyles: {
-        0: { halign: "left", cellWidth: CW * 0.4 },
-        1: { halign: "right", cellWidth: CW * 0.6, fontStyle: "bold" },
+        0: { halign: "left", cellWidth: CW * 0.6, fontStyle: "bold" },
+        1: { halign: "right", cellWidth: CW * 0.4 },
       },
     });
     y = doc.lastAutoTable.finalY + 5;
   };
 
-  // multi-column RTL grid: first logical column sits on the right
+  // multi-column LTR grid: first logical column sits on the left
   const rtlGrid = (head: string[], rows: any[][], labelWidth?: number) => {
     const n = head.length;
     keepTogether(rows.length);
-    const rev = (arr: any[]) => [...arr].reverse();
     const columnStyles: Record<number, any> = {};
     for (let i = 0; i < n; i++) columnStyles[i] = { halign: "center" };
-    columnStyles[n - 1] = { halign: "right", fontStyle: "bold", ...(labelWidth ? { cellWidth: labelWidth } : {}) };
+    // First column is the label — left-aligned, bold
+    columnStyles[0] = { halign: "left", fontStyle: "bold", ...(labelWidth ? { cellWidth: labelWidth } : {}) };
     autoTable(doc, {
       ...tableCommon,
       startY: y,
-      head: [rev(head).map(clean)],
-      body: rows.map((r) => rev(r).map((c) => clean(has(c) ? c : "—"))),
+      head: [head.map(clean)],
+      body: rows.map((r) => r.map((c) => clean(has(c) ? c : "—"))),
       columnStyles,
       styles: { ...tableCommon.styles, fontSize: n > 6 ? 8.5 : 10, cellPadding: n > 6 ? 1.8 : 2.2 },
     });
@@ -269,11 +226,13 @@ export async function createRebhPdf(): Promise<RebhPdfCtx> {
     doc.rect(0, 0, W, 30, "F");
     doc.setTextColor(255, 255, 255);
     setFont("bold", 17);
-    doc.text(vis(opts.symbol ? `${opts.title} - ${opts.symbol}` : opts.title), R, 13, { align: "right" });
+    // Title left-aligned
+    doc.text(vis(opts.symbol ? `${opts.title} — ${opts.symbol}` : opts.title), M, 13, { align: "left" });
     setFont("normal", 10);
-    doc.text(vis(`${opts.subtitle ? `${opts.subtitle} - ` : ""}REBH ONE`), R, 21, { align: "right" });
+    doc.text(vis(`REBH ONE${opts.subtitle ? ` — ${opts.subtitle}` : ""}`), M, 21, { align: "left" });
+    // Date right-aligned
     setFont("normal", 10);
-    doc.text(dateStr, M, 13);
+    doc.text(dateStr, R, 13, { align: "right" });
     y = 38;
   };
 
@@ -286,8 +245,9 @@ export async function createRebhPdf(): Promise<RebhPdfCtx> {
       doc.line(M, H - 13, R, H - 13);
       setFont("normal", 8);
       doc.setTextColor(156, 163, 175);
-      doc.text(vis(REBH_DISCLAIMER), R, H - 8, { align: "right" });
-      doc.text(`${i} / ${total}`, M, H - 8);
+      // Disclaimer left-aligned, page number right-aligned
+      doc.text(vis(REBH_DISCLAIMER), M, H - 8, { align: "left" });
+      doc.text(`${i} / ${total}`, R, H - 8, { align: "right" });
     }
   };
 

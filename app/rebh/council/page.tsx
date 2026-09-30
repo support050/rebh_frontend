@@ -29,75 +29,72 @@ type TabKey = "fisher" | "redflags" | "bank";
 interface FisherItem {
     id: number;
     q: string;
-    qAr: string;
     mandatory?: boolean;
 }
 
 const FISHER_15: FisherItem[] = [
-    { id: 1, q: "Products/services with sufficient market potential for years of sales growth", qAr: "منتجات/خدمات ذات إمكانات سوقية كافية لسنوات من نمو المبيعات" },
-    { id: 2, q: "Management determination to develop new products/processes despite current lines maturing", qAr: "عزم الإدارة على تطوير منتجات جديدة رغم نضوج الخطوط الحالية" },
-    { id: 3, q: "R&D effectiveness relative to company size (rule of thumb: ≥3% of revenue)", qAr: "فعالية البحث والتطوير نسبة للحجم (≥3% من الإيرادات)" },
-    { id: 4, q: "Above-average sales organization", qAr: "تنظيم مبيعات أعلى من المتوسط" },
-    { id: 5, q: "Worthwhile profit margin", qAr: "هامش ربح مجزٍ" },
-    { id: 6, q: "Actions being taken to maintain or improve margins", qAr: "إجراءات فعلية للحفاظ على الهامش أو تحسينه" },
-    { id: 7, q: "Outstanding labor relations", qAr: "علاقات عمل متميزة مع الموظفين" },
-    { id: 8, q: "Outstanding executive relations", qAr: "علاقات تنفيذية متميزة" },
-    { id: 9, q: "Depth of management", qAr: "عمق الإدارة (الصف الثاني)" },
-    { id: 10, q: "Cost analysis and accounting controls", qAr: "تحليل التكاليف والضوابط المحاسبية" },
-    { id: 11, q: "Industry-specific competitive edges (patents, leases, government contracts)", qAr: "ميزات تنافسية خاصة بالقطاع (براءات، عقود حكومية)" },
-    { id: 12, q: "Long-range vs short-range profit outlook", qAr: "نظرة أرباح بعيدة المدى لا قصيرة المدى" },
-    { id: 13, q: "No dilutive equity financing on the visible horizon", qAr: "لا يوجد تمويل مساهمين مخفف للأرباح في الأفق" },
-    { id: 14, q: "Management frank with shareholders in bad times, not just good times", qAr: "صراحة الإدارة مع المساهمين في الأوقات الصعبة" },
-    { id: 15, q: "Unquestionable management integrity", qAr: "نزاهة إدارة لا شك فيها", mandatory: true },
+    { id: 1, q: "Products/services with sufficient market potential for years of sales growth" },
+    { id: 2, q: "Management determination to develop new products/processes despite current lines maturing" },
+    { id: 3, q: "R&D effectiveness relative to company size (rule of thumb: ≥3% of revenue)" },
+    { id: 4, q: "Above-average sales organization" },
+    { id: 5, q: "Worthwhile profit margin" },
+    { id: 6, q: "Actions being taken to maintain or improve margins" },
+    { id: 7, q: "Outstanding labor relations" },
+    { id: 8, q: "Outstanding executive relations" },
+    { id: 9, q: "Depth of management" },
+    { id: 10, q: "Cost analysis and accounting controls" },
+    { id: 11, q: "Industry-specific competitive edges (patents, leases, government contracts)" },
+    { id: 12, q: "Long-range vs short-range profit outlook" },
+    { id: 13, q: "No dilutive equity financing on the visible horizon" },
+    { id: 14, q: "Management frank with shareholders in bad times, not just good times" },
+    { id: 15, q: "Unquestionable management integrity", mandatory: true },
 ];
 
 /* ---------------- Red Flags (Lecture 15) ---------------- */
 interface FlagItem {
     id: string;
     label: string;
-    labelAr: string;
     group: "danger" | "redflag";
 }
 
 const DANGER_SIGNS: FlagItem[] = [
-    { id: "ocf_decline", label: "Operating cash flow that was healthy and now declines", labelAr: "تدفق نقدي تشغيلي كان صحياً وأصبح يتراجع", group: "danger" },
-    { id: "receivables", label: "Receivables rising faster than sales (heavy selling without cash collection)", labelAr: "الذمم المدينة ترتفع أسرع من المبيعات", group: "danger" },
-    { id: "restructuring", label: "Recurring 'restructuring' charges with no clear justification", labelAr: "رسوم 'إعادة هيكلة' متكررة دون مبرر واضح", group: "danger" },
-    { id: "serial_acq", label: "Serial acquisitions (stock stalls ≥2 years post-acquisition — banks exempt)", labelAr: "استحواذات متكررة (السهم يتوقف عن الارتفاع لسنتين على الأقل)", group: "danger" },
-    { id: "rights_issue", label: "Secondary offering / rights issue (negative by default)", labelAr: "طرح ثانوي / زيادة رأس مال (سلبي بشكل افتراضي)", group: "danger" },
-    { id: "accrued", label: "Accrued expenses growing year after year", labelAr: "المصاريف المستحقة ترتفع سنة بعد سنة", group: "danger" },
-    { id: "depreciation", label: "Depreciation-life extension to flatter reported profit (e.g. 20 → 30 years)", labelAr: "تمديد العمر الإنتاجي للإهلاك لتجميل الأرباح (مثال: 20 إلى 30 سنة)", group: "danger" },
+    { id: "ocf_decline", label: "Operating cash flow that was healthy and now declines", group: "danger" },
+    { id: "receivables", label: "Receivables rising faster than sales (heavy selling without cash collection)", group: "danger" },
+    { id: "restructuring", label: "Recurring 'restructuring' charges with no clear justification", group: "danger" },
+    { id: "serial_acq", label: "Serial acquisitions (stock stalls ≥2 years post-acquisition — banks exempt)", group: "danger" },
+    { id: "rights_issue", label: "Secondary offering / rights issue (negative by default)", group: "danger" },
+    { id: "accrued", label: "Accrued expenses growing year after year", group: "danger" },
+    { id: "depreciation", label: "Depreciation-life extension to flatter reported profit (e.g. 20 → 30 years)", group: "danger" },
 ];
 
 const RED_FLAGS: FlagItem[] = [
-    { id: "outside_income", label: "Earnings from investments outside the core, appearing erratically", labelAr: "أرباح استثمارات خارج النشاط الأساسي تظهر بشكل غير منتظم", group: "redflag" },
-    { id: "pension_risk", label: "Pension risk — discount rate changed every couple of years", labelAr: "مخاطر معاش التقاعد — تغيير معدل الخصم كل سنتين", group: "redflag" },
-    { id: "vanishing_cf", label: "Vanishing cash flow with inventory pile-up", labelAr: "تدفق نقدي متلاشٍ مع تراكم المخزون", group: "redflag" },
-    { id: "covenant", label: "Changing credit covenants — tightening is immediately negative", labelAr: "تغيّر شروط التعهدات الائتمانية — التشديد سلبي فوراً", group: "redflag" },
-    { id: "deferred_exp", label: "Deferring expenses to flatter costs while cash drains", labelAr: "تأجيل المصاريف لتجميل التكاليف بينما النقد يتناقص", group: "redflag" },
+    { id: "outside_income", label: "Earnings from investments outside the core, appearing erratically", group: "redflag" },
+    { id: "pension_risk", label: "Pension risk — discount rate changed every couple of years", group: "redflag" },
+    { id: "vanishing_cf", label: "Vanishing cash flow with inventory pile-up", group: "redflag" },
+    { id: "covenant", label: "Changing credit covenants — tightening is immediately negative", group: "redflag" },
+    { id: "deferred_exp", label: "Deferring expenses to flatter costs while cash drains", group: "redflag" },
 ];
 
 /* ---------------- Bank Flags (Assiry 12) ---------------- */
 interface BankFlagItem {
     id: string;
     label: string;
-    labelAr: string;
     note: string;
 }
 
 const BANK_FLAGS: BankFlagItem[] = [
-    { id: "b1", label: "Investments whose risk can't be measured, or that contradict the business model", labelAr: "استثمارات لا يمكن قياس مخاطرها أو تتعارض مع نموذج العمل", note: "من إفصاح ليمان براذرز السنوي 2007" },
-    { id: "b2", label: "The bank's CDS spread diverging from peers", labelAr: "انحراف سبريد مقايضة التخلف عن السداد (CDS) عن نظرائه", note: "كريدي سويس انفصل عن نظرائه منتصف 2021" },
-    { id: "b3", label: "Sudden change in the funding mix (shift to equity/bond/sukuk issuance)", labelAr: "تغيّر مفاجئ في مزيج التمويل", note: "" },
-    { id: "b4", label: "Any change in an accounting line's presentation without clear explanation", labelAr: "تغيّر في عرض بند محاسبي دون تفسير واضح", note: "كريدي سويس دمج بند حق الاستخدام ضمن الشطب عام 2019" },
-    { id: "b5", label: "A sharp change in collateral", labelAr: "تغيّر حاد في الضمانات", note: "ضمانات كريدي سويس البنكية تراجعت من 41 إلى نحو الثلث" },
-    { id: "b6", label: "Profits improving only via provision reversals", labelAr: "تحسّن الأرباح فقط عبر عكس المخصصات", note: "كريدي سويس — تقلّب الأرباح بسبب المخصصات لا المبيعات" },
-    { id: "b7", label: "Financials and share price worse than the sector over the long run", labelAr: "أداء مالي وسعري أضعف من القطاع على المدى الطويل", note: "الاستقرار هو المنتج الأساسي للبنك" },
-    { id: "b8", label: "Non-earning assets ÷ NII rising", labelAr: "ارتفاع نسبة الأصول غير المدرّة ÷ صافي دخل الفوائد", note: "كريدي سويس: تعادل بحلول 2019 مع تراجع هامش الفائدة الصافي" },
-    { id: "b9", label: "Repeat laundering / fraud / corruption cases", labelAr: "قضايا غسيل أموال / احتيال / فساد متكررة", note: "بافيت: لا توجد صرصورة واحدة فقط في المطبخ" },
-    { id: "b10", label: "Open conflict between executives and the board", labelAr: "نزاع علني بين التنفيذيين ومجلس الإدارة", note: "" },
-    { id: "b11", label: "Salaries÷loans / salaries÷revenue deteriorating, or 20–30% credit concentration in one sector", labelAr: "تدهور الرواتب÷القروض أو تركّز ائتماني 20-30% بقطاع واحد", note: "حالة قطاع المقاولات السعودي 2015-2016" },
-    { id: "b12", label: "A complicated risk-appetite statement", labelAr: "بيان شهية مخاطر معقّد", note: "\"إن كان الأمر معقداً — تجنّبه\"" },
+    { id: "b1", label: "Investments whose risk can't be measured, or that contradict the business model", note: "From Lehman Brothers' 2007 annual disclosure" },
+    { id: "b2", label: "The bank's CDS spread diverging from peers", note: "Credit Suisse decoupled from its peers in mid-2021" },
+    { id: "b3", label: "Sudden change in the funding mix (shift to equity/bond/sukuk issuance)", note: "" },
+    { id: "b4", label: "Any change in an accounting line's presentation without clear explanation", note: "Credit Suisse folded the right-of-use line into write-offs in 2019" },
+    { id: "b5", label: "A sharp change in collateral", note: "Credit Suisse's bank collateral fell from 41 to roughly one-third" },
+    { id: "b6", label: "Profits improving only via provision reversals", note: "Credit Suisse — earnings volatility driven by provisions, not sales" },
+    { id: "b7", label: "Financials and share price worse than the sector over the long run", note: "Stability is a bank's core product" },
+    { id: "b8", label: "Non-earning assets ÷ NII rising", note: "Credit Suisse: reached parity by 2019 as net interest margin declined" },
+    { id: "b9", label: "Repeat laundering / fraud / corruption cases", note: "Buffett: there is never just one cockroach in the kitchen" },
+    { id: "b10", label: "Open conflict between executives and the board", note: "" },
+    { id: "b11", label: "Salaries÷loans / salaries÷revenue deteriorating, or 20–30% credit concentration in one sector", note: "The Saudi contracting sector case, 2015–2016" },
+    { id: "b12", label: "A complicated risk-appetite statement", note: "\"If it's complicated — avoid it\"" },
 ];
 
 const uid = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
@@ -230,14 +227,14 @@ export default function CouncilAuditStation() {
                 } else {
                     if (!isMounted) return;
                     if (res.status === 404) {
-                        setFetchError(`الشركة "${symbol}" غير موجودة في قاعدة البيانات — تحقق من الرمز وحاول مجدداً`);
+                        setFetchError(`Company "${symbol}" was not found in the database — check the symbol and try again`);
                     } else {
-                        setFetchError(`خطأ في الخادم (${res.status}) — حاول مرة أخرى لاحقاً`);
+                        setFetchError(`Server error (${res.status}) — please try again later`);
                     }
                 }
             } catch (err) {
                 console.error("Failed to load company council audit:", err);
-                if (isMounted) setFetchError("تعذّر الاتصال بالخادم — تأكد من الاتصال بالإنترنت وحاول مجدداً");
+                if (isMounted) setFetchError("Unable to reach the server — check your internet connection and try again");
             } finally {
                 if (isMounted) setIsLoading(false);
             }
@@ -271,13 +268,13 @@ export default function CouncilAuditStation() {
             });
 
             if (res.ok) {
-                setSaveStatus("تم حفظ التقييمات وقائمة التدقيق للشركة بنجاح ✓");
+                setSaveStatus("Assessments and audit checklist saved successfully for this company ✓");
                 setTimeout(() => setSaveStatus(null), 4000);
             } else {
-                setSaveStatus("فشل حفظ التقييم في الخادم");
+                setSaveStatus("Failed to save the assessment on the server");
             }
         } catch (err) {
-            setSaveStatus("خطأ في الاتصال بالخادم أثناء الحفظ");
+            setSaveStatus("Server connection error while saving");
         } finally {
             setIsSaving(false);
         }
@@ -292,8 +289,12 @@ export default function CouncilAuditStation() {
         }
     };
 
+    // Display-only English names (fall back to the backend values when no English field is provided)
+    const companyNameDisplay = companyData ? (companyData.en || companyData.name_en || companyData.name_ar) : null;
+    const companySectorDisplay = companyData ? (companyData.sec_en || companyData.sector) : null;
+
     return (
-        <div className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] font-sans">
+        <div dir="ltr" className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] font-sans">
             <style>{globalCss}</style>
 
             <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
@@ -304,10 +305,10 @@ export default function CouncilAuditStation() {
                             <ShieldCheck size={24} className="text-[#8C3B32]" />
                             <div>
                                 <h1 className="text-xl font-bold tracking-tight">
-                                    REBH <span className="text-[#8C3B32]">مجلس التدقيق — القائمة الشاملة (31 بنداً)</span>
+                                    REBH <span className="text-[#8C3B32]">Review Council — Comprehensive Checklist (31 Items)</span>
                                 </h1>
                                 <p className="mt-1 text-[13px] text-[#6B7280]">
-                                    محطة مجلس التدقيق الشامل — قوائم فيشر وأعلام الخطر يُدخلها المستخدم؛ الإشارات الآلية من المحرك تظهر أدناه
+                                    Comprehensive audit council station — Fisher checklists and red flags are entered by the user; automated engine signals appear below
                                 </p>
                             </div>
                         </div>
@@ -321,14 +322,14 @@ export default function CouncilAuditStation() {
                                         type="text"
                                         value={searchInput}
                                         onChange={(e) => setSearchInput(e.target.value)}
-                                        placeholder={companyData ? `${companyData.name_ar || symbol} (${companyData.symbol || symbol})` : `ابحث برمز الشركة...`}
-                                        className="bg-transparent text-[12.5px] font-medium text-[#1A1A1A] outline-none placeholder:text-[#9CA3AF] w-52"
+                                        placeholder={companyData ? `${companyNameDisplay || symbol} (${companyData.symbol || symbol})` : `Search by company symbol...`}
+                                        className="bg-transparent text-[12.5px] font-medium text-[#1A1A1A] outline-none placeholder:text-[#9CA3AF] w-52 text-left"
                                     />
                                     <button
                                         type="submit"
                                         className="rounded bg-[#F3F4F6] hover:bg-[#E5E7EB] px-2 py-0.5 text-[11px] font-bold text-[#1A1A1A] transition"
                                     >
-                                        فحص
+                                        Screen
                                     </button>
                                 </div>
                             </form>
@@ -339,7 +340,7 @@ export default function CouncilAuditStation() {
                                 className="inline-flex items-center gap-1.5 rounded-[4px] bg-[#8C3B32] px-3.5 py-1.5 text-[12.5px] font-bold text-white shadow transition-opacity hover:opacity-90 disabled:opacity-50"
                             >
                                 {isSaving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
-                                <span>حفظ التقييم</span>
+                                <span>Save Assessment</span>
                             </button>
                         </div>
                     </div>
@@ -362,19 +363,19 @@ export default function CouncilAuditStation() {
                         <div className="mt-4 rounded-[4px] border border-[#E5E7EB] bg-white p-3.5 text-[12.5px] shadow-sm">
                             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#F3F4F6] pb-2">
                                 <div className="font-semibold text-[#1A1A1A]">
-                                    {companyData.name_ar} ({companyData.symbol}) — <span className="text-[#6B7280] font-normal">{companyData.sector}</span>
+                                    {companyNameDisplay} ({companyData.symbol}) — <span className="text-[#6B7280] font-normal">{companySectorDisplay}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[11px] text-[#6B7280]">شارة الثقة المحاسبية:</span>
+                                    <span className="text-[11px] text-[#6B7280]">Accounting Trust Badge:</span>
                                     <span className="rounded bg-[#F3F4F6] px-2 py-0.5 text-[11px] font-bold text-[#1A1A1A]">
-                                        {companyData.automated_audit?.trust_badge?.badge_text || "قيد التدقيق"}
+                                        {companyData.automated_audit?.trust_badge?.badge_text || "Under Review"}
                                     </span>
                                 </div>
                             </div>
 
                             {/* Automated Forensics & Signals */}
                             <div className="mt-2 flex flex-wrap items-center gap-2">
-                                <span className="text-[11.5px] font-medium text-[#8C3B32]">إشارات الرصد الآلي:</span>
+                                <span className="text-[11.5px] font-medium text-[#8C3B32]">Automated Detection Signals:</span>
                                 {companyData.automated_audit?.signals?.length > 0 ? (
                                     companyData.automated_audit.signals.map((sig: any, idx: number) => {
                                         const label = typeof sig === "string" ? sig : (sig?.text || sig?.rule || JSON.stringify(sig));
@@ -386,7 +387,7 @@ export default function CouncilAuditStation() {
                                         );
                                     })
                                 ) : (
-                                    <span className="text-[11.5px] text-[#16A34A]">لا توجد إشارات تحذيرية آلية حرجة في القوائم ✓</span>
+                                    <span className="text-[11.5px] text-[#16A34A]">No critical automated warning signals in the financial statements ✓</span>
                                 )}
                             </div>
                         </div>
@@ -399,30 +400,30 @@ export default function CouncilAuditStation() {
                         active={tab === "fisher"}
                         onClick={() => setTab("fisher")}
                         icon={<CheckSquare size={15} />}
-                        label="قائمة فيشر (Fisher 15)"
+                        label="Fisher's 15 Points (Fisher 15)"
                     />
                     <TabButton
                         active={tab === "redflags"}
                         onClick={() => setTab("redflags")}
                         icon={<AlertOctagon size={15} />}
-                        label="أعلام الخطر والحوكمة (Red Flags)"
+                        label="Risk & Governance Red Flags"
                     />
                     {companyData?.is_bank ? (
                         <TabButton
                             active={tab === "bank"}
                             onClick={() => setTab("bank")}
                             icon={<UserCheck size={15} />}
-                            label="فاحص البنوك (Bank Flags)"
-                            tag="قطاع بنكي"
+                            label="Bank Screener (Bank Flags)"
+                            tag="Banking Sector"
                         />
                     ) : (
                         <TabButton
                             active={false}
-                            onClick={() => {}}
+                            onClick={() => { }}
                             icon={<UserCheck size={15} />}
-                            label="فاحص البنوك (خاص بالبنوك فقط)"
+                            label="Bank Screener (banks only)"
                             disabled={true}
-                            tooltip="هذه الشركة ليست بنكاً — الفاحص البنكي مخصص للبنوك فقط"
+                            tooltip="This company is not a bank — the bank screener is reserved for banks only"
                         />
                     )}
                 </nav>
@@ -432,27 +433,27 @@ export default function CouncilAuditStation() {
                     <section className="rounded-[4px] border border-[#E5E7EB] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] sm:p-6">
                         <VerdictBar
                             value={fisherResult.answeredCount === 0 ? "—" : fisherResult.total.toFixed(1)}
-                            suffix={fisherResult.answeredCount === 0 ? "لم يُقيّم بعد" : `/ 15 (${fisherResult.answeredCount}/15 بند)`}
+                            suffix={fisherResult.answeredCount === 0 ? "Not yet assessed" : `/ 15 (${fisherResult.answeredCount}/15 items)`}
                             ok={fisherResult.total >= 12 && !fisherResult.integrityFail && fisherResult.answeredCount >= 10}
                             disqualified={fisherResult.integrityFail}
-                            okLabel="مؤهل للاستثمار النوعي (معيار فيشر)"
-                            failLabel="غير مؤهل — النزاهة غير متحققة (بند 15)"
-                            midLabel={fisherResult.answeredCount === 0 ? "ابدأ تقييم البنود أدناه" : "دون الحد المطلوب (12/15)"}
+                            okLabel="Qualified for qualitative investment (Fisher criteria)"
+                            failLabel="Disqualified — integrity not established (Item 15)"
+                            midLabel={fisherResult.answeredCount === 0 ? "Begin scoring the items below" : "Below the required threshold (12/15)"}
                         />
 
                         {fisherResult.integrityFail && (
                             <DangerBanner>
-                                بند 15 (نزاهة الإدارة) هو الوحيد الإلزامي في قائمة فيشر — فشل
-                                هذا البند وحده يُسقط الشركة من الاستثمار النوعي بصرف النظر عن
-                                بقية النقاط.
+                                Item 15 (management integrity) is the only mandatory item in Fisher&apos;s
+                                checklist — failing this item alone disqualifies the company from
+                                qualitative investment regardless of the other points.
                             </DangerBanner>
                         )}
 
                         {/* Score legend: header row explains what 0 / 0.5 / 1 mean once,
                             instead of repeating that context in every one of the 15 rows. */}
                         <div className="mt-5 hidden grid-cols-[1fr_150px] gap-3.5 border-b border-[#E5E7EB] pb-2 text-[11px] font-medium uppercase tracking-wide text-[#9CA3AF] sm:grid">
-                            <span>البند</span>
-                            <span className="flex justify-end gap-4 pr-1">
+                            <span>Item</span>
+                            <span className="flex justify-end gap-4 pl-1">
                                 <span className="w-6 text-center">0</span>
                                 <span className="w-6 text-center">0.5</span>
                                 <span className="w-6 text-center">1</span>
@@ -471,13 +472,10 @@ export default function CouncilAuditStation() {
                                             {f.mandatory ? " ⚑" : ""}
                                         </span>
                                         <div>
-                                            <div className="text-[13px] text-[#1A1A1A]">{f.qAr}</div>
-                                            <div className="mt-0.5 text-[12px] text-[#6B7280]">
-                                                {f.q}
-                                            </div>
+                                            <div className="text-[13px] text-[#1A1A1A]">{f.q}</div>
                                         </div>
                                     </div>
-                                    <div className="flex justify-start gap-4 sm:justify-end sm:pr-1">
+                                    <div className="flex justify-start gap-4 sm:justify-end sm:pl-1">
                                         {[0, 0.5, 1].map((v) => (
                                             <label
                                                 key={v}
@@ -501,9 +499,9 @@ export default function CouncilAuditStation() {
                         </div>
 
                         <Footnote>
-                            هامش تحمل معيار فيشر: يمكن أن تخفق الشركة في بند أو بندين عاديين
-                            وتظل مؤهلة. البند 15 (النزاهة) وحده يُنقذ التقييم بالكامل أو
-                            يُسقطه.
+                            Fisher tolerance margin: a company may fail one or two ordinary items
+                            and remain qualified. Item 15 (integrity) alone rescues or sinks the
+                            entire assessment.
                         </Footnote>
                     </section>
                 )}
@@ -516,17 +514,17 @@ export default function CouncilAuditStation() {
                             suffix="ticked"
                             ok={totalFlagsTicked === 0}
                             disqualified={totalFlagsTicked >= 2}
-                            okLabel="نظيفة — لا إشارات خطر"
-                            failLabel="إشارتان معاً = انسحب فوراً"
-                            midLabel="إشارة واحدة — راقب عن قرب"
+                            okLabel="Clean — no risk signals"
+                            failLabel="Two signals together = exit immediately"
+                            midLabel="One signal — monitor closely"
                         />
 
-                        <GroupTitle>السبع إشارات الخطر (Lecture 15)</GroupTitle>
+                        <GroupTitle>The Seven Danger Signs (Lecture 15)</GroupTitle>
                         {autoFlags.size > 0 && (
                             <div className="mb-2 flex items-center gap-1.5 rounded-[4px] bg-[#FFFBEB] border border-[#FDE68A] px-3 py-2 text-[11.5px] text-[#92400E]">
                                 <span className="font-bold">•</span>
-                                <span>رصد المحرك <strong>{autoFlags.size}</strong> إشارة/إشارات تلقائياً من القوائم المالية — يمكنك تعديلها يدوياً
-                                    <span className="mr-1 inline-flex items-center rounded-full bg-[#FDE68A] px-2 py-0.5 text-[10px] font-bold">آلي</span>
+                                <span>The engine automatically detected <strong>{autoFlags.size}</strong> signal(s) from the financial statements — you can adjust them manually
+                                    <span className="ml-1 inline-flex items-center rounded-full bg-[#FDE68A] px-2 py-0.5 text-[10px] font-bold">Auto</span>
                                 </span>
                             </div>
                         )}
@@ -543,7 +541,7 @@ export default function CouncilAuditStation() {
                             ))}
                         </div>
 
-                        <GroupTitle className="mt-5">الأعلام الحمراء (Red Flags)</GroupTitle>
+                        <GroupTitle className="mt-5">Red Flags</GroupTitle>
                         <div className="divide-y divide-[#E5E7EB]">
                             {RED_FLAGS.map((f) => (
                                 <FlagCheckbox
@@ -559,15 +557,16 @@ export default function CouncilAuditStation() {
 
                         {totalFlagsTicked >= 2 && (
                             <DangerBanner>
-                                تجمّع إشارتان أو أكثر معاً: قاعدة الدورة — انسحب. لا تحتاج
-                                لمعرفة السبب الدقيق؛ يكفي أن الثقة في الأرقام اهتزت.
+                                Two or more signals together: the course rule — exit. You do not
+                                need to know the exact reason; it is enough that confidence in the
+                                numbers has been shaken.
                             </DangerBanner>
                         )}
 
                         <Footnote>
-                            قاعدة زيادة رأس المال مطلقة: أي طرح حقوق أولوية يُعد سلبياً
-                            بشكل افتراضي — الأصل أن تُقدَّم أسباباً لعدم اعتباره سلبياً، لا
-                            العكس.
+                            The capital-increase rule is absolute: any rights issue is negative
+                            by default — the burden is on you to give reasons for not treating it
+                            as negative, not the reverse.
                         </Footnote>
                     </section>
                 )}
@@ -579,10 +578,10 @@ export default function CouncilAuditStation() {
                             <div className="rounded-[4px] border border-[#FDE68A] bg-[#FFFBEB] p-4 text-center">
                                 <AlertTriangle className="mx-auto mb-2 h-6 w-6 text-[#B45309]" />
                                 <h3 className="text-sm font-bold text-[#92400E]">
-                                    هذه الشركة ليست في القطاع المصرفي ({companyData?.sector || "غير بنكي"})
+                                    This company is not in the banking sector ({companySectorDisplay || "Non-bank"})
                                 </h3>
                                 <p className="mt-1 text-xs text-[#78350F]">
-                                    نموذج فحص البنوك (Assiry 12) مخصص حصرياً للمصارف والمؤسسات المالية التي تعتمد على الودائع والقروض وهوامش الفائدة الصافية (NIM).
+                                    The bank screening model (Assiry 12) is reserved exclusively for banks and financial institutions that rely on deposits, loans and net interest margins (NIM).
                                 </p>
                             </div>
                         ) : (
@@ -592,12 +591,12 @@ export default function CouncilAuditStation() {
                                     suffix="/ 12"
                                     ok={bankChecked.size === 0}
                                     disqualified={bankChecked.size >= 3}
-                                    okLabel="لا إشارات خطر بنكية"
-                                    failLabel="3 إشارات فأكثر — تحذير جدي (لا توجد صرصورة واحدة في المطبخ)"
-                                    midLabel="راقب — أقل من 3 إشارات"
+                                    okLabel="No banking risk signals"
+                                    failLabel="3 or more signals — serious warning (there is never just one cockroach in the kitchen)"
+                                    midLabel="Monitor — fewer than 3 signals"
                                 />
 
-                                <GroupTitle>ال 12 إشارة خطر بنكية (Assiry Banking Module)</GroupTitle>
+                                <GroupTitle>The 12 Banking Red Flags (Assiry Banking Module)</GroupTitle>
                                 <div className="divide-y divide-[#E5E7EB]">
                                     {BANK_FLAGS.map((f) => (
                                         <label key={f.id} className="flex cursor-pointer items-start gap-2.5 py-3">
@@ -608,10 +607,7 @@ export default function CouncilAuditStation() {
                                                 className="mt-0.5 h-4 w-4 accent-[#8C3B32]"
                                             />
                                             <div>
-                                                <div className="text-[13px] text-[#1A1A1A]">{f.labelAr}</div>
-                                                <div className="mt-0.5 text-[12px] text-[#6B7280]">
-                                                    {f.label}
-                                                </div>
+                                                <div className="text-[13px] text-[#1A1A1A]">{f.label}</div>
                                                 {f.note && (
                                                     <div className="mt-1 text-[11px] italic text-[#9CA3AF]">{f.note}</div>
                                                 )}
@@ -621,8 +617,9 @@ export default function CouncilAuditStation() {
                                 </div>
 
                                 <Footnote>
-                                    تنطبق على أسهم القطاع البنكي فقط — فالبنك وسيط مالي وليس
-                                    مصنعاً، لذا عناصر السلامة الصناعية المعتادة لا تنطبق عليه.
+                                    Applies to banking-sector stocks only — a bank is a financial
+                                    intermediary, not a factory, so the usual industrial safety items
+                                    do not apply to it.
                                 </Footnote>
                             </>
                         )}
@@ -630,8 +627,8 @@ export default function CouncilAuditStation() {
                 )}
 
                 <footer className="mt-8 text-center text-[11px] text-[#9CA3AF]">
-                    REBH Council · قوائم تدقيق تفاعلية — تعرض القراءة ولا توصي بالشراء أو
-                    البيع
+                    REBH Council · Interactive audit checklists — presents readings and does not
+                    recommend buying or selling
                 </footer>
             </div>
         </div>
@@ -666,8 +663,8 @@ function TabButton({
                 disabled
                     ? "inline-flex items-center gap-1.5 rounded-[4px] border border-[#E5E7EB] bg-[#F3F4F6] px-4 py-2 text-[12.5px] font-normal text-[#9CA3AF] cursor-not-allowed opacity-60"
                     : active
-                    ? "inline-flex items-center gap-1.5 rounded-[4px] border border-[#8C3B32] bg-white px-4 py-2 text-[12.5px] font-bold text-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
-                    : "inline-flex items-center gap-1.5 rounded-[4px] border border-[#E5E7EB] bg-white px-4 py-2 text-[12.5px] font-medium text-[#6B7280] transition-colors hover:border-[#8C3B32]/40 hover:text-[#1A1A1A]"
+                        ? "inline-flex items-center gap-1.5 rounded-[4px] border border-[#8C3B32] bg-white px-4 py-2 text-[12.5px] font-bold text-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+                        : "inline-flex items-center gap-1.5 rounded-[4px] border border-[#E5E7EB] bg-white px-4 py-2 text-[12.5px] font-medium text-[#6B7280] transition-colors hover:border-[#8C3B32]/40 hover:text-[#1A1A1A]"
             }
         >
             {icon}
@@ -796,19 +793,16 @@ function FlagCheckbox({
             />
             <div className="flex-1">
                 <div className="flex items-center gap-2">
-                    <span className="text-[13px] text-[#1A1A1A]">{item.labelAr}</span>
+                    <span className="text-[13px] text-[#1A1A1A]">{item.label}</span>
                     {isAuto && (
                         <span className="inline-flex items-center rounded-full bg-[#FDE68A] border border-[#F59E0B] px-2 py-0.5 text-[10px] font-bold text-[#92400E]">
-                            • آلي
+                            • Auto
                         </span>
                     )}
                 </div>
-                <div className="mt-0.5 text-[12px] text-[#6B7280]">
-                    {item.label}
-                </div>
                 {isAuto && autoReason && (
                     <div className="mt-1 flex items-center gap-1.5 rounded-[4px] bg-[#FFFBEB] px-2 py-1 text-[11.5px] font-medium text-[#92400E] border border-[#FDE68A]">
-                        <span>سبب الرصد الآلي: {autoReason}</span>
+                        <span>Automated detection reason: {autoReason}</span>
                     </div>
                 )}
             </div>

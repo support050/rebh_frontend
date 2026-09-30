@@ -19,28 +19,28 @@ interface NavItem {
 
 const NAV_ITEMS: { group: string; items: NavItem[] }[] = [
   {
-    group: "المنصة والتحليل",
+    group: "Platform & Analysis",
     items: [
-      { name: "الرئيسية (Overview)", nameEn: "Home Hub", path: "/rebh", icon: Home },
-      { name: "فحص وتحليل الشركات (ONE ∞)", nameEn: "Company Analysis", path: "/rebh/company/2222", icon: Building2 },
-      { name: "استوديو الرسوم (Chart Studio)", nameEn: "Chart Studio", path: "/rebh/studio/2222", icon: LineChart },
-      { name: "القوائم المالية (Statements · Analyst)", nameEn: "Analyst", path: "/rebh/analyst/2222", icon: FileSpreadsheet },
-      { name: "تشريح السردية (Story · X-Ray)", nameEn: "Story X-Ray", path: "/rebh/xray/2222", icon: Film },
-      { name: "أدوات ومختبرات الدورة", nameEn: "Tools & Labs", path: "/rebh/tools", icon: BarChart2 },
+      { name: "Overview", nameEn: "Home Hub", path: "/rebh", icon: Home },
+      { name: "Company Screening & Analysis (ONE ∞)", nameEn: "Company Analysis", path: "/rebh/company/2222", icon: Building2 },
+      { name: "Chart Studio", nameEn: "Chart Studio", path: "/rebh/studio/2222", icon: LineChart },
+      { name: "Financial Statements (Analyst)", nameEn: "Analyst", path: "/rebh/analyst/2222", icon: FileSpreadsheet },
+      { name: "Narrative Dissection (Story · X-Ray)", nameEn: "Story X-Ray", path: "/rebh/xray/2222", icon: Film },
+      { name: "Course Tools & Labs", nameEn: "Tools & Labs", path: "/rebh/tools", icon: BarChart2 },
     ]
   },
   {
-    group: "أدوات المستثمر الذكي",
+    group: "Smart Investor Tools",
     items: [
-      { name: "قائمة المتابعة والفلترة", nameEn: "Watchlist", path: "/rebh/watchlist", icon: Search },
-      { name: "سلة مونجر (Quarantine)", nameEn: "Too-Hard Pile", path: "/rebh/quarantine", icon: ShieldAlert },
-      { name: "سجل الصفقات (Journal)", nameEn: "Discipline", path: "/rebh/journal", icon: BookOpen },
-      { name: "لجنة الفحص والرقابة (31)", nameEn: "The Council", path: "/rebh/council", icon: CheckSquare },
-      { name: "بطاقة اعتماد المنصة (10/10)", nameEn: "Council Scorecard", path: "/rebh/score", icon: Award },
-      { name: "التقرير التحليلي", nameEn: "Abu Saad Report", path: "/rebh/report/2222", icon: FileText },
-      { name: "تقارير الدورة (10 شركات)", nameEn: "Course Reports", path: "/rebh/course-reports", icon: BookOpen },
-      { name: "محطة التداول والتحليل", nameEn: "Terminal Suite", path: "/terminal", icon: BarChart2 },
-      // { name: "صحة وتدقيق البيانات", nameEn: "Data Health", path: "/rebh/health", icon: Activity },
+      { name: "Watchlist & Screener", nameEn: "Watchlist", path: "/rebh/watchlist", icon: Search },
+      { name: "Too-Hard Pile (Quarantine)", nameEn: "Too-Hard Pile", path: "/rebh/quarantine", icon: ShieldAlert },
+      { name: "Trade Journal", nameEn: "Discipline", path: "/rebh/journal", icon: BookOpen },
+      { name: "Review Council (31 Checks)", nameEn: "The Council", path: "/rebh/council", icon: CheckSquare },
+      { name: "Platform Scorecard (10/10)", nameEn: "Council Scorecard", path: "/rebh/score", icon: Award },
+      { name: "Analytical Report", nameEn: "Abu Saad Report", path: "/rebh/report/2222", icon: FileText },
+      { name: "Course Reports (10 Companies)", nameEn: "Course Reports", path: "/rebh/course-reports", icon: BookOpen },
+      { name: "Trading & Analysis Terminal", nameEn: "Terminal Suite", path: "/terminal", icon: BarChart2 },
+      // { name: "Data Health & Audit", nameEn: "Data Health", path: "/rebh/health", icon: Activity },
     ]
   }
 ];
@@ -108,7 +108,7 @@ export default function RebhLayout({ children }: { children: React.ReactNode }) 
   };
 
   return (
-    <div className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] font-sans flex flex-col md:flex-row antialiased">
+    <div dir="ltr" className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] font-sans flex flex-col md:flex-row antialiased">
       {/* Mobile Top Header */}
       <div className="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-[#E5E7EB]">
         <Link href="/rebh" className="flex items-center gap-2">
@@ -125,9 +125,9 @@ export default function RebhLayout({ children }: { children: React.ReactNode }) 
 
       {/* Desktop Persistent Sidebar */}
       <aside className={`
-        fixed inset-y-0 right-0 z-50 bg-white border-l border-[#E5E7EB] flex flex-col transition-all duration-300 ease-in-out
-        md:static md:translate-x-0 ${mobileOpen ? "translate-x-0" : "translate-x-full md:translate-x-0"}
-        ${collapsed ? "md:w-0 md:overflow-hidden md:opacity-0 md:pointer-events-none md:border-l-0" : "md:w-64 md:opacity-100"} w-64
+        fixed inset-y-0 left-0 z-50 bg-white border-r border-[#E5E7EB] flex flex-col transition-all duration-300 ease-in-out
+        md:static md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+        ${collapsed ? "md:w-0 md:overflow-hidden md:opacity-0 md:pointer-events-none md:border-r-0" : "md:w-64 md:opacity-100"} w-64
       `}>
         {/* Brand Header */}
         <div className="p-4 border-b border-[#E5E7EB] flex items-center justify-between gap-2">
@@ -188,7 +188,7 @@ export default function RebhLayout({ children }: { children: React.ReactNode }) 
                       onClick={() => setMobileOpen(false)}
                       aria-current={isActive ? "page" : undefined}
                       className={`
-                        relative flex items-center gap-2.5 px-3 py-2 rounded-[4px] text-xs font-medium min-w-0 border
+                        relative flex items-center gap-2.5 px-3 py-2 rounded-[4px] text-xs font-medium min-w-0 border text-left
                         ${collapsed ? "md:justify-center md:px-2" : ""}
                         ${isActive
                           ? "bg-[#F0FDF4] text-[#15803D] font-bold border-[#86EFAC]"
@@ -228,7 +228,8 @@ export default function RebhLayout({ children }: { children: React.ReactNode }) 
         onClick={() => setCollapsed(!collapsed)}
         className="hidden md:flex fixed top-1/2 -translate-y-1/2 z-50 items-center justify-center w-5 h-14 bg-white border border-[#E5E7EB] border-l-0 rounded-r-md shadow-sm text-[#6B7280] hover:text-[#1A1A1A] hover:bg-[#F3F4F6] transition-all duration-300 ease-in-out cursor-pointer outline-none focus:ring-0"
         style={{ left: collapsed ? "0px" : "256px" }}
-        title={collapsed ? "فتح القائمة" : "طي القائمة"}
+        title={collapsed ? "Expand menu" : "Collapse menu"}
+        aria-label={collapsed ? "Expand menu" : "Collapse menu"}
       >
         {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
       </button>

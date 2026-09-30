@@ -14,7 +14,7 @@ interface TableStatusRowProps {
 
 /**
  * Shared table status row rendering loading spinner, error card, or empty message.
- * Keeps exact same colSpan logic and text, and enhances empty state with active filter badges & clear button.
+ * Keeps exact same colSpan logic, and enhances empty state with active filter badges & clear button.
  */
 export function TableStatusRow({
     state,
@@ -41,7 +41,7 @@ export function TableStatusRow({
                     <div className="mx-auto flex max-w-sm flex-col items-center gap-2 rounded-[4px] border border-[#FECACA] bg-[#FEF2F2] px-4 py-4 text-center">
                         <AlertTriangle className="h-5 w-5 text-[#DC2626]" />
                         <div className="text-sm font-medium text-[#DC2626]">
-                            تعذر تحميل بيانات الشركات
+                            Unable to load company data
                         </div>
                         {message && <div className="text-xs text-[#DC2626]/80">{message}</div>}
                         {onRetry && (
@@ -49,7 +49,7 @@ export function TableStatusRow({
                                 onClick={onRetry}
                                 className="mt-1 rounded-[4px] border border-[#DC2626]/30 bg-white px-3 py-1.5 text-xs font-medium text-[#DC2626] hover:bg-[#FEF2F2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#DC2626]/30"
                             >
-                                إعادة المحاولة
+                                Retry
                             </button>
                         )}
                     </div>
@@ -63,10 +63,10 @@ export function TableStatusRow({
         <tr>
             <td colSpan={colSpan} className="px-4 py-16 text-center text-[#6B7280]">
                 <div className="mx-auto flex max-w-md flex-col items-center gap-3">
-                    <div>لا توجد شركات مطابقة لهذه الفلاتر. جرّب مسح البحث أو تغيير القطاع.</div>
+                    <div>No companies match these filters. Try clearing the search or changing the sector.</div>
                     {activeFilters.length > 0 && (
                         <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs text-[#6B7280]">
-                            <span>الفلاتر النشطة:</span>
+                            <span>Active filters:</span>
                             {activeFilters.map((f, i) => (
                                 <span
                                     key={i}
@@ -83,7 +83,7 @@ export function TableStatusRow({
                             className="inline-flex items-center gap-1.5 rounded-[4px] border border-[#8C3B32] bg-[#8C3B32]/10 px-3 py-1.5 text-xs font-medium text-[#8C3B32] transition-colors hover:bg-[#8C3B32]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8C3B32]/30"
                         >
                             <RotateCcw className="h-3.5 w-3.5" />
-                            مسح جميع الفلاتر
+                            Clear all filters
                         </button>
                     )}
                 </div>

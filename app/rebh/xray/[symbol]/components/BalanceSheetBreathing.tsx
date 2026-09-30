@@ -73,14 +73,14 @@ export function BalanceSheetBreathingSection({
         <div>
           <h3 className="text-sm font-bold text-[#1A1A1A] flex items-center gap-2">
             <Layers size={15} className="text-[#8C3B32]" />
-            تنفّس الميزانية وتطور هيكل رأس المال — Balance Sheet Evolution
+            Balance Sheet Breathing — Capital Structure Evolution
           </h3>
           <p className="text-xs text-[#6B7280] mt-0.5">
-            توسع الأصول وهيكل التمويل (حقوق المساهمين vs الديون) عبر الفترات السابقة
+            Asset growth and funding structure (Shareholders&apos; Equity vs. Debt) across prior periods
           </p>
         </div>
         <span className="font-mono text-[11px] text-[#64748B] bg-[#F8FAFC] border border-[#E2E8F0] px-2.5 py-1 rounded-[6px] tabular-nums">
-          إجمالي الأصول الحالية: {ta.toLocaleString(undefined, { maximumFractionDigits: 0 })} M SAR
+          Current Total Assets: {ta.toLocaleString(undefined, { maximumFractionDigits: 0 })} M SAR
         </span>
       </div>
 
@@ -109,7 +109,7 @@ export function BalanceSheetBreathingSection({
               <YAxis
                 tick={{ fontSize: 10, fill: "#64748B" }}
                 tickFormatter={(val) => `${Number(val).toLocaleString()}M`}
-                orientation="right"
+                orientation="left"
               />
               {/* Highlight active period with a vertical reference band */}
               {chartActiveIdx >= 0 && (
@@ -119,7 +119,7 @@ export function BalanceSheetBreathingSection({
                   strokeWidth={2}
                   strokeDasharray="4 2"
                   label={{
-                    value: "الفترة المحددة",
+                    value: "Selected period",
                     position: "top",
                     fontSize: 9,
                     fill: "#8C3B32",
@@ -135,32 +135,32 @@ export function BalanceSheetBreathingSection({
                       <div className={`bg-[#0F172A] text-white p-3 rounded-[8px] shadow-xl text-xs font-sans space-y-1.5 z-50 ${isActive ? "ring-1 ring-[#8C3B32]" : ""}`}>
                         <div className="font-bold border-b border-white/10 pb-1 flex justify-between gap-4">
                           <span>
-                            فترة: {label}
-                            {isActive && <span className="mr-1 text-[#8C3B32]"> ◀ محدد</span>}
+                            Period: {label}
+                            {isActive && <span className="ml-1 text-[#8C3B32]"> ◀ Selected</span>}
                           </span>
                           <span className="text-[#38BDF8] font-mono tabular-nums">
-                            الأصول: {payload[0]?.payload?.totalAssets?.toLocaleString()} M
+                            Assets: {payload[0]?.payload?.totalAssets?.toLocaleString()} M
                           </span>
                         </div>
                         <div className="space-y-1 font-mono text-[11px] tabular-nums">
                           <div className="flex justify-between gap-3 text-[#60A5FA]">
-                            <span>نقد ومعادلات:</span>
+                            <span>Cash &amp; equivalents:</span>
                             <span>{payload[0]?.payload?.cash?.toLocaleString()} M</span>
                           </div>
                           <div className="flex justify-between gap-3 text-[#34D399]">
-                            <span>أصول متداولة أخرى:</span>
+                            <span>Other current assets:</span>
                             <span>{payload[0]?.payload?.otherCurrent?.toLocaleString()} M</span>
                           </div>
                           <div className="flex justify-between gap-3 text-[#94A3B8]">
-                            <span>أصول طويلة الأجل:</span>
+                            <span>Non-current assets:</span>
                             <span>{payload[0]?.payload?.nonCurrent?.toLocaleString()} M</span>
                           </div>
                           <div className="border-t border-white/10 pt-1 flex justify-between gap-3 text-[#38BDF8]">
-                            <span>حقوق المساهمين:</span>
+                            <span>Shareholders&apos; Equity:</span>
                             <span>{payload[0]?.payload?.equity?.toLocaleString()} M</span>
                           </div>
                           <div className="flex justify-between gap-3 text-[#F87171]">
-                            <span>إجمالي الديون:</span>
+                            <span>Total debt:</span>
                             <span>{payload[0]?.payload?.debt?.toLocaleString()} M</span>
                           </div>
                         </div>
@@ -174,11 +174,11 @@ export function BalanceSheetBreathingSection({
                 wrapperStyle={{ fontSize: 11, paddingTop: 10 }}
                 content={() => {
                   const items = [
-                    { key: "cash", label: "نقد كاش", color: "#2563EB" },
-                    { key: "otherCurrent", label: "متداول أخرى", color: "#10B981" },
-                    { key: "nonCurrent", label: "أصول ثابتة", color: "#94A3B8" },
-                    { key: "equity", label: "حقوق ملكية", color: "#0EA5E9" },
-                    { key: "debt", label: "ديون وقروض", color: "#DC2626" },
+                    { key: "cash", label: "Cash", color: "#2563EB" },
+                    { key: "otherCurrent", label: "Other current", color: "#10B981" },
+                    { key: "nonCurrent", label: "Non-current assets", color: "#94A3B8" },
+                    { key: "equity", label: "Shareholders' equity", color: "#0EA5E9" },
+                    { key: "debt", label: "Debt & borrowings", color: "#DC2626" },
                   ];
                   return (
                     <div className="flex items-center justify-center gap-4 flex-wrap pt-2">
@@ -247,7 +247,7 @@ export function BalanceSheetBreathingSection({
         </div>
       ) : (
         <div className="text-center py-8 text-xs text-[#6B7280]">
-          بيانات الميزانية التاريخية غير متوفرة لهذا الرمز
+          Historical balance sheet data is unavailable for this ticker
         </div>
       )}
 
@@ -257,18 +257,18 @@ export function BalanceSheetBreathingSection({
           <div className="flex items-center justify-between text-xs font-semibold text-[#1E293B]">
             <span className="flex items-center gap-1.5">
               <span className="inline-block w-2 h-2 rounded-full bg-[#8C3B32]"></span>
-              توزيع هيكل رأس المال والميزانية للفترة المحددة ({activePeriod})
+              Capital structure &amp; balance sheet composition for the selected period ({activePeriod})
             </span>
             <span className="text-[11px] font-mono text-[#64748B] tabular-nums">
-              الإجمالي: {ta.toLocaleString(undefined, { maximumFractionDigits: 0 })} M
+              Total: {ta.toLocaleString(undefined, { maximumFractionDigits: 0 })} M
             </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {/* جانب الأصول Assets Side */}
+            {/* Assets side */}
             <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-[8px] p-3 space-y-2">
               <div className="flex justify-between items-center text-[11px] font-medium text-[#475569]">
-                <span>جانب الأصول (Assets)</span>
+                <span>Assets</span>
                 <span className="font-mono text-[10px] text-[#64748B] tabular-nums">100%</span>
               </div>
               <div className="h-4 rounded-full overflow-hidden flex w-full bg-[#E2E8F0] p-0.5 gap-0.5">
@@ -277,17 +277,17 @@ export function BalanceSheetBreathingSection({
                     <div
                       className="h-full bg-[#2563EB] rounded-full transition-all"
                       style={{ width: `${Math.max(2, (cash / ta) * 100)}%` }}
-                      title={`نقد: ${cash.toFixed(0)} M (${((cash / ta) * 100).toFixed(1)}%)`}
+                      title={`Cash: ${cash.toFixed(0)} M (${((cash / ta) * 100).toFixed(1)}%)`}
                     />
                     <div
                       className="h-full bg-[#10B981] rounded-full transition-all"
                       style={{ width: `${Math.max(2, ((ca - cash) / ta) * 100)}%` }}
-                      title={`أصول متداولة أخرى: ${(ca - cash).toFixed(0)} M (${(((ca - cash) / ta) * 100).toFixed(1)}%)`}
+                      title={`Other current assets: ${(ca - cash).toFixed(0)} M (${(((ca - cash) / ta) * 100).toFixed(1)}%)`}
                     />
                     <div
                       className="h-full bg-[#94A3B8] rounded-full transition-all"
                       style={{ width: `${Math.max(2, ((ta - ca) / ta) * 100)}%` }}
-                      title={`أصول غير متداولة: ${(ta - ca).toFixed(0)} M (${(((ta - ca) / ta) * 100).toFixed(1)}%)`}
+                      title={`Non-current assets: ${(ta - ca).toFixed(0)} M (${(((ta - ca) / ta) * 100).toFixed(1)}%)`}
                     />
                   </>
                 )}
@@ -295,23 +295,23 @@ export function BalanceSheetBreathingSection({
               <div className="flex items-center justify-between text-[10px] text-[#64748B] pt-0.5 font-mono">
                 <span className="flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB]" />
-                  نقد: {((cash / ta) * 100).toFixed(0)}%
+                  Cash: {((cash / ta) * 100).toFixed(0)}%
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
-                  متداولة أخرى: {(((ca - cash) / ta) * 100).toFixed(0)}%
+                  Other current: {(((ca - cash) / ta) * 100).toFixed(0)}%
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#94A3B8]" />
-                  أصول ثابتة: {(((ta - ca) / ta) * 100).toFixed(0)}%
+                  Non-current: {(((ta - ca) / ta) * 100).toFixed(0)}%
                 </span>
               </div>
             </div>
 
-            {/* جانب التمويل Liabilities & Equity */}
+            {/* Funding side: Liabilities & Equity */}
             <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-[8px] p-3 space-y-2">
               <div className="flex justify-between items-center text-[11px] font-medium text-[#475569]">
-                <span>هيكل التمويل (Liabilities & Equity)</span>
+                <span>Funding structure (Liabilities &amp; Equity)</span>
                 <span className="font-mono text-[10px] text-[#64748B] tabular-nums">100%</span>
               </div>
               <div className="h-4 rounded-full overflow-hidden flex w-full bg-[#E2E8F0] p-0.5 gap-0.5">
@@ -320,12 +320,12 @@ export function BalanceSheetBreathingSection({
                     <div
                       className="h-full bg-[#0EA5E9] rounded-full transition-all"
                       style={{ width: `${Math.max(2, (eq / ta) * 100)}%` }}
-                      title={`حقوق المساهمين: ${eq.toFixed(0)} M (${((eq / ta) * 100).toFixed(1)}%)`}
+                      title={`Shareholders' Equity: ${eq.toFixed(0)} M (${((eq / ta) * 100).toFixed(1)}%)`}
                     />
                     <div
                       className="h-full bg-[#DC2626] rounded-full transition-all"
                       style={{ width: `${Math.max(2, (tl / ta) * 100)}%` }}
-                      title={`التزامات: ${tl.toFixed(0)} M (${((tl / ta) * 100).toFixed(1)}%)`}
+                      title={`Liabilities: ${tl.toFixed(0)} M (${((tl / ta) * 100).toFixed(1)}%)`}
                     />
                   </>
                 )}
@@ -333,11 +333,11 @@ export function BalanceSheetBreathingSection({
               <div className="flex items-center justify-between text-[10px] text-[#64748B] pt-0.5 font-mono">
                 <span className="flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#0EA5E9]" />
-                  حقوق المساهمين: {((eq / ta) * 100).toFixed(0)}%
+                  Shareholders&apos; Equity: {((eq / ta) * 100).toFixed(0)}%
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626]" />
-                  إجمالي الالتزامات: {((tl / ta) * 100).toFixed(0)}%
+                  Total liabilities: {((tl / ta) * 100).toFixed(0)}%
                 </span>
               </div>
             </div>
@@ -348,47 +348,47 @@ export function BalanceSheetBreathingSection({
       {/* KPI grid with unified KpiCard component */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2">
         <KpiCard
-          label="نسبة التداول"
+          label="Current Ratio"
           val={curRatio}
           unit="×"
           color={curRatio != null && curRatio >= 1.5 ? "#166534" : "#991B1B"}
-          note={curRatio != null ? (curRatio >= 1.5 ? "✓ تغطية كافية" : "✗ سيولة مضغوطة") : undefined}
-          formula="الأصول المتداولة ÷ الالتزامات المتداولة"
+          note={curRatio != null ? (curRatio >= 1.5 ? "✓ Adequate coverage" : "✗ Liquidity squeezed") : undefined}
+          formula="Current Assets ÷ Current Liabilities"
           showFormula={showFormulas}
-          tooltipText="القدرة على سداد الالتزامات قصيرة الأجل من الأصول المتداولة"
+          tooltipText="Ability to meet short-term obligations from current assets"
           maxFractionDigits={2}
         />
         <KpiCard
-          label="D/E الرافعة"
+          label="D/E Leverage"
           val={deRatio}
           unit="×"
           color={deRatio != null && deRatio <= 1.5 ? "#166534" : "#991B1B"}
-          note={deRatio != null ? (deRatio <= 1.5 ? "✓ رافعة معتدلة" : "✗ اعتماد عالي على الديون") : undefined}
-          formula="إجمالي الديون ÷ حقوق المساهمين"
+          note={deRatio != null ? (deRatio <= 1.5 ? "✓ Moderate leverage" : "✗ Heavy reliance on debt") : undefined}
+          formula="Total Debt ÷ Shareholders' Equity"
           showFormula={showFormulas}
-          tooltipText="نسبة الديون الممولة للأصول مقارنة بحقوق المساهمين"
+          tooltipText="Debt financing relative to Shareholders' Equity"
           maxFractionDigits={2}
         />
         <KpiCard
-          label="نقد لدى الشركة"
+          label="Cash & Equivalents"
           val={cash}
           unit="M SAR"
           color={cash > 0 ? "#166534" : "#991B1B"}
-          note={cash > 0 ? "✓ سيولة نقدية متاحة" : "✗ لا كاش كافٍ"}
-          formula="النقد وما في حكمه في الميزانية"
+          note={cash > 0 ? "✓ Cash liquidity available" : "✗ Insufficient cash"}
+          formula="Cash and cash equivalents per the Balance Sheet"
           showFormula={showFormulas}
-          tooltipText="النقد الجاهز والمعادلات النقدية المتاحة فوراً"
+          tooltipText="Ready cash and cash equivalents available immediately"
           maxFractionDigits={0}
         />
         <KpiCard
-          label="أرباح مُبقاة"
+          label="Retained Earnings"
           val={re}
           unit="M SAR"
           color={re >= 0 ? "#166534" : "#991B1B"}
-          note={re >= 0 ? "✓ تراكم تاريخي إيجابي" : "✗ خسائر متراكمة"}
-          formula="الأرباح التراكمية غير الموزعة عبر السنوات"
+          note={re >= 0 ? "✓ Positive historical accumulation" : "✗ Accumulated losses"}
+          formula="Cumulative undistributed earnings across the years"
           showFormula={showFormulas}
-          tooltipText="صافي الدخل التراكمي المحتجز داخل الشركة ولم يوزع كأرباح"
+          tooltipText="Cumulative net income retained in the company and not paid out as dividends"
           maxFractionDigits={0}
         />
       </div>

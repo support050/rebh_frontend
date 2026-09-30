@@ -35,7 +35,7 @@ export const InteractiveStatementTable: React.FC<InteractiveStatementTableProps>
     if (val === null || val === undefined) return "—";
     if (val === 0) return "0";
     const digits = unit === "SAR" ? 2 : (unit === "×" ? 2 : 1);
-    return val.toLocaleString(undefined, { maximumFractionDigits: digits, minimumFractionDigits: 0 });
+    return val.toLocaleString("en-US", { maximumFractionDigits: digits, minimumFractionDigits: 0 });
   };
 
   const renderTableSection = (title: string, items: typeof metrics) => {
@@ -48,13 +48,13 @@ export const InteractiveStatementTable: React.FC<InteractiveStatementTableProps>
             <Table2 size={13} className="text-[#8C3B32]" />
             <h4 className="text-xs font-bold text-[#1A1A1A]">{title}</h4>
           </div>
-          <span className="text-[10px] text-[#64748B]">انقر على أي سطر لإضافته للرسم البياني ↥</span>
+          <span className="text-[10px] text-[#64748B]">Click any row to add it to the chart ↥</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs border-collapse">
             <thead>
               <tr className="bg-[#F1F5F9] border-b border-[#E2E8F0]">
-                <th scope="col" className="p-2.5 text-right font-bold text-[#475569] whitespace-nowrap">البند / النسبة</th>
+                <th scope="col" className="p-2.5 text-left font-bold text-[#475569] whitespace-nowrap">Line Item / Ratio</th>
                 {periods.map((p, i) => (
                   <th key={i} scope="col" className="p-2.5 text-right font-mono font-bold text-[#475569] whitespace-nowrap">{p}</th>
                 ))}
@@ -78,15 +78,14 @@ export const InteractiveStatementTable: React.FC<InteractiveStatementTableProps>
                         onSelectRow(m.id);
                       }
                     }}
-                    className={`cursor-pointer transition-colors outline-none focus-visible:bg-[#F1F5F9] ${
-                      isPrimary
-                        ? "bg-[#EFF6FF] font-semibold"
-                        : isSecondary
+                    className={`cursor-pointer transition-colors outline-none focus-visible:bg-[#F1F5F9] ${isPrimary
+                      ? "bg-[#EFF6FF] font-semibold"
+                      : isSecondary
                         ? "bg-[#FFF7ED] font-semibold"
                         : "hover:bg-[#F8FAFC]"
-                    }`}
+                      }`}
                   >
-                    <td className="p-2.5 text-right text-[#0F172A] whitespace-nowrap">
+                    <td className="p-2.5 text-left text-[#0F172A] whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <span
                           className={`w-2 h-2 rounded-full shrink-0 ${isCharted ? "" : "opacity-30"}`}
@@ -96,12 +95,11 @@ export const InteractiveStatementTable: React.FC<InteractiveStatementTableProps>
                         <span className="text-[10px] font-mono text-[#64748B]">({m.unit})</span>
                         {isCharted && (
                           <span
-                            className={`inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.2 rounded font-mono font-bold ${
-                              isPrimary ? "bg-[#DBEAFE] text-[#1D4ED8]" : "bg-[#FFEDD5] text-[#C2410C]"
-                            }`}
+                            className={`inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.2 rounded font-mono font-bold ${isPrimary ? "bg-[#DBEAFE] text-[#1D4ED8]" : "bg-[#FFEDD5] text-[#C2410C]"
+                              }`}
                           >
                             <TrendingUp size={9} />
-                            {isPrimary ? "أساسي" : "ثانوي"}
+                            {isPrimary ? "Primary" : "Secondary"}
                           </span>
                         )}
                       </div>
@@ -109,9 +107,8 @@ export const InteractiveStatementTable: React.FC<InteractiveStatementTableProps>
                     {m.data.map((val, i) => (
                       <td
                         key={i}
-                        className={`p-2.5 text-right font-mono tabular-nums ${
-                          val < 0 ? "text-[#DC2626]" : "text-[#1E293B]"
-                        }`}
+                        className={`p-2.5 text-right font-mono tabular-nums ${val < 0 ? "text-[#DC2626]" : "text-[#1E293B]"
+                          }`}
                       >
                         {formatCellValue(val, m.unit)}
                       </td>
@@ -128,11 +125,11 @@ export const InteractiveStatementTable: React.FC<InteractiveStatementTableProps>
 
   return (
     <div className="space-y-4">
-      {renderTableSection("قائمة الدخل (SAR Millions) — اضغط للرسم", incomeMetrics)}
-      {renderTableSection("قائمة التدفقات النقدية (SAR Millions) — اضغط للرسم", cashMetrics)}
-      {renderTableSection("الهوامش الربحية (Margins)", marginMetrics)}
-      {renderTableSection("هيكل الميزانية والملاءة (Balance & Solvency)", balanceMetrics)}
-      {valuationMetrics.length > 0 && renderTableSection("مضاعفات التقييم (Valuation Multiples)", valuationMetrics)}
+      {renderTableSection("Income Statement (SAR Millions) — click to chart", incomeMetrics)}
+      {renderTableSection("Cash Flow Statement (SAR Millions) — click to chart", cashMetrics)}
+      {renderTableSection("Profit Margins", marginMetrics)}
+      {renderTableSection("Balance Sheet & Solvency", balanceMetrics)}
+      {valuationMetrics.length > 0 && renderTableSection("Valuation Multiples", valuationMetrics)}
     </div>
   );
 };

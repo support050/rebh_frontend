@@ -26,7 +26,11 @@ import { ExportButton, ExportColumn } from "./components/Exportbutton";
 interface CompanyUniverseItem {
     sym: string;
     n: string;
+    /** Optional English company name from the backend (preferred for display when present). */
+    en?: string;
     sec: string;
+    /** Optional English sector name from the backend (preferred for display when present). */
+    sec_en?: string;
     px: number;
     mc: number;
     pe?: number;
@@ -69,6 +73,15 @@ type SortKey =
 type SortDir = "asc" | "desc";
 
 type ScreenId = "all" | "value" | "quality" | "growth" | "netnet" | "watch";
+
+// ---------------------------------------------------------------------------
+// Display-name helpers (prefer English names when the backend provides them)
+// ---------------------------------------------------------------------------
+
+const ALL_SECTORS = "All Sectors";
+
+const companyName = (c: CompanyUniverseItem) => c.en || c.n;
+const sectorName = (c: CompanyUniverseItem) => c.sec_en || c.sec;
 
 // ---------------------------------------------------------------------------
 // Formatting & Honesty Helpers
@@ -114,8 +127,8 @@ function renderHonestyCell(
     if (value === undefined || value === null || Number.isNaN(value)) {
         const tooltip = options.missingTooltip || (
             options.missingReason === "na"
-                ? "غير منطبق (N/A) · بيانات مالية غير ذات صلة بالنشاط"
-                : "🔌 مصدر البيانات غير متاح أو لم يُفصح عنه بعد في القوائم"
+                ? "Not applicable (N/A) · financial data not relevant to this business"
+                : "🔌 Data source unavailable or not yet disclosed in the financial statements"
         );
         return (
             <span
@@ -135,7 +148,7 @@ function renderHonestyCell(
             <span className="inline-flex items-center gap-0.5 justify-end">
                 {formattedContent}
                 <span
-                    title="° قيمة محسوبة ومعالجة رياضياً من القوائم الرسمية"
+                    title="° Computed value, derived mathematically from the official financial statements"
                     className="text-[10px] text-[#6B7280] cursor-help"
                 >
                     °
@@ -174,28 +187,28 @@ const SCREEN_NETNET_PNCAV_MAX = 0.66;
 // ---------------------------------------------------------------------------
 
 const SCREENS: { id: ScreenId; label: string; test: (c: CompanyUniverseItem) => boolean }[] = [
-    { id: "all", label: "الكل", test: () => true },
+    { id: "all", label: "All", test: () => true },
     {
         id: "value",
-        label: "القيمة",
+        label: "Value",
         // FIX #5: use named constants instead of magic numbers
         test: (c) => (c.pe ?? Infinity) < SCREEN_VALUE_PE_MAX && (c.pb ?? Infinity) < SCREEN_VALUE_PB_MAX,
     },
     {
         id: "quality",
-        label: "الجودة",
+        label: "Quality",
         // FIX #5: use named constants instead of magic numbers
         test: (c) => (c.roe ?? -Infinity) > SCREEN_QUALITY_ROE_MIN && (c.f_score ?? 0) >= SCREEN_QUALITY_FSCORE_MIN,
     },
     {
         id: "growth",
-        label: "النمو",
+        label: "Growth",
         // FIX #5: use named constants instead of magic numbers
         test: (c) => (c.peg ?? Infinity) < SCREEN_GROWTH_PEG_MAX && (c.g_net ?? -Infinity) > 0,
     },
     {
         id: "netnet",
-        label: "الأصول الصافية (Net-Net)",
+        label: "Net-Net",
         // FIX #5: use named constants instead of magic numbers
         test: (c) => (c.pncav ?? Infinity) < SCREEN_NETNET_PNCAV_MAX && (c.pncav ?? 0) > 0,
     },
@@ -268,21 +281,21 @@ interface ColumnDef {
 const COLUMNS: ColumnDef[] = [
     {
         key: "px",
-        label: "السعر",
+        label: "Price",
         render: (c) =>
             renderHonestyCell(c.px, <span>{nf(c.px, 2)}</span>, {
                 missingReason: "plug",
-                missingTooltip: "🔌 سعر الإغلاق غير متاح حالياً",
+                missingTooltip: "🔌 Closing price is currently unavailable",
             }),
     },
     {
         key: "mc",
-        label: "القيمة السوقية",
+        label: "Market Cap",
         render: (c) =>
             renderHonestyCell(c.mc, <span>{mcf(c.mc)}</span>, {
                 isComputed: true,
                 missingReason: "plug",
-                missingTooltip: "🔌 القيمة السوقية غير محسوبة (السعر × الأسهم غير متاح)",
+                missingTooltip: "🔌 Market capitalization not computed (price × shares outstanding unavailable)",
             }),
     },
     {
@@ -294,8 +307,8 @@ const COLUMNS: ColumnDef[] = [
                 missingReason: c.fresh ? "na" : "plug",
                 missingTooltip:
                     c.fresh
-                        ? "N/A · الشركة رابحة سالبة (خسائر) أو لا يوجد صافي ربح موجب لحساب المكرر"
-                        : "🔌 مكرر الأرباح غير متاح لغياب أرباح آخر 12 شهراً",
+                        ? "N/A · Company is loss-making, or has no positive net income to compute the multiple"
+                        : "🔌 P/E ratio unavailable: trailing-twelve-month (TTM) earnings are missing",
             }),
     },
     {
@@ -305,7 +318,7 @@ const COLUMNS: ColumnDef[] = [
             renderHonestyCell(c.pb, <span>{nf(c.pb, 2)}</span>, {
                 isComputed: true,
                 missingReason: "plug",
-                missingTooltip: "🔌 مضاعف القيمة الدفترية غير متاح",
+                missingTooltip: "🔌 Price-to-book (P/B) ratio unavailable",
             }),
     },
     {
@@ -315,12 +328,12 @@ const COLUMNS: ColumnDef[] = [
             renderHonestyCell(c.roe, <span>{pctf(c.roe)}</span>, {
                 isComputed: true,
                 missingReason: "plug",
-                missingTooltip: "🔌 العائد على حقوق المساهمين غير متاح لعدم اكتمال القوائم",
+                missingTooltip: "🔌 Return on Equity (ROE) unavailable: financial statements are incomplete",
             }),
     },
     {
         key: "g_net",
-        label: "نمو الأرباح",
+        label: "Net Income Growth",
         render: (c) =>
             renderHonestyCell(
                 c.g_net,
@@ -331,7 +344,7 @@ const COLUMNS: ColumnDef[] = [
                 {
                     isComputed: true,
                     missingReason: "plug",
-                    missingTooltip: "🔌 نسبة نمو الأرباح غير متاحة لغياب المقارنة السنوية",
+                    missingTooltip: "🔌 Net income growth unavailable: no year-over-year comparison period",
                 }
             ),
     },
@@ -351,12 +364,12 @@ const COLUMNS: ColumnDef[] = [
                 >
                     <span>{nf(c.peg, 2)}</span>
                     {(c.peg ?? 0) < 1 && (
-                        <span title="مغري / رخيص بالنسبة للنمو (PEG < 1)" className="text-[10px] font-sans font-medium">
+                        <span title="Attractive / cheap relative to growth (PEG < 1)" className="text-[10px] font-sans font-medium">
                             ↓
                         </span>
                     )}
                     {(c.peg ?? 0) > 2 && (
-                        <span title="مبالغ فيه / مكلف بالنسبة للنمو (PEG > 2)" className="text-[10px] font-sans font-medium">
+                        <span title="Stretched / expensive relative to growth (PEG > 2)" className="text-[10px] font-sans font-medium">
                             ↑
                         </span>
                     )}
@@ -364,7 +377,7 @@ const COLUMNS: ColumnDef[] = [
                 {
                     isComputed: true,
                     missingReason: "na",
-                    missingTooltip: "N/A · لا ينطبق عندما يكون نمو الأرباح أو مكرر الربحية سالباً",
+                    missingTooltip: "N/A · Not applicable when earnings growth or the P/E ratio is negative",
                 }
             ),
     },
@@ -380,7 +393,7 @@ const COLUMNS: ColumnDef[] = [
                 {
                     isComputed: true,
                     missingReason: "na",
-                    missingTooltip: "N/A · صافي الأصول المتداولة (NCAV) سالب أو غير منطبق للقطاع المالي",
+                    missingTooltip: "N/A · Net Current Asset Value (NCAV) is negative, or not applicable to financial-sector companies",
                 }
             ),
     },
@@ -404,13 +417,13 @@ const COLUMNS: ColumnDef[] = [
                 {
                     isComputed: true,
                     missingReason: "plug",
-                    missingTooltip: "🔌 درجة بيوتروسكي تتطلب 9 معايير مالية مكتملة لم تتوفر جميعها",
+                    missingTooltip: "🔌 Piotroski F-Score requires all 9 financial criteria; not all were available",
                 }
             ),
     },
     {
         key: "nm" as SortKey,
-        label: "هامش الربح",
+        label: "Net Margin",
         render: (c) =>
             renderHonestyCell(
                 c.nm,
@@ -421,7 +434,7 @@ const COLUMNS: ColumnDef[] = [
                 {
                     isComputed: true,
                     missingReason: "plug",
-                    missingTooltip: "🔌 هامش الربح الصافي غير متاح (إيرادات أو أرباح ناقصة)",
+                    missingTooltip: "🔌 Net margin unavailable (revenue or net income is missing)",
                 }
             ),
     },
@@ -438,7 +451,7 @@ const COLUMNS: ColumnDef[] = [
                 {
                     isComputed: true,
                     missingReason: "plug",
-                    missingTooltip: "🔌 نسبة الديون لحقوق المساهمين غير متاحة",
+                    missingTooltip: "🔌 Debt-to-equity (D/E) ratio unavailable",
                 }
             ),
     },
@@ -455,7 +468,7 @@ const COLUMNS: ColumnDef[] = [
                 {
                     isComputed: true,
                     missingReason: "plug",
-                    missingTooltip: "🔌 عائد التدفق النقدي الحر يتطلب قائمة التدفقات النقدية",
+                    missingTooltip: "🔌 Free Cash Flow (FCF) yield requires the Cash Flow Statement",
                 }
             ),
     },
@@ -478,7 +491,7 @@ const COLUMNS: ColumnDef[] = [
                 {
                     isComputed: true,
                     missingReason: "plug",
-                    missingTooltip: "🔌 عائد المالك = (FCF + توزيعات) ÷ القيمة السوقية — يتطلب قائمة تدفقات نقدية",
+                    missingTooltip: "🔌 Owner Yield = (FCF + Dividends) ÷ Market Cap — requires the Cash Flow Statement",
                 }
             ),
     },
@@ -489,24 +502,24 @@ const COLUMNS: ColumnDef[] = [
 // ---------------------------------------------------------------------------
 
 const EXPORT_COLUMNS: ExportColumn<CompanyUniverseItem>[] = [
-    { label: "الرمز", value: (c) => c.sym },
-    { label: "الاسم", value: (c) => c.n },
-    { label: "القطاع", value: (c) => c.sec },
-    { label: "السعر", value: (c) => c.px },
-    { label: "القيمة السوقية", value: (c) => c.mc },
+    { label: "Ticker", value: (c) => c.sym },
+    { label: "Company", value: (c) => companyName(c) },
+    { label: "Sector", value: (c) => sectorName(c) },
+    { label: "Price (SAR)", value: (c) => c.px },
+    { label: "Market Cap (SAR M)", value: (c) => c.mc },
     { label: "P/E", value: (c) => c.pe },
     { label: "P/B", value: (c) => c.pb },
-    { label: "ROE", value: (c) => c.roe },
-    { label: "نمو الأرباح", value: (c) => c.g_net },
-    { label: "نمو الإيرادات", value: (c) => c.g_rev },
+    { label: "ROE (%)", value: (c) => c.roe },
+    { label: "Net Income Growth (%)", value: (c) => c.g_net },
+    { label: "Revenue Growth (%)", value: (c) => c.g_rev },
     { label: "PEG", value: (c) => c.peg },
     { label: "P/NCAV", value: (c) => c.pncav },
     { label: "F-Score", value: (c) => c.f_score },
-    { label: "هامش الربح", value: (c) => c.nm },
+    { label: "Net Margin (%)", value: (c) => c.nm },
     { label: "D/E", value: (c) => c.de },
-    { label: "FCF Yield", value: (c) => c.fcf_yield },
-    { label: "Owner Yield", value: (c) => c.owner_yield },
-    { label: "محدث؟", value: (c) => (c.fresh ? "نعم" : "لا") },
+    { label: "FCF Yield (%)", value: (c) => c.fcf_yield },
+    { label: "Owner Yield (%)", value: (c) => c.owner_yield },
+    { label: "Financials Updated?", value: (c) => (c.fresh ? "Yes" : "No") },
 ];
 
 // ---------------------------------------------------------------------------
@@ -520,7 +533,7 @@ export default function RebhWatchlistPage() {
 
     const [query, setQuery] = useState("");
     const [debouncedQuery, setDebouncedQuery] = useState("");
-    const [sector, setSector] = useState<string>("كل القطاعات");
+    const [sector, setSector] = useState<string>(ALL_SECTORS);
     const [screen, setScreen] = useState<ScreenId>("all");
     const [sortKey, setSortKey] = useState<SortKey>("mc");
     const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -583,7 +596,7 @@ export default function RebhWatchlistPage() {
         setError(null);
         try {
             const res = await fetch(`${API_BASE_URL}/api/rebh/universe`, { signal: controller.signal });
-            if (!res.ok) throw new Error(`فشل الطلب (${res.status})`);
+            if (!res.ok) throw new Error(`Request failed (${res.status})`);
             const data = await res.json();
             if (isStale()) return;
             // FIX #3: apply shape guard before casting
@@ -591,14 +604,14 @@ export default function RebhWatchlistPage() {
             const list: CompanyUniverseItem[] = raw.filter(isValidUniverseItem);
             setUniverse(list);
             setLastUpdated(
-                new Date().toLocaleTimeString("ar-SA", {
+                new Date().toLocaleTimeString("en-US", {
                     hour: "2-digit",
                     minute: "2-digit",
                 })
             );
         } catch (e) {
             if ((e as any)?.name === "AbortError") return;
-            if (!isStale()) setError(e instanceof Error ? e.message : "تعذر تحميل بيانات الشركات.");
+            if (!isStale()) setError(e instanceof Error ? e.message : "Unable to load company data.");
         } finally {
             if (!isStale()) setLoading(false);
         }
@@ -715,7 +728,7 @@ export default function RebhWatchlistPage() {
             // Mark failed symbol visually
             setFailedWatch((prev) => new Set(prev).add(sym));
             const msg = e instanceof Error ? e.message : "";
-            setToggleError(`تعذر تحديث قائمة المتابعة ${msg} — حاول مرة أخرى`);
+            setToggleError(`Unable to update watchlist ${msg} — please try again`);
             // Auto-dismiss after 4 seconds
             setTimeout(() => {
                 setToggleError(null);
@@ -736,8 +749,11 @@ export default function RebhWatchlistPage() {
 
     const sectors = useMemo(() => {
         const s = new Set<string>();
-        universe.forEach((c) => c.sec && s.add(c.sec));
-        return ["كل القطاعات", ...Array.from(s).sort()];
+        universe.forEach((c) => {
+            const name = sectorName(c);
+            if (name) s.add(name);
+        });
+        return [ALL_SECTORS, ...Array.from(s).sort()];
     }, [universe]);
 
     function sortBy(key: SortKey) {
@@ -762,11 +778,19 @@ export default function RebhWatchlistPage() {
         const q = debouncedQuery.trim().toUpperCase();
         const activeScreen = SCREENS.find((s) => s.id === screen) ?? SCREENS[0];
         let rows = universe.filter((c) => {
-            if (sector !== "كل القطاعات" && c.sec !== sector) return false;
+            if (sector !== ALL_SECTORS && sectorName(c) !== sector) return false;
             if (onlyFresh && !c.fresh) return false;
             if (watchOnly && !watchlist.has(c.sym)) return false;
             if (!activeScreen.test(c)) return false;
-            if (q && !(c.sym.toUpperCase().includes(q) || c.n?.toUpperCase().includes(q))) return false;
+            if (
+                q &&
+                !(
+                    c.sym.toUpperCase().includes(q) ||
+                    c.n?.toUpperCase().includes(q) ||
+                    c.en?.toUpperCase().includes(q)
+                )
+            )
+                return false;
             return true;
         });
         rows = [...rows].sort((a, b) => {
@@ -785,14 +809,14 @@ export default function RebhWatchlistPage() {
     // UX #5: Active filters description list
     const activeFiltersList = useMemo(() => {
         const list: string[] = [];
-        if (query.trim()) list.push(`البحث: "${query.trim()}"`);
-        if (sector !== "كل القطاعات") list.push(`القطاع: ${sector}`);
+        if (query.trim()) list.push(`Search: "${query.trim()}"`);
+        if (sector !== ALL_SECTORS) list.push(`Sector: ${sector}`);
         if (screen !== "all") {
             const s = SCREENS.find((sc) => sc.id === screen);
-            if (s) list.push(`القالب: ${s.label}`);
+            if (s) list.push(`Screen: ${s.label}`);
         }
-        if (watchOnly) list.push("قائمتي فقط");
-        if (onlyFresh) list.push("المحدثة فقط");
+        if (watchOnly) list.push("My watchlist only");
+        if (onlyFresh) list.push("Updated financials only");
         return list;
     }, [query, sector, screen, watchOnly, onlyFresh]);
 
@@ -800,7 +824,7 @@ export default function RebhWatchlistPage() {
     const clearAllFilters = () => {
         setQuery("");
         setDebouncedQuery("");
-        setSector("كل القطاعات");
+        setSector(ALL_SECTORS);
         setScreen("all");
         setWatchOnly(false);
         setOnlyFresh(false);
@@ -848,15 +872,15 @@ export default function RebhWatchlistPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] antialiased">
+        <div dir="ltr" className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] antialiased">
             {/* Header */}
             <header className="border-b border-[#E5E7EB] bg-white px-5 py-6 sm:px-8">
                 <div className="mx-auto flex max-w-[1400px] flex-col gap-1">
                     <h1 className="text-2xl font-semibold tracking-tight text-[#1A1A1A]">
-                        قائمة المتابعة والفحص
+                        Watchlist &amp; Screener
                     </h1>
                     <p className="max-w-2xl text-sm text-[#6B7280]">
-                        كل الشركات المدرجة في السوق المالي السعودي (تداول) التي تغطيها المنصة، في جدول واحد قابل للفرز. فرّز حسب القوالب الجاهزة، رشّح حسب القطاع، وأضف بالنجمة ما تريد متابعته.
+                        Every Tadawul-listed company covered by the platform, in one sortable table. Sort by preset screens, filter by sector, and star the names you want to follow.
                     </p>
                 </div>
             </header>
@@ -870,7 +894,7 @@ export default function RebhWatchlistPage() {
                         <button
                             onClick={() => setToggleError(null)}
                             className="ml-auto text-[#DC2626]/60 hover:text-[#DC2626] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#DC2626]/40"
-                            aria-label="إغلاق"
+                            aria-label="Dismiss"
                         >
                             <X className="h-3.5 w-3.5" />
                         </button>
@@ -887,14 +911,14 @@ export default function RebhWatchlistPage() {
                                     value={query}
                                     onChange={(e) => setQuery(e.target.value)}
                                     onKeyDown={handleSearchKeyDown}
-                                    placeholder="ابحث برمز السهم أو اسم الشركة…"
+                                    placeholder="Search by ticker or company name…"
                                     className="w-full rounded-[4px] border border-[#E5E7EB] bg-[#F7F8FA] py-2 pl-9 pr-9 text-sm text-[#1A1A1A] outline-none transition-colors placeholder:text-[#9CA3AF] focus:border-[#8C3B32] focus:ring-2 focus:ring-[#8C3B32]/15 focus-visible:ring-2 focus-visible:ring-[#8C3B32]/30"
                                 />
                                 {query && (
                                     <button
                                         onClick={() => setQuery("")}
                                         className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8C3B32]/40"
-                                        aria-label="مسح البحث"
+                                        aria-label="Clear search"
                                     >
                                         <X className="h-4 w-4" />
                                     </button>
@@ -904,6 +928,7 @@ export default function RebhWatchlistPage() {
                             <select
                                 value={sector}
                                 onChange={(e) => setSector(e.target.value)}
+                                aria-label="Filter by sector"
                                 className="rounded-[4px] border border-[#E5E7EB] bg-white px-3 py-2 text-sm text-[#1A1A1A] outline-none transition-colors focus:border-[#8C3B32] focus:ring-2 focus:ring-[#8C3B32]/15 focus-visible:ring-2 focus-visible:ring-[#8C3B32]/30"
                             >
                                 {sectors.map((s) => (
@@ -921,7 +946,7 @@ export default function RebhWatchlistPage() {
                                     }`}
                             >
                                 <SlidersHorizontal className="h-3.5 w-3.5" />
-                                الفلاتر
+                                Filters
                             </button>
 
                             <div className="flex items-center gap-2">
@@ -931,19 +956,19 @@ export default function RebhWatchlistPage() {
                                     className="flex items-center gap-1.5 rounded-[4px] border border-[#E5E7EB] bg-white px-3 py-2 text-sm text-[#6B7280] transition-colors hover:border-[#8C3B32]/40 hover:text-[#1A1A1A] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8C3B32]/40"
                                 >
                                     <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-                                    تحديث
+                                    Refresh
                                 </button>
                                 {/* UX #6: Last updated timestamp indicator */}
                                 {lastUpdated && (
-                                    <span className="text-[11px] text-[#9CA3AF] tabular-nums" title="توقيت آخر تحديث للبيانات">
-                                        تحديث: {lastUpdated}
+                                    <span className="text-[11px] text-[#9CA3AF] tabular-nums" title="Time of the last data refresh">
+                                        Updated: {lastUpdated}
                                     </span>
                                 )}
                                 {/* Export current view (respects active tab/screen + filters) */}
                                 <ExportButton
                                     rows={filtered}
                                     columns={EXPORT_COLUMNS}
-                                    filenameBase={`rebh-${SCREENS.find((s) => s.id === screen)?.label ?? "الكل"}`}
+                                    filenameBase={`rebh-${SCREENS.find((s) => s.id === screen)?.label ?? "All"}`}
                                     contextLabel={SCREENS.find((s) => s.id === screen)?.label}
                                     disabled={loading || !!error}
                                 />
@@ -971,7 +996,7 @@ export default function RebhWatchlistPage() {
                                 )}`}
                             >
                                 <Star className={`h-3 w-3 ${watchOnly ? "fill-[#8C3B32] text-[#8C3B32]" : ""}`} />
-                                قائمتي ({watchlist.size})
+                                My Watchlist ({watchlist.size})
                             </button>
                         </div>
 
@@ -985,10 +1010,10 @@ export default function RebhWatchlistPage() {
                                         onChange={(e) => setOnlyFresh(e.target.checked)}
                                         className="accent-[#8C3B32] focus-visible:ring-2 focus-visible:ring-[#8C3B32]/40"
                                     />
-                                    القوائم المالية المحدثة فقط
+                                    Updated financial statements only
                                 </label>
                                 <span className="text-xs text-[#6B7280]">
-                                    {filtered.length} من {universe.length} شركة مطابقة
+                                    {filtered.length} of {universe.length} companies match
                                 </span>
                             </div>
                         )}
@@ -1022,7 +1047,7 @@ export default function RebhWatchlistPage() {
                                         className="sticky left-0 z-10 cursor-pointer whitespace-nowrap bg-[#F3F4F6] px-3 py-2.5 text-left text-xs font-semibold text-[#6B7280] hover:text-[#1A1A1A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8C3B32]/40"
                                     >
                                         <span className="inline-flex items-center gap-1">
-                                            الشركة <SortIcon col="sym" />
+                                            Company <SortIcon col="sym" />
                                         </span>
                                     </th>
                                     {COLUMNS.map((col) => (
@@ -1039,8 +1064,8 @@ export default function RebhWatchlistPage() {
                                                 {col.label}
                                                 {/* UX #6: SAR currency badge on price column */}
                                                 {col.key === "px" && (
-                                                    <span className="text-[10px] text-[#9CA3AF] font-normal mr-0.5">
-                                                        (ر.س)
+                                                    <span className="text-[10px] text-[#9CA3AF] font-normal ml-0.5">
+                                                        (SAR)
                                                     </span>
                                                 )}
                                                 <SortIcon col={col.key} />
@@ -1048,29 +1073,29 @@ export default function RebhWatchlistPage() {
                                         </th>
                                     ))}
                                     <th
-                                        title="تصنيف التقييم (A–F): يقيس جاذبية السعر نسبةً للقيمة (P/E). A: رخيص جداً، F: مبالغ فيه."
-                                        className="cursor-help px-3 py-2.5 text-right text-xs font-semibold text-[#6B7280]"
+                                        title="Valuation grade (A–F): measures price attractiveness relative to earnings (P/E). A: deeply undervalued, F: overvalued."
+                                        className="cursor-help px-3 py-2.5 text-left text-xs font-semibold text-[#6B7280]"
                                     >
-                                        <span className="inline-flex items-center justify-end gap-1">
-                                            <span>التقييم</span>
+                                        <span className="inline-flex items-center justify-start gap-1">
+                                            <span>Valuation</span>
                                             <HelpCircle className="h-3 w-3 text-[#9CA3AF]" />
                                         </span>
                                     </th>
                                     <th
-                                        title="تصنيف النمو (A–F): يقيس معدل نمو صافي الأرباح YoY. A+: نمو > 30%، F: انكماش."
-                                        className="cursor-help px-3 py-2.5 text-right text-xs font-semibold text-[#6B7280]"
+                                        title="Growth grade (A–F): measures YoY net income growth. A+: growth > 30%, F: contraction."
+                                        className="cursor-help px-3 py-2.5 text-left text-xs font-semibold text-[#6B7280]"
                                     >
-                                        <span className="inline-flex items-center justify-end gap-1">
-                                            <span>النمو</span>
+                                        <span className="inline-flex items-center justify-start gap-1">
+                                            <span>Growth</span>
                                             <HelpCircle className="h-3 w-3 text-[#9CA3AF]" />
                                         </span>
                                     </th>
                                     <th
-                                        title="تصنيف الربحية (A–F): يقيس العائد على حقوق المساهمين (ROE). A+: ROE > 25%، F: خسائر."
-                                        className="cursor-help px-3 py-2.5 text-right text-xs font-semibold text-[#6B7280]"
+                                        title="Profitability grade (A–F): measures Return on Equity (ROE). A+: ROE > 25%, F: losses."
+                                        className="cursor-help px-3 py-2.5 text-left text-xs font-semibold text-[#6B7280]"
                                     >
-                                        <span className="inline-flex items-center justify-end gap-1">
-                                            <span>الربحية</span>
+                                        <span className="inline-flex items-center justify-start gap-1">
+                                            <span>Profitability</span>
                                             <HelpCircle className="h-3 w-3 text-[#9CA3AF]" />
                                         </span>
                                     </th>
@@ -1115,7 +1140,7 @@ export default function RebhWatchlistPage() {
                                                 <button
                                                     onClick={() => toggleWatch(c.sym)}
                                                     disabled={pendingWatch.has(c.sym)}
-                                                    aria-label={watchlist.has(c.sym) ? "إزالة من قائمة المتابعة" : "إضافة إلى قائمة المتابعة"}
+                                                    aria-label={watchlist.has(c.sym) ? "Remove from watchlist" : "Add to watchlist"}
                                                     className={`rounded p-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8C3B32]/40 ${failedWatch.has(c.sym)
                                                         ? "text-[#DC2626]"
                                                         : "text-[#9CA3AF] hover:text-[#8C3B32]"
@@ -1132,7 +1157,7 @@ export default function RebhWatchlistPage() {
                                                 </button>
                                             </td>
                                             {/* Fix sticky column hover bug by applying group-hover:bg-[#F3F4F6] */}
-                                            <td className="sticky left-0 z-[1] whitespace-nowrap bg-white px-3 py-2.5 group-hover:bg-[#F3F4F6] transition-colors">
+                                            <td className="sticky left-0 z-[1] whitespace-nowrap bg-white px-3 py-2.5 text-left group-hover:bg-[#F3F4F6] transition-colors">
                                                 <div className="flex items-center gap-1.5">
                                                     <a
                                                         href={`/rebh/company/${c.sym}`}
@@ -1142,27 +1167,27 @@ export default function RebhWatchlistPage() {
                                                     </a>
                                                     {/* Truncated company name with full title attribute */}
                                                     <span
-                                                        title={c.n}
+                                                        title={companyName(c)}
                                                         className="max-w-[220px] truncate text-xs text-[#6B7280] cursor-default"
                                                     >
-                                                        {c.n}
+                                                        {companyName(c)}
                                                     </span>
                                                     {!c.fresh && (
                                                         <Badge
                                                             tone="warning"
-                                                            title="قوائم غير محدثة — مستبعدة من التسعير التلقائي حتى اكتمال الإفصاح"
+                                                            title="Stale financials — excluded from automated pricing until disclosure is complete"
                                                             className="text-[10px]"
                                                         >
-                                                            غير محدث ⚑
+                                                            Stale ⚑
                                                         </Badge>
                                                     )}
                                                     {(c.pe == null && c.roe == null && c.fresh) && (
                                                         <Badge
                                                             tone="danger"
-                                                            title="في سلة مونجر (قائمة دخل غير مكتملة أو خسائر مستمرة)"
+                                                            title="In the Too-Hard Pile (Quarantine): incomplete Income Statement or persistent losses"
                                                             className="text-[10px]"
                                                         >
-                                                            معزول
+                                                            Quarantined
                                                         </Badge>
                                                     )}
                                                 </div>
@@ -1175,17 +1200,17 @@ export default function RebhWatchlistPage() {
                                                     {col.render(c)}
                                                 </td>
                                             ))}
-                                            <td className="px-3 py-2.5 text-right">
+                                            <td className="px-3 py-2.5 text-left">
                                                 {/* Valuation grade */}
-                                                {renderGradeBadge(c.grades?.Valuation, "🔌 تصنيف التقييم غير متوفر لغياب البيانات")}
+                                                {renderGradeBadge(c.grades?.Valuation, "🔌 Valuation grade unavailable: insufficient data")}
                                             </td>
-                                            <td className="px-3 py-2.5 text-right">
+                                            <td className="px-3 py-2.5 text-left">
                                                 {/* Growth grade */}
-                                                {renderGradeBadge(c.grades?.Growth, "🔌 تصنيف النمو غير متوفر لغياب بيانات نمو الأرباح")}
+                                                {renderGradeBadge(c.grades?.Growth, "🔌 Growth grade unavailable: net income growth data is missing")}
                                             </td>
-                                            <td className="px-3 py-2.5 text-right">
+                                            <td className="px-3 py-2.5 text-left">
                                                 {/* Profitability grade */}
-                                                {renderGradeBadge(c.grades?.Profitability, "🔌 تصنيف الربحية غير متوفر لغياب بيانات ROE")}
+                                                {renderGradeBadge(c.grades?.Profitability, "🔌 Profitability grade unavailable: ROE data is missing")}
                                             </td>
                                         </tr>
                                     ))}
@@ -1197,14 +1222,14 @@ export default function RebhWatchlistPage() {
                 {!loading && !error && (
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#9CA3AF]">
                         <div>
-                            يعرض {filtered.length} من أصل {universe.length} شركة · تحليل وليس توصية استثمارية.
+                            Showing {filtered.length} of {universe.length} companies · Analysis only, not investment advice.
                         </div>
                         {/* Honesty Marks Legend */}
                         <div className="flex items-center gap-3 font-mono text-[11px] text-[#6B7280]">
-                            <span title="قيمة محسوبة ديناميكياً من القوائم المالية">° محسوب</span>
-                            <span title="إشارة تنبيه لقوائم متأخرة أو معزولة">⚑ تنبيه</span>
-                            <span title="بيانات غير متاحة أو لم يفصح عنها المصدر بعد">🔌 مصدر ناقص</span>
-                            <span title="غير منطبق لطبيعة السهم أو القطاع">N/A غير منطبق</span>
+                            <span title="Value computed dynamically from the financial statements">° Computed</span>
+                            <span title="Warning flag for stale or quarantined financials">⚑ Alert</span>
+                            <span title="Data unavailable or not yet disclosed by the source">🔌 Missing source</span>
+                            <span title="Not applicable to this stock or sector">N/A Not applicable</span>
                         </div>
                     </div>
                 )}
@@ -1220,4 +1245,5 @@ export default function RebhWatchlistPage() {
   - Grade column and truncated names have full informative hover titles.
   - Search query is debounced (~250ms) to ensure smooth typing on large universes.
   - Full keyboard accessibility and focus-visible rings for all interactive elements.
+  - English display names are preferred via `en` / `sec_en` when the backend provides them, falling back to `n` / `sec`.
 */

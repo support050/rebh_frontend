@@ -85,16 +85,16 @@ export function TrendAndRiskSection({
       <SectionPanel>
         <h3 className="text-sm font-bold text-[#1A1A1A] flex items-center gap-2 border-b border-[#E5E7EB] pb-3 mb-4">
           <BarChart3 size={15} className="text-[#8C3B32]" />
-          مسار الاتجاه — آخر 5 فترات مالية
+          Trend Trajectory — Last 5 Financial Periods
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
           {[
-            { label: "الإيرادات", vals: revTrend, color: "#2563EB" },
-            { label: "صافي الربح", vals: netTrend, color: "#16A34A" },
-            { label: "التدفق التشغيلي", vals: cfoTrend, color: "#059669" },
-            { label: "التدفق الحر", vals: fcfTrend, color: "#0D9488" },
-            { label: "حقوق الملكية", vals: eqTrend, color: "#0EA5E9" },
-            { label: "رأس المال العامل", vals: wcTrend, color: "#8C3B32" },
+            { label: "Revenue", vals: revTrend, color: "#2563EB" },
+            { label: "Net Income", vals: netTrend, color: "#16A34A" },
+            { label: "Operating CF (CFO)", vals: cfoTrend, color: "#059669" },
+            { label: "Free CF (FCF)", vals: fcfTrend, color: "#0D9488" },
+            { label: "Shareholders' Equity", vals: eqTrend, color: "#0EA5E9" },
+            { label: "Working Capital", vals: wcTrend, color: "#8C3B32" },
           ].map((s, i) => {
             const latest = s.vals.at(-1) ?? 0;
             const prev = s.vals.at(-2) ?? 0;
@@ -105,7 +105,7 @@ export function TrendAndRiskSection({
                 key={i}
                 className="flex flex-col items-center gap-1.5 rounded-[8px] px-2 py-2 border border-transparent transition-colors duration-200 hover:bg-[#F8FAFC] hover:border-[#E2E8F0]"
               >
-                <span className="text-[10px] font-semibold text-[#64748B]">{s.label}</span>
+                <span className="text-[10px] font-semibold text-[#64748B] text-center">{s.label}</span>
                 <Sparkline vals={s.vals} color={s.color} />
                 <span className="font-mono font-bold text-[11px] text-[#0F172A] tabular-nums">
                   {latest.toLocaleString(undefined, { maximumFractionDigits: 0 })} M
@@ -132,7 +132,7 @@ export function TrendAndRiskSection({
         <div className="bg-[#FFF7ED] border border-[#FED7AA] rounded-[8px] p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] space-y-3">
           <h3 className="text-sm font-bold text-[#92400E] flex items-center gap-2">
             <AlertTriangle size={15} className="text-[#D97706]" />
-            إشارات التحذير والمخاطر ({flags.length})
+            Warning Signals &amp; Risks ({flags.length})
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {flags.map((f, i) => (
@@ -145,7 +145,7 @@ export function TrendAndRiskSection({
               >
                 <span className="shrink-0 font-bold mt-0.5">{f.status_symbol || "⚑"}</span>
                 <div>
-                  <span className="font-bold block">{f.title_ar || f.title_en}</span>
+                  <span className="font-bold block">{f.title_en || f.title_ar}</span>
                   <span className="text-[10px] block mt-0.5">{f.detail}</span>
                 </div>
               </div>

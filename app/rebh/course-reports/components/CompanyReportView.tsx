@@ -8,7 +8,9 @@ import { generateCourseReportPdf, CourseReportPdfData } from "./exportpdf";
 interface ReportData {
   sym: string;
   n: string;
+  en?: string;
   sec: string;
+  sec_en?: string;
   px?: number;
   mc?: number;
   pe?: number;
@@ -55,7 +57,7 @@ interface Props {
 
 const fmt = (v: number | null | undefined, dec = 0) => {
   if (v == null) return "—";
-  return v.toLocaleString("ar-SA", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  return v.toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec });
 };
 
 const fmtPct = (v: number | null | undefined) => {
@@ -67,51 +69,51 @@ const fmtPct = (v: number | null | undefined) => {
 const PORTER_BY_TYPE: Record<string, { items: { q: string; v: number; reason: string }[]; total: number; comp: number; label: string }> = {
   bank: {
     items: [
-      { q: "تهديد الدخول", v: 0.80, reason: "رخص البنوك المركزية حاجز شبه مغلق" },
-      { q: "قوة العملاء", v: 0.60, reason: "الأفراد مشتتون؛ الشركات تفاوض" },
-      { q: "قوة الموردين", v: 0.70, reason: "المودعون مشتتون والجارية بلا كلفة" },
-      { q: "البدائل", v: 0.50, reason: "الفنتك تقضم أطرافاً" },
-      { q: "حدة المنافسة", v: 0.50, reason: "منافسة قوية في القطاع" },
+      { q: "Threat of New Entrants", v: 0.80, reason: "Central bank licensing is a near-closed barrier" },
+      { q: "Buyer Power", v: 0.60, reason: "Retail customers are fragmented; corporates negotiate" },
+      { q: "Supplier Power", v: 0.70, reason: "Depositors are fragmented and current accounts are costless" },
+      { q: "Threat of Substitutes", v: 0.50, reason: "Fintech is nibbling at the edges" },
+      { q: "Competitive Rivalry", v: 0.50, reason: "Strong competition in the sector" },
     ],
-    total: 3.10, comp: 3, label: "3% (≥3.5→2 · ≥2.5→3 · وإلا 4)",
+    total: 3.10, comp: 3, label: "3% (≥3.5→2 · ≥2.5→3 · else 4)",
   },
   defensive: {
     items: [
-      { q: "تهديد الدخول", v: 0.75, reason: "رأس مال وشبكة توزيع عائق كبير" },
-      { q: "قوة العملاء", v: 0.55, reason: "تجزئة كبرى تفاوض؛ المستهلك وفيّ" },
-      { q: "قوة الموردين", v: 0.55, reason: "موردون متعددون — يخففها التملك الخارجي" },
-      { q: "البدائل", v: 0.55, reason: "بدائل موجودة والولاء يحمي القلب" },
-      { q: "حدة المنافسة", v: 0.45, reason: "منافسة محدودة في القلب" },
+      { q: "Threat of New Entrants", v: 0.75, reason: "Capital and distribution network are a major barrier" },
+      { q: "Buyer Power", v: 0.55, reason: "Large retailers negotiate; consumers are loyal" },
+      { q: "Supplier Power", v: 0.55, reason: "Multiple suppliers — eased by foreign ownership" },
+      { q: "Threat of Substitutes", v: 0.55, reason: "Substitutes exist and loyalty protects the core" },
+      { q: "Competitive Rivalry", v: 0.45, reason: "Limited competition in the core business" },
     ],
-    total: 2.85, comp: 3, label: "3% (≥2.5→3 · وإلا 4)",
+    total: 2.85, comp: 3, label: "3% (≥2.5→3 · else 4)",
   },
   growth: {
     items: [
-      { q: "تهديد الدخول", v: 0.65, reason: "علامة قوية وشبكة راسخة" },
-      { q: "قوة العملاء", v: 0.60, reason: "عملاء متعددون؛ أفراد وشركات" },
-      { q: "قوة الموردين", v: 0.65, reason: "تعاقد متنوع يقلل التركز" },
-      { q: "البدائل", v: 0.60, reason: "الرقمنة تهدد الحواف — القلب محمي" },
-      { q: "حدة المنافسة", v: 0.55, reason: "منافسة متصاعدة في النمو" },
+      { q: "Threat of New Entrants", v: 0.65, reason: "Strong brand and entrenched network" },
+      { q: "Buyer Power", v: 0.60, reason: "Diverse customers; individuals and corporates" },
+      { q: "Supplier Power", v: 0.65, reason: "Diversified contracting reduces concentration" },
+      { q: "Threat of Substitutes", v: 0.60, reason: "Digitization threatens the edges — the core is protected" },
+      { q: "Competitive Rivalry", v: 0.55, reason: "Intensifying competition in growth" },
     ],
-    total: 3.05, comp: 3, label: "3% (≥2.5→3 · وإلا 4)",
+    total: 3.05, comp: 3, label: "3% (≥2.5→3 · else 4)",
   },
   cyclical: {
     items: [
-      { q: "تهديد الدخول", v: 0.70, reason: "رأس مال ثقيل ورخصة تشغيل" },
-      { q: "قوة العملاء", v: 0.45, reason: "مشترون كبار يفاوضون بشدة" },
-      { q: "قوة الموردين", v: 0.50, reason: "مدخلات سلعية متقلبة" },
-      { q: "البدائل", v: 0.55, reason: "بدائل المواد الإنشائية محدودة" },
-      { q: "حدة المنافسة", v: 0.40, reason: "منافسة سعرية في القمم الدورية" },
+      { q: "Threat of New Entrants", v: 0.70, reason: "Heavy capital and an operating license" },
+      { q: "Buyer Power", v: 0.45, reason: "Large buyers negotiate hard" },
+      { q: "Supplier Power", v: 0.50, reason: "Volatile commodity inputs" },
+      { q: "Threat of Substitutes", v: 0.55, reason: "Limited substitutes for construction materials" },
+      { q: "Competitive Rivalry", v: 0.40, reason: "Price competition at cyclical peaks" },
     ],
     total: 2.60, comp: 4, label: "4% (< 2.5)",
   },
   realestate: {
     items: [
-      { q: "تهديد الدخول", v: 0.65, reason: "أرض ورأس مال وعلاقات هي الحاجز" },
-      { q: "قوة العملاء", v: 0.50, reason: "مشترون أفراد — الطلب يحرك" },
-      { q: "قوة الموردين", v: 0.55, reason: "مواد بناء ومقاولون متعددون" },
-      { q: "البدائل", v: 0.45, reason: "الإيجار بديل دائم" },
-      { q: "حدة المنافسة", v: 0.40, reason: "حرب سعرية في التراجع الدوري" },
+      { q: "Threat of New Entrants", v: 0.65, reason: "Land, capital and relationships are the barrier" },
+      { q: "Buyer Power", v: 0.50, reason: "Individual buyers — demand drives the market" },
+      { q: "Supplier Power", v: 0.55, reason: "Multiple building-materials suppliers and contractors" },
+      { q: "Threat of Substitutes", v: 0.45, reason: "Renting is a permanent substitute" },
+      { q: "Competitive Rivalry", v: 0.40, reason: "Price war during cyclical downturns" },
     ],
     total: 2.55, comp: 4, label: "4% (< 2.5)",
   },
@@ -120,9 +122,9 @@ const PORTER_BY_TYPE: Record<string, { items: { q: string; v: number; reason: st
 const SAFETY_THRESHOLDS = [
   { key: "ROE", label: "ROE", field: "roe", thresholds: [15, 10], labels: ["≥15 / 10–15 / <10"] },
   { key: "ROA", label: "ROA°", field: "roa", thresholds: [10, 6], labels: ["≥10 / 6–10 / ≤6"] },
-  { key: "Current", label: "نسبة التداول", field: "current", thresholds: [2, 1], labels: ["≥2 / 1–2 / ≤1"] },
-  { key: "DeAssets", label: "الدين/الأصول°", field: "de_assets", reverse: true, thresholds: [40, 60], labels: ["≤40 / 40–60 / ≥60"] },
-  { key: "Coverage", label: "تغطية الفائدة", field: "coverage", thresholds: [10, 6], labels: ["≥10 / 6–10 / ≤6"] },
+  { key: "Current", label: "Current Ratio", field: "current", thresholds: [2, 1], labels: ["≥2 / 1–2 / ≤1"] },
+  { key: "DeAssets", label: "Debt/Assets°", field: "de_assets", reverse: true, thresholds: [40, 60], labels: ["≤40 / 40–60 / ≥60"] },
+  { key: "Coverage", label: "Interest Coverage", field: "coverage", thresholds: [10, 6], labels: ["≥10 / 6–10 / ≤6"] },
 ];
 
 function safetyScore(v: number | null, thresholds: number[], reverse = false): number {
@@ -141,7 +143,7 @@ function safetyScore(v: number | null, thresholds: number[], reverse = false): n
 
 function ScoreChip({ score }: { score: number }) {
   if (score > 0) return <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#F0FDF4] text-[#16A34A]">+1 ✓</span>;
-  if (score === 0) return <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#FBEFEC] text-[#8C3B32]">0 محايد</span>;
+  if (score === 0) return <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#FBEFEC] text-[#8C3B32]">0 Neutral</span>;
   return <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#FEF2F2] text-[#DC2626]">−1 ✗</span>;
 }
 
@@ -203,16 +205,19 @@ export default function CompanyReportView({ meta, data, loading }: Props) {
   const px = data?.px;
   let zone = "";
   if (px && noGrowthV && gordonV && transitV) {
-    if (px <= noGrowthV) zone = "ذهبية";
-    else if (px <= (noGrowthV + gordonV) / 2) zone = "فضية";
-    else if (px <= transitV) zone = "برونزية";
-    else zone = "مكلفة";
+    if (px <= noGrowthV) zone = "Gold";
+    else if (px <= (noGrowthV + gordonV) / 2) zone = "Silver";
+    else if (px <= transitV) zone = "Bronze";
+    else zone = "Expensive";
   }
 
-  const zoneColor = zone === "ذهبية" ? "text-[#16A34A]" : zone === "فضية" ? "text-[#8C3B32]" : zone === "برونزية" ? "text-[#6B7280]" : "text-[#DC2626]";
+  const zoneColor = zone === "Gold" ? "text-[#16A34A]" : zone === "Silver" ? "text-[#8C3B32]" : zone === "Bronze" ? "text-[#6B7280]" : "text-[#DC2626]";
 
   const shariaDeAssets = data?.de_assets;
   const shariaOk = shariaDeAssets != null && shariaDeAssets < 33;
+
+  const displayName = data?.en || meta.name || data?.n || meta.sym;
+  const displaySector = data?.sec_en || (data?.sec && !/[\u0600-\u06FF]/.test(data.sec) ? data.sec : meta.label) || "—";
 
   // ── PDF export (direct jsPDF generator, replaces legacy window.print) ──────
   const handleExportPdf = async () => {
@@ -222,21 +227,21 @@ export default function CompanyReportView({ meta, data, loading }: Props) {
       setExportingPdf(true);
       const qRows: { label: string; vals: (number | null)[]; ttm: number | null }[] = [];
       if (qPeriods.length > 0) {
-        qRows.push({ label: "الإيرادات", vals: qRev, ttm: ttmRev });
-        if (qGp.length > 0) qRows.push({ label: "إجمالي الربح", vals: qGp, ttm: null });
-        if (qOp.length > 0) qRows.push({ label: "التشغيلي", vals: qOp, ttm: ttmOp });
-        qRows.push({ label: "صافي الربح", vals: qNet, ttm: ttmNet });
+        qRows.push({ label: "Revenue", vals: qRev, ttm: ttmRev });
+        if (qGp.length > 0) qRows.push({ label: "Gross Profit", vals: qGp, ttm: null });
+        if (qOp.length > 0) qRows.push({ label: "Operating Profit", vals: qOp, ttm: ttmOp });
+        qRows.push({ label: "Net Income", vals: qNet, ttm: ttmNet });
       }
       const verdict = meta.type === "bank"
-        ? "بنك يُقرأ بعدة البنوك (NII/NIM/CASA) — القرار رهن اكتمال البيانات."
-        : zone === "ذهبية" ? "سعر ذهبي أدنى من القيمة بلا نمو — هامش أمان ممتاز."
-        : zone === "فضية" ? "منطقة فضية — يستحق المتابعة والتحليل التفصيلي."
-        : zone === "برونزية" ? "منطقة برونزية — السعر يقترب من العادل وفق GS."
-        : "تحليل تعليمي وفق منهجية الدورة وليس توصية استثمارية.";
+        ? "A bank is read with the banking toolkit (NII/NIM/CASA) — the decision depends on data completeness."
+        : zone === "Gold" ? "Gold price below the no-growth value — excellent margin of safety."
+          : zone === "Silver" ? "Silver zone — worth following and detailed analysis."
+            : zone === "Bronze" ? "Bronze zone — price approaching fair value per GS."
+              : "Educational analysis per the course methodology, not an investment recommendation.";
       const payload: CourseReportPdfData = {
         sym: meta.sym,
-        name: data.n || meta.name,
-        sec: data.sec || "—",
+        name: displayName,
+        sec: displaySector,
         typeLabel: meta.label,
         type: meta.type,
         px: data.px ?? null,
@@ -268,7 +273,7 @@ export default function CompanyReportView({ meta, data, loading }: Props) {
       await generateCourseReportPdf(payload);
     } catch (err) {
       console.error("Failed to generate course report PDF:", err);
-      alert("حدث خطأ أثناء إنشاء ملف الـ PDF. يرجى المحاولة مرة أخرى.");
+      alert("An error occurred while generating the PDF. Please try again.");
     } finally {
       setExportingPdf(false);
     }
@@ -279,15 +284,15 @@ export default function CompanyReportView({ meta, data, loading }: Props) {
       {/* Header Card */}
       <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 flex flex-wrap items-center gap-4 justify-between shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         <div>
-          <h2 className="text-lg font-black text-[#1A1A1A] font-mono">{data?.n || meta.name}</h2>
+          <h2 className="text-lg font-black text-[#1A1A1A] font-mono">{displayName}</h2>
           <div className="flex items-center gap-3 mt-1 text-xs text-[#6B7280]">
             <span className="font-mono text-[#8C3B32] font-bold">{meta.sym}</span>
-            <span>{data?.sec || "—"}</span>
+            <span>{displaySector}</span>
             <span className="px-2 py-0.5 bg-[#F3F4F6] rounded text-[10px]">{meta.label}</span>
           </div>
         </div>
         <div className="flex flex-wrap gap-3 text-xs font-mono">
-          {data?.px && <div className="text-center"><div className="text-[#6B7280]">السعر</div><div className="text-[#1A1A1A] font-bold text-sm">{data.px.toFixed(2)}</div></div>}
+          {data?.px && <div className="text-center"><div className="text-[#6B7280]">Price</div><div className="text-[#1A1A1A] font-bold text-sm">{data.px.toFixed(2)}</div></div>}
           {data?.pe && <div className="text-center"><div className="text-[#6B7280]">P/E</div><div className="text-[#1A1A1A] font-bold">{data.pe.toFixed(1)}×</div></div>}
           {data?.pb && <div className="text-center"><div className="text-[#6B7280]">P/B</div><div className="text-[#1A1A1A] font-bold">{data.pb.toFixed(2)}×</div></div>}
           {data?.roe && <div className="text-center"><div className="text-[#6B7280]">ROE%</div><div className="text-[#16A34A] font-bold">{data.roe.toFixed(1)}%</div></div>}
@@ -298,10 +303,10 @@ export default function CompanyReportView({ meta, data, loading }: Props) {
             disabled={exportingPdf}
             className="flex items-center gap-1 text-[11px] text-[#1A1A1A] bg-[#F3F4F6] hover:bg-[#E5E7EB] border border-[#E5E7EB] px-3 py-1.5 rounded-[4px] font-bold transition disabled:opacity-60"
           >
-            {exportingPdf ? (<><Loader2 size={13} className="animate-spin" />جاري التصدير...</>) : (<><FileDown size={13} />تصدير (PDF)</>)}
+            {exportingPdf ? (<><Loader2 size={13} className="animate-spin" />Exporting...</>) : (<><FileDown size={13} />Export PDF</>)}
           </button>
           <Link href={`/rebh/${meta.sym}`} className="flex items-center gap-1.5 text-[11px] text-[#8C3B32] hover:text-[#1A1A1A] border border-[#8C3B32]/30 px-3 py-1.5 rounded-[4px] hover:bg-[#8C3B32]/10 transition">
-            <span>فحص الشركة الكامل ONE ∞</span><ArrowUpRight className="w-3.5 h-3.5" />
+            <span>Full Company Screen ONE ∞</span><ArrowUpRight className="w-3.5 h-3.5" />
           </Link>
         </div>
       </div>
@@ -309,24 +314,24 @@ export default function CompanyReportView({ meta, data, loading }: Props) {
       {/* Classification Row */}
       <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         <div className="bg-[#F3F4F6] px-4 py-2 border-b border-[#E5E7EB]">
-          <h3 className="text-xs font-bold text-[#8C3B32] uppercase tracking-wider">البطاقة التصنيفية</h3>
+          <h3 className="text-xs font-bold text-[#8C3B32] uppercase tracking-wider">Classification Card</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr className="text-[#9CA3AF] bg-[#F3F4F6] border-b border-[#E5E7EB]">
-                <th className="px-4 py-2 text-right font-medium">تصنيف الصناعة</th>
-                <th className="px-4 py-2 text-right font-medium">شكل السوق</th>
-                <th className="px-4 py-2 text-right font-medium">مرحلة بوسطن</th>
-                <th className="px-4 py-2 text-right font-medium">المخاطرة</th>
+                <th className="px-4 py-2 text-left font-medium">Industry Classification</th>
+                <th className="px-4 py-2 text-left font-medium">Market Structure</th>
+                <th className="px-4 py-2 text-left font-medium">Boston Life-Cycle Stage</th>
+                <th className="px-4 py-2 text-left font-medium">Risk</th>
               </tr>
             </thead>
             <tbody>
               <tr className="border-b border-[#E5E7EB] bg-[#F3F4F6]">
                 <td className="px-4 py-2.5 text-[#1A1A1A] font-bold">{meta.label}</td>
-                <td className="px-4 py-2.5 text-[#6B7280]">{meta.type === "bank" ? "احتكار قلة" : meta.type === "defensive" ? "احتكار قلة" : meta.type === "cyclical" ? "تنافسية" : "منافسة احتكارية"}</td>
-                <td className="px-4 py-2.5 text-[#6B7280]">{meta.type === "growth" ? "الشباب / النمو" : "الرشد / الكهولة"}</td>
-                <td className="px-4 py-2.5 text-[#6B7280]">{meta.type === "bank" || meta.type === "defensive" ? "منخفضة" : "متوسطة"}</td>
+                <td className="px-4 py-2.5 text-[#6B7280]">{meta.type === "bank" ? "Oligopoly" : meta.type === "defensive" ? "Oligopoly" : meta.type === "cyclical" ? "Competitive" : "Monopolistic Competition"}</td>
+                <td className="px-4 py-2.5 text-[#6B7280]">{meta.type === "growth" ? "Youth / Growth" : "Maturity / Aging"}</td>
+                <td className="px-4 py-2.5 text-[#6B7280]">{meta.type === "bank" || meta.type === "defensive" ? "Low" : "Medium"}</td>
               </tr>
             </tbody>
           </table>
@@ -336,24 +341,24 @@ export default function CompanyReportView({ meta, data, loading }: Props) {
       {/* Sharia */}
       <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         <div className="bg-[#F3F4F6] px-4 py-2 border-b border-[#E5E7EB]">
-          <h3 className="text-xs font-bold text-[#8C3B32] uppercase tracking-wider">الشرعية <span className="text-[#9CA3AF] font-normal normal-case">الفحص الكمي المحسوب</span></h3>
+          <h3 className="text-xs font-bold text-[#8C3B32] uppercase tracking-wider">Sharia Compliance <span className="text-[#9CA3AF] font-normal normal-case">Computed quantitative screen</span></h3>
         </div>
         <div className="p-4 text-xs text-[#6B7280] leading-relaxed">
           {data ? (
             <div className="space-y-1">
               <p>
-                الدين/الأصول°{" "}
+                Debt/Assets°{" "}
                 <span className="font-mono font-bold text-[#1A1A1A]">{data.de_assets?.toFixed(1) ?? "—"}%</span>{" "}
                 {shariaOk ? <span className="text-[#16A34A]">✅ &lt;33</span> : <span className="text-[#DC2626]">❌ &gt;33</span>}
-                {" · "}الدين/القيمة السوقية°{" "}
+                {" · "}Debt/Market Cap°{" "}
                 <span className="font-mono text-[#1A1A1A]">{data.de?.toFixed(1) ?? "—"}%</span>
-                {" · "}دخل الفوائد/الإيراد ≈🔌 (سطر القوائم — مستورد الملفات)
-                {" · "}النقد والاستثمارات ≈🔌
+                {" · "}Interest income/revenue ≈🔌 (financial statements line — file importer)
+                {" · "}Cash &amp; investments ≈🔌
               </p>
-              <p className="text-[#8C3B32] font-bold mt-2">الحكم النهائي للجنتك (المعايير تختلف بين اللجان — قاعدة الدورة).</p>
+              <p className="text-[#8C3B32] font-bold mt-2">The final verdict rests with your own committee (standards differ between committees — course rule).</p>
             </div>
           ) : (
-            <span className="text-[#9CA3AF]">يحتاج بيانات الشركة من قاعدة البيانات.</span>
+            <span className="text-[#9CA3AF]">Requires company data from the database.</span>
           )}
         </div>
       </div>
@@ -361,28 +366,28 @@ export default function CompanyReportView({ meta, data, loading }: Props) {
       {/* Porter 5 Forces */}
       <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         <div className="bg-[#F3F4F6] px-4 py-2 border-b border-[#E5E7EB]">
-          <h3 className="text-xs font-bold text-[#8C3B32] uppercase tracking-wider">قواعد مايكل بورتر الخمس <span className="text-[#9CA3AF] font-normal normal-case">0–1 لكل قوة — لا صفر ولا واحد أبداً (قاعدة الدورة)</span></h3>
+          <h3 className="text-xs font-bold text-[#8C3B32] uppercase tracking-wider">Michael Porter's Five Forces <span className="text-[#9CA3AF] font-normal normal-case">0–1 per force — never exactly zero or one (course rule)</span></h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr className="text-[#9CA3AF] bg-[#F3F4F6] border-b border-[#E5E7EB]">
-                <th className="px-4 py-2 text-right">القوة</th>
-                <th className="px-4 py-2 text-left font-mono">التقييم</th>
-                <th className="px-4 py-2 text-right">السبب</th>
+                <th className="px-4 py-2 text-left">Force</th>
+                <th className="px-4 py-2 text-right font-mono">Score</th>
+                <th className="px-4 py-2 text-left">Rationale</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E5E7EB]">
               {porter.items.map((item, i) => (
                 <tr key={i} className="hover:bg-[#F3F4F6]">
                   <td className="px-4 py-2.5 text-[#1A1A1A] font-medium">{item.q}</td>
-                  <td className="px-4 py-2.5 text-left font-mono text-[#8C3B32] font-bold">{item.v.toFixed(2)}</td>
+                  <td className="px-4 py-2.5 text-right font-mono text-[#8C3B32] font-bold">{item.v.toFixed(2)}</td>
                   <td className="px-4 py-2.5 text-[#6B7280]">{item.reason}</td>
                 </tr>
               ))}
               <tr className="bg-[#F3F4F6]">
-                <td className="px-4 py-2.5 text-[#8C3B32] font-black">الإجمالي → التعويض</td>
-                <td className="px-4 py-2.5 text-left font-mono text-[#8C3B32] font-black">{porter.total.toFixed(2)}/5</td>
+                <td className="px-4 py-2.5 text-[#8C3B32] font-black">Total → Premium</td>
+                <td className="px-4 py-2.5 text-right font-mono text-[#8C3B32] font-black">{porter.total.toFixed(2)}/5</td>
                 <td className="px-4 py-2.5 text-[#6B7280]">{porter.label}</td>
               </tr>
             </tbody>
@@ -395,27 +400,27 @@ export default function CompanyReportView({ meta, data, loading }: Props) {
         <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
           <div className="bg-[#F3F4F6] px-4 py-2 border-b border-[#E5E7EB]">
             <h3 className="text-xs font-bold text-[#8C3B32] uppercase tracking-wider">
-              القوائم المالية — الأرباع المتحققة° <span className="text-[#9CA3AF] font-normal normal-case">9 أرباع منفصلة محققة بفحص الهويات · بالمليون ريال</span>
+              Financial Statements — Realized Quarters° <span className="text-[#9CA3AF] font-normal normal-case">9 discrete quarters verified by identity checks · SAR millions</span>
             </h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs font-mono">
               <thead>
                 <tr className="text-[#9CA3AF] bg-[#F3F4F6] border-b border-[#E5E7EB]">
-                  <th className="px-3 py-2 text-right min-w-[110px] sticky right-0 bg-[#F3F4F6] z-10">البند</th>
+                  <th className="px-3 py-2 text-left min-w-[110px] sticky left-0 bg-[#F3F4F6] z-10">Line Item</th>
                   {qPeriods.map((p, i) => <th key={i} className="px-3 py-2 text-right whitespace-nowrap">{i === qPeriods.length - 1 ? <b className="text-[#1A1A1A]">{p}</b> : p}</th>)}
                   <th className="px-3 py-2 text-right bg-[#F3F4F6] text-[#8C3B32] font-bold">TTM°</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E5E7EB]">
                 {[
-                  { label: "الإيرادات", vals: qRev, ttm: ttmRev },
-                  ...(qGp.length > 0 ? [{ label: "إجمالي الربح", vals: qGp, ttm: null }] : []),
-                  ...(qOp.length > 0 ? [{ label: "التشغيلي", vals: qOp, ttm: ttmOp }] : []),
-                  { label: "صافي الربح", vals: qNet, ttm: ttmNet },
+                  { label: "Revenue", vals: qRev, ttm: ttmRev },
+                  ...(qGp.length > 0 ? [{ label: "Gross Profit", vals: qGp, ttm: null }] : []),
+                  ...(qOp.length > 0 ? [{ label: "Operating Profit", vals: qOp, ttm: ttmOp }] : []),
+                  { label: "Net Income", vals: qNet, ttm: ttmNet },
                 ].map((row, ri) => (
                   <tr key={ri} className={`hover:bg-[#F3F4F6] ${ri === 3 ? "bg-[#F3F4F6]" : ""}`}>
-                    <td className={`px-3 py-2 text-[#1A1A1A] font-bold font-sans sticky right-0 z-10 ${ri === 3 ? "bg-[#F3F4F6]" : "bg-[#FFFFFF]"}`}>{row.label}</td>
+                    <td className={`px-3 py-2 text-[#1A1A1A] font-bold font-sans sticky left-0 z-10 ${ri === 3 ? "bg-[#F3F4F6]" : "bg-[#FFFFFF]"}`}>{row.label}</td>
                     {row.vals.map((v, vi) => (
                       <td key={vi} className={`px-3 py-2 text-right tabular-nums ${v != null && v < 0 ? "text-[#DC2626]" : "text-[#6B7280]"}`}>
                         {v != null ? Math.round(v).toLocaleString() : "—"}
@@ -435,41 +440,41 @@ export default function CompanyReportView({ meta, data, loading }: Props) {
       {/* Growth */}
       <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         <div className="bg-[#F3F4F6] px-4 py-2 border-b border-[#E5E7EB]">
-          <h3 className="text-xs font-bold text-[#8C3B32] uppercase tracking-wider">النمو <span className="text-[#9CA3AF] font-normal normal-case">التحديد أولاً بالاستبعاد — قاعدة محاضرة 16</span></h3>
+          <h3 className="text-xs font-bold text-[#8C3B32] uppercase tracking-wider">Growth <span className="text-[#9CA3AF] font-normal normal-case">Determination by elimination first — Lecture 16 rule</span></h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr className="text-[#9CA3AF] bg-[#F3F4F6] border-b border-[#E5E7EB]">
-                <th className="px-4 py-2 text-right">النوع</th>
-                <th className="px-4 py-2 text-left font-mono">القيمة</th>
-                <th className="px-4 py-2 text-right">القراءة</th>
+                <th className="px-4 py-2 text-left">Type</th>
+                <th className="px-4 py-2 text-right font-mono">Value</th>
+                <th className="px-4 py-2 text-left">Interpretation</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E5E7EB]">
               <tr className="hover:bg-[#F3F4F6]">
-                <td className="px-4 py-2.5 text-[#6B7280]">البسيط (اللحظة الأخيرة)</td>
-                <td className={`px-4 py-2.5 text-left font-mono font-bold ${data?.g_net != null && data.g_net >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"}`}>{fmtPct(data?.g_net)}</td>
-                <td className="px-4 py-2.5 text-[#9CA3AF]">صافي سنوي/سنوي</td>
+                <td className="px-4 py-2.5 text-[#6B7280]">Simple (latest period)</td>
+                <td className={`px-4 py-2.5 text-right font-mono font-bold ${data?.g_net != null && data.g_net >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"}`}>{fmtPct(data?.g_net)}</td>
+                <td className="px-4 py-2.5 text-[#9CA3AF]">Net income, year-over-year</td>
               </tr>
               <tr className="hover:bg-[#F3F4F6]">
-                <td className="px-4 py-2.5 text-[#6B7280]">المركب CAGR 3–6 سنوات</td>
-                <td className="px-4 py-2.5 text-left font-mono text-[#8C3B32]">🔌</td>
-                <td className="px-4 py-2.5 text-[#9CA3AF]">يحتاج تعميق التاريخ لما قبل 2020 — في أوامر المبرمج</td>
+                <td className="px-4 py-2.5 text-[#6B7280]">Compound CAGR 3–6 years</td>
+                <td className="px-4 py-2.5 text-right font-mono text-[#8C3B32]">🔌</td>
+                <td className="px-4 py-2.5 text-[#9CA3AF]">Requires deepening history to pre-2020 — queued in developer tasks</td>
               </tr>
               <tr className="hover:bg-[#F3F4F6]">
-                <td className="px-4 py-2.5 text-[#6B7280]">القدرة° (DuPont)</td>
-                <td className="px-4 py-2.5 text-left font-mono text-[#8C3B32]">
+                <td className="px-4 py-2.5 text-[#6B7280]">Earning Power° (DuPont)</td>
+                <td className="px-4 py-2.5 text-right font-mono text-[#8C3B32]">
                   {data?.roe ? `${data.roe.toFixed(1)}%` : "—"}
                 </td>
                 <td className="px-4 py-2.5 text-[#9CA3AF]">
-                  NPM {data?.nm?.toFixed(1) ?? "—"}% × دوران محسوب × رافعة مالية
+                  NPM {data?.nm?.toFixed(1) ?? "—"}% × computed turnover × financial leverage
                 </td>
               </tr>
               <tr className="bg-[#F3F4F6]">
-                <td className="px-4 py-2.5 text-[#8C3B32] font-black">GS المعتمد</td>
-                <td className="px-4 py-2.5 text-left font-mono text-[#8C3B32] font-black">{GS}.0%</td>
-                <td className="px-4 py-2.5 text-[#6B7280]">نمو عابر محافظ معتمد وفق نوع الشركة ومنهجية الدورة</td>
+                <td className="px-4 py-2.5 text-[#8C3B32] font-black">Adopted GS</td>
+                <td className="px-4 py-2.5 text-right font-mono text-[#8C3B32] font-black">{GS}.0%</td>
+                <td className="px-4 py-2.5 text-[#6B7280]">Conservative transitional growth adopted by company type and course methodology</td>
               </tr>
             </tbody>
           </table>
@@ -480,23 +485,23 @@ export default function CompanyReportView({ meta, data, loading }: Props) {
       {meta.type !== "bank" && (
         <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
           <div className="bg-[#F3F4F6] px-4 py-2 border-b border-[#E5E7EB]">
-            <h3 className="text-xs font-bold text-[#8C3B32] uppercase tracking-wider">عناصر السلامة المالية <span className="text-[#9CA3AF] font-normal normal-case">التقييم اللوني +1/0/−1 بحدود الدورة الحرفية</span></h3>
+            <h3 className="text-xs font-bold text-[#8C3B32] uppercase tracking-wider">Financial Safety Elements <span className="text-[#9CA3AF] font-normal normal-case">Color scoring +1/0/−1 using the course's literal thresholds</span></h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-[#9CA3AF] bg-[#F3F4F6] border-b border-[#E5E7EB]">
-                  <th className="px-4 py-2 text-right">العنصر</th>
-                  <th className="px-4 py-2 text-left font-mono">القيمة</th>
-                  <th className="px-4 py-2 text-right">الحدود</th>
-                  <th className="px-4 py-2 text-center">التقييم</th>
+                  <th className="px-4 py-2 text-left">Element</th>
+                  <th className="px-4 py-2 text-right font-mono">Value</th>
+                  <th className="px-4 py-2 text-left">Thresholds</th>
+                  <th className="px-4 py-2 text-center">Score</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E5E7EB]">
                 {safetyItems.map((item, i) => (
                   <tr key={i} className="hover:bg-[#F3F4F6]">
                     <td className="px-4 py-2.5 text-[#6B7280]">{item.label}</td>
-                    <td className={`px-4 py-2.5 text-left font-mono font-bold ${item.score > 0 ? "text-[#16A34A]" : item.score === 0 ? "text-[#8C3B32]" : "text-[#DC2626]"}`}>
+                    <td className={`px-4 py-2.5 text-right font-mono font-bold ${item.score > 0 ? "text-[#16A34A]" : item.score === 0 ? "text-[#8C3B32]" : "text-[#DC2626]"}`}>
                       {item.v != null ? item.v.toFixed(2) : "—"}
                     </td>
                     <td className="px-4 py-2.5 text-[#9CA3AF]">{item.labels[0]}</td>
@@ -504,8 +509,8 @@ export default function CompanyReportView({ meta, data, loading }: Props) {
                   </tr>
                 ))}
                 <tr className="bg-[#F3F4F6]">
-                  <td colSpan={2} className="px-4 py-2.5 text-[#8C3B32] font-black">الإجمالي → التعويض</td>
-                  <td colSpan={2} className="px-4 py-2.5 text-left font-mono text-[#8C3B32] font-black">{totalSafety} → {safetyComp}%</td>
+                  <td colSpan={2} className="px-4 py-2.5 text-[#8C3B32] font-black">Total → Premium</td>
+                  <td colSpan={2} className="px-4 py-2.5 text-right font-mono text-[#8C3B32] font-black">{totalSafety} → {safetyComp}%</td>
                 </tr>
               </tbody>
             </table>
@@ -516,48 +521,48 @@ export default function CompanyReportView({ meta, data, loading }: Props) {
       {/* Build-Up R */}
       <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         <div className="bg-[#F3F4F6] px-4 py-2 border-b border-[#E5E7EB]">
-          <h3 className="text-xs font-bold text-[#8C3B32] uppercase tracking-wider">العائد المناسب — Build-Up <span className="text-[#9CA3AF] font-normal normal-case">عائد السند بالتصنيف + التعويضات الموزونة · نطاق الدورة 4–12%</span></h3>
+          <h3 className="text-xs font-bold text-[#8C3B32] uppercase tracking-wider">Required Return — Build-Up <span className="text-[#9CA3AF] font-normal normal-case">Bond yield by rating + weighted premiums · course range 4–12%</span></h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr className="text-[#9CA3AF] bg-[#F3F4F6] border-b border-[#E5E7EB]">
-                <th className="px-4 py-2 text-right">البيان</th>
-                <th className="px-4 py-2 text-left font-mono">الوزن</th>
-                <th className="px-4 py-2 text-left font-mono">التعويض</th>
-                <th className="px-4 py-2 text-left font-mono">الناتج</th>
+                <th className="px-4 py-2 text-left">Item</th>
+                <th className="px-4 py-2 text-right font-mono">Weight</th>
+                <th className="px-4 py-2 text-right font-mono">Premium</th>
+                <th className="px-4 py-2 text-right font-mono">Contribution</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E5E7EB]">
               <tr className="hover:bg-[#F3F4F6]">
-                <td className="px-4 py-2.5 text-[#6B7280]">قواعد بورتر ({porter.total.toFixed(2)}/5)</td>
-                <td className="px-4 py-2.5 text-left font-mono text-[#1A1A1A]">{(porterWeight * 100).toFixed(0)}%</td>
-                <td className="px-4 py-2.5 text-left font-mono text-[#1A1A1A]">{porter.comp}%</td>
-                <td className="px-4 py-2.5 text-left font-mono text-[#1A1A1A]">{(porterWeight * porter.comp).toFixed(2)}%</td>
+                <td className="px-4 py-2.5 text-[#6B7280]">Porter Forces ({porter.total.toFixed(2)}/5)</td>
+                <td className="px-4 py-2.5 text-right font-mono text-[#1A1A1A]">{(porterWeight * 100).toFixed(0)}%</td>
+                <td className="px-4 py-2.5 text-right font-mono text-[#1A1A1A]">{porter.comp}%</td>
+                <td className="px-4 py-2.5 text-right font-mono text-[#1A1A1A]">{(porterWeight * porter.comp).toFixed(2)}%</td>
               </tr>
               {meta.type !== "bank" && (
                 <tr className="hover:bg-[#F3F4F6]">
-                  <td className="px-4 py-2.5 text-[#6B7280]">عناصر السلامة ({totalSafety})</td>
-                  <td className="px-4 py-2.5 text-left font-mono text-[#1A1A1A]">{(safetyWeight * 100).toFixed(0)}%</td>
-                  <td className="px-4 py-2.5 text-left font-mono text-[#1A1A1A]">{safetyComp}%</td>
-                  <td className="px-4 py-2.5 text-left font-mono text-[#1A1A1A]">{(safetyWeight * safetyComp).toFixed(2)}%</td>
+                  <td className="px-4 py-2.5 text-[#6B7280]">Safety Elements ({totalSafety})</td>
+                  <td className="px-4 py-2.5 text-right font-mono text-[#1A1A1A]">{(safetyWeight * 100).toFixed(0)}%</td>
+                  <td className="px-4 py-2.5 text-right font-mono text-[#1A1A1A]">{safetyComp}%</td>
+                  <td className="px-4 py-2.5 text-right font-mono text-[#1A1A1A]">{(safetyWeight * safetyComp).toFixed(2)}%</td>
                 </tr>
               )}
               <tr className="hover:bg-[#F3F4F6]">
-                <td className="px-4 py-2.5 text-[#6B7280]">عائد السند (A/BBB ≈)</td>
-                <td className="px-4 py-2.5 text-left font-mono text-[#9CA3AF]">—</td>
-                <td className="px-4 py-2.5 text-left font-mono text-[#9CA3AF]">—</td>
-                <td className="px-4 py-2.5 text-left font-mono text-[#1A1A1A]">{bondRate}%</td>
+                <td className="px-4 py-2.5 text-[#6B7280]">Bond Yield (≈ A/BBB)</td>
+                <td className="px-4 py-2.5 text-right font-mono text-[#9CA3AF]">—</td>
+                <td className="px-4 py-2.5 text-right font-mono text-[#9CA3AF]">—</td>
+                <td className="px-4 py-2.5 text-right font-mono text-[#1A1A1A]">{bondRate}%</td>
               </tr>
               <tr className="bg-[#F3F4F6]">
-                <td colSpan={3} className="px-4 py-2.5 text-[#8C3B32] font-black">R المطلوب</td>
-                <td className="px-4 py-2.5 text-left font-mono text-[#8C3B32] font-black">{R}% ✅ ضمن 4–12</td>
+                <td colSpan={3} className="px-4 py-2.5 text-[#8C3B32] font-black">Required R</td>
+                <td className="px-4 py-2.5 text-right font-mono text-[#8C3B32] font-black">{R}% ✅ Within 4–12</td>
               </tr>
             </tbody>
           </table>
         </div>
         <div className="px-4 pb-3 text-[10px] text-[#9CA3AF]">
-          GL={GL}% (خليجي 3–5) · N={N}: أفق الاستراتيجية المعلنة · مرساة السند ريالية تقريبية — عائد صكوك الشركة نفسها أولى حين يتوفر 🔌
+          GL={GL}% (Gulf 3–5) · N={N}: stated strategy horizon · The bond anchor is an approximate SAR yield — the company's own sukuk yield is preferable when available 🔌
         </div>
       </div>
 
@@ -565,41 +570,41 @@ export default function CompanyReportView({ meta, data, loading }: Props) {
       {data?.epv && (
         <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
           <div className="bg-[#F3F4F6] px-4 py-2 border-b border-[#E5E7EB]">
-            <h3 className="text-xs font-bold text-[#8C3B32] uppercase tracking-wider">المربع التسعة — مناطق الأسعار° <span className="text-[#9CA3AF] font-normal normal-case">معادلات الدورة الحرفية</span></h3>
+            <h3 className="text-xs font-bold text-[#8C3B32] uppercase tracking-wider">Nine-Box Matrix — Price Zones° <span className="text-[#9CA3AF] font-normal normal-case">Literal course equations</span></h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-[#9CA3AF] bg-[#F3F4F6] border-b border-[#E5E7EB]">
-                  <th className="px-4 py-2 text-right">العدسة (للسهم، ريال)</th>
-                  <th className="px-4 py-2 text-left font-mono">بدون نمو X/R</th>
-                  <th className="px-4 py-2 text-left font-mono">جوردون GL</th>
-                  <th className="px-4 py-2 text-left font-mono">عابر GS</th>
+                  <th className="px-4 py-2 text-left">Lens (per share, SAR)</th>
+                  <th className="px-4 py-2 text-right font-mono">No Growth X/R</th>
+                  <th className="px-4 py-2 text-right font-mono">Gordon GL</th>
+                  <th className="px-4 py-2 text-right font-mono">Transitional GS</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E5E7EB]">
                 <tr className="hover:bg-[#F3F4F6]">
-                  <td className="px-4 py-2.5 text-[#6B7280]">من EPV (ستاتيك)</td>
-                  <td className="px-4 py-2.5 text-left font-mono text-[#1A1A1A]">{fmt(data.epv.bear, 2)}</td>
-                  <td className="px-4 py-2.5 text-left font-mono text-[#1A1A1A]">{fmt(data.epv.base, 2)}</td>
-                  <td className="px-4 py-2.5 text-left font-mono text-[#1A1A1A]">{fmt(data.epv.bull, 2)}</td>
+                  <td className="px-4 py-2.5 text-[#6B7280]">From EPV (static)</td>
+                  <td className="px-4 py-2.5 text-right font-mono text-[#1A1A1A]">{fmt(data.epv.bear, 2)}</td>
+                  <td className="px-4 py-2.5 text-right font-mono text-[#1A1A1A]">{fmt(data.epv.base, 2)}</td>
+                  <td className="px-4 py-2.5 text-right font-mono text-[#1A1A1A]">{fmt(data.epv.bull, 2)}</td>
                 </tr>
               </tbody>
             </table>
           </div>
           <div className="px-4 py-3 border-t border-[#E5E7EB] flex flex-wrap gap-4 items-center text-xs">
             <div>
-              <span className="text-[#9CA3AF]">السعر الحالي: </span>
+              <span className="text-[#9CA3AF]">Current Price: </span>
               <span className="text-[#1A1A1A] font-mono font-bold">{data.px?.toFixed(2) ?? "—"}</span>
             </div>
             {zone && (
               <div>
-                <span className="text-[#9CA3AF]">المنطقة: </span>
+                <span className="text-[#9CA3AF]">Zone: </span>
                 <span className={`font-bold ${zoneColor}`}>{zone}</span>
               </div>
             )}
             <div>
-              <span className="text-[#9CA3AF]">مقارنة بـ EPV Base: </span>
+              <span className="text-[#9CA3AF]">vs. EPV Base: </span>
               <span className={`font-mono font-bold ${(data.epv.vs ?? 0) >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"}`}>
                 {fmtPct(data.epv.vs)}
               </span>
@@ -612,7 +617,7 @@ export default function CompanyReportView({ meta, data, loading }: Props) {
       {data?.wl && data.wl.length > 0 && (
         <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
           <div className="bg-[#F3F4F6] px-4 py-2 border-b border-[#E5E7EB]">
-            <h3 className="text-xs font-bold text-[#8C3B32] uppercase tracking-wider">الأعلام الحمراء° وبوابة الشراء</h3>
+            <h3 className="text-xs font-bold text-[#8C3B32] uppercase tracking-wider">Red Flags° &amp; Buy Gate</h3>
           </div>
           <div className="p-4 space-y-2">
             {data.wl.map(([type, msg], i) => (
@@ -628,39 +633,39 @@ export default function CompanyReportView({ meta, data, loading }: Props) {
       {/* Conclusion */}
       <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         <div className="bg-[#F3F4F6] px-4 py-2 border-b border-[#E5E7EB]">
-          <h3 className="text-xs font-bold text-[#8C3B32] uppercase tracking-wider">الخلاصة والقرار <span className="text-[#9CA3AF] font-normal normal-case">بصيغة الدورة — تحليل تعليمي وليس توصية استثمارية</span></h3>
+          <h3 className="text-xs font-bold text-[#8C3B32] uppercase tracking-wider">Conclusion &amp; Decision <span className="text-[#9CA3AF] font-normal normal-case">In course format — educational analysis, not an investment recommendation</span></h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <tbody className="divide-y divide-[#E5E7EB]">
               <tr className="hover:bg-[#F3F4F6]">
-                <td className="px-4 py-2.5 text-[#6B7280]">العائد المطلوب R</td>
-                <td className="px-4 py-2.5 text-left font-mono text-[#1A1A1A] font-bold">{R}%</td>
+                <td className="px-4 py-2.5 text-[#6B7280]">Required Return R</td>
+                <td className="px-4 py-2.5 text-right font-mono text-[#1A1A1A] font-bold">{R}%</td>
               </tr>
               <tr className="hover:bg-[#F3F4F6]">
-                <td className="px-4 py-2.5 text-[#6B7280]">GS النمو العابر المعتمد</td>
-                <td className="px-4 py-2.5 text-left font-mono text-[#1A1A1A] font-bold">{GS}.0%</td>
+                <td className="px-4 py-2.5 text-[#6B7280]">Adopted Transitional Growth GS</td>
+                <td className="px-4 py-2.5 text-right font-mono text-[#1A1A1A] font-bold">{GS}.0%</td>
               </tr>
               {zone && (
                 <tr className="hover:bg-[#F3F4F6]">
-                  <td className="px-4 py-2.5 text-[#6B7280]">المنطقة السعرية</td>
-                  <td className={`px-4 py-2.5 text-left font-mono font-bold ${zoneColor}`}>{zone}</td>
+                  <td className="px-4 py-2.5 text-[#6B7280]">Price Zone</td>
+                  <td className={`px-4 py-2.5 text-right font-mono font-bold ${zoneColor}`}>{zone}</td>
                 </tr>
               )}
               <tr className="bg-[#F3F4F6]">
-                <td className="px-4 py-2.5 text-[#8C3B32] font-black">الحكم</td>
+                <td className="px-4 py-2.5 text-[#8C3B32] font-black">Verdict</td>
                 <td className="px-4 py-2.5 text-[#6B7280]">
-                  {meta.type === "bank" ? "بنك يُقرأ بعدة البنوك (NII/NIM/CASA) — القرار رهن اكتمال البيانات." :
-                    zone === "ذهبية" ? "سعر ذهبي أدنى من القيمة بلا نمو — هامش أمان ممتاز." :
-                      zone === "فضية" ? "منطقة فضية — يستحق المتابعة والتحليل التفصيلي." :
-                        zone === "برونزية" ? "منطقة برونزية — السعر يقترب من العادل وفق GS." :
-                          "تحليل تعليمي وفق منهجية الدورة وليس توصية استثمارية."}
+                  {meta.type === "bank" ? "A bank is read with the banking toolkit (NII/NIM/CASA) — the decision depends on data completeness." :
+                    zone === "Gold" ? "Gold price below the no-growth value — excellent margin of safety." :
+                      zone === "Silver" ? "Silver zone — worth following and detailed analysis." :
+                        zone === "Bronze" ? "Bronze zone — price approaching fair value per GS." :
+                          "Educational analysis per the course methodology, not an investment recommendation."}
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div className="px-4 pb-3 text-[10px] text-[#9CA3AF]">هذا تحليل تعليمي وفق منهجية الدورة وليس توصية استثمارية.</div>
+        <div className="px-4 pb-3 text-[10px] text-[#9CA3AF]">This is educational analysis per the course methodology and is not an investment recommendation.</div>
       </div>
     </div>
   );

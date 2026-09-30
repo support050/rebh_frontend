@@ -71,7 +71,7 @@ export default function CompanyAnalystNotes({ symbol }: CompanyAnalystNotesProps
     // 1. LocalStorage immediate backup
     try {
       localStorage.setItem(`rebh_note_${symbol}`, note);
-    } catch (_) {}
+    } catch (_) { }
 
     // 2. Persist to API
     try {
@@ -87,13 +87,13 @@ export default function CompanyAnalystNotes({ symbol }: CompanyAnalystNotesProps
       }
       setSavedNote(note);
       setIsEditing(false);
-      setStatusMsg("تم حفظ الملاحظة بنجاح ✓");
+      setStatusMsg("Note saved successfully ✓");
       setTimeout(() => setStatusMsg(null), 3500);
     } catch (e) {
       console.warn("Saved locally, API sync warning:", e);
       setSavedNote(note);
       setIsEditing(false);
-      setStatusMsg("تم الحفظ محلياً ✓");
+      setStatusMsg("Saved locally ✓");
       setTimeout(() => setStatusMsg(null), 3500);
     } finally {
       setSaving(false);
@@ -101,14 +101,14 @@ export default function CompanyAnalystNotes({ symbol }: CompanyAnalystNotesProps
   };
 
   const handleDelete = async () => {
-    if (!confirm("هل أنت متأكد من رغبتك في حذف هذه الملاحظة؟")) return;
+    if (!confirm("Are you sure you want to delete this note?")) return;
     setDeleting(true);
     setStatusMsg(null);
 
     // 1. Clear LocalStorage
     try {
       localStorage.removeItem(`rebh_note_${symbol}`);
-    } catch (_) {}
+    } catch (_) { }
 
     // 2. Clear from API
     try {
@@ -124,7 +124,7 @@ export default function CompanyAnalystNotes({ symbol }: CompanyAnalystNotesProps
       setUpdatedAt(null);
       setIsEditing(true);
       setDeleting(false);
-      setStatusMsg("تم حذف الملاحظة بنجاح");
+      setStatusMsg("Note deleted successfully");
       setTimeout(() => setStatusMsg(null), 3000);
     }
   };
@@ -151,10 +151,10 @@ export default function CompanyAnalystNotes({ symbol }: CompanyAnalystNotesProps
       <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-2.5">
         <h3 className="text-sm font-bold text-[#1A1A1A] flex items-center gap-2">
           <Edit3 className="w-4 h-4 text-[#8C3B32]" />
-          ملاحظاتي وقراري التحليلي على السهم (My Notes)
+          My Analyst Notes &amp; Thesis on the Stock (My Notes)
         </h3>
         <span className="text-[11px] font-mono text-[#6B7280]">
-          تُحفظ سحابياً ومحلياً وتُطبع في التقرير الرسمي «THE REPORT» ⎙
+          Saved to the cloud and locally, and printed in the official report “THE REPORT” ⎙
         </span>
       </div>
 
@@ -169,13 +169,13 @@ export default function CompanyAnalystNotes({ symbol }: CompanyAnalystNotesProps
             rows={3}
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="سجل هنا أطروحتك الشخصية: نقاط الشراء، متى يتغير رأيك في السهم، المحفزات المستقبلية..."
-            className="w-full text-xs p-3 rounded-[4px] border border-[#E5E7EB] bg-[#F7F8FA] focus:bg-white focus:outline-none focus:border-[#8C3B32] focus:ring-1 focus:ring-[#8C3B32]/20 text-[#1A1A1A] transition-colors resize-y leading-relaxed"
+            placeholder="Record your personal thesis here: entry points, what would change your view on the stock, future catalysts..."
+            className="w-full text-xs p-3 rounded-[4px] border border-[#E5E7EB] bg-[#F7F8FA] focus:bg-white focus:outline-none focus:border-[#8C3B32] focus:ring-1 focus:ring-[#8C3B32]/20 text-[#1A1A1A] transition-colors resize-y leading-relaxed text-left"
           />
 
           <div className="flex items-center justify-between pt-1">
             <span className="text-[11px] text-[#9CA3AF]">
-              {statusMsg || "اكتب أطروحتك ثم اضغط حفظ لتثبيتها في التقرير"}
+              {statusMsg || "Write your thesis, then press Save to pin it to the report"}
             </span>
 
             <div className="flex items-center gap-2">
@@ -186,7 +186,7 @@ export default function CompanyAnalystNotes({ symbol }: CompanyAnalystNotesProps
                   disabled={saving}
                   className="px-3 py-1.5 bg-[#F3F4F6] hover:bg-[#E5E7EB] text-[#4B5563] text-xs font-semibold rounded-[4px] transition-colors"
                 >
-                  إلغاء
+                  Cancel
                 </button>
               )}
               <button
@@ -198,12 +198,12 @@ export default function CompanyAnalystNotes({ symbol }: CompanyAnalystNotesProps
                 {saving ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>جاري الحفظ...</span>
+                    <span>Saving...</span>
                   </>
                 ) : (
                   <>
                     <Save className="w-3.5 h-3.5" />
-                    <span>حفظ الملاحظة</span>
+                    <span>Save Note</span>
                   </>
                 )}
               </button>
@@ -213,7 +213,7 @@ export default function CompanyAnalystNotes({ symbol }: CompanyAnalystNotesProps
       ) : (
         /* View Mode: Note Content Card with Edit / Delete / New Note buttons */
         <div className="space-y-3">
-          <div className="p-3.5 rounded-[4px] bg-[#F9FAFB] border border-[#E5E7EB] text-xs text-[#1F2937] leading-relaxed whitespace-pre-wrap">
+          <div className="p-3.5 rounded-[4px] bg-[#F9FAFB] border border-[#E5E7EB] text-xs text-[#1F2937] leading-relaxed whitespace-pre-wrap text-left">
             {savedNote}
           </div>
 
@@ -222,9 +222,9 @@ export default function CompanyAnalystNotes({ symbol }: CompanyAnalystNotesProps
               {statusMsg ? (
                 <span className="text-[#16A34A] font-semibold">{statusMsg}</span>
               ) : updatedAt ? (
-                <span>آخر تحديث: {new Date(updatedAt).toLocaleDateString("ar-SA", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                <span>Last updated: {new Date(updatedAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
               ) : (
-                <span>محفوظة محلياً وسحابياً</span>
+                <span>Saved locally and to the cloud</span>
               )}
             </div>
 
@@ -235,7 +235,7 @@ export default function CompanyAnalystNotes({ symbol }: CompanyAnalystNotesProps
                 className="flex items-center gap-1 px-3 py-1 bg-white hover:bg-[#F3F4F6] text-[#374151] border border-[#D1D5DB] rounded-[4px] text-xs font-semibold transition-colors"
               >
                 <Edit3 className="w-3.5 h-3.5 text-[#8C3B32]" />
-                <span>تعديل</span>
+                <span>Edit</span>
               </button>
 
               <button
@@ -245,7 +245,7 @@ export default function CompanyAnalystNotes({ symbol }: CompanyAnalystNotesProps
                 className="flex items-center gap-1 px-3 py-1 bg-white hover:bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA] rounded-[4px] text-xs font-semibold transition-colors"
               >
                 {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                <span>حذف</span>
+                <span>Delete</span>
               </button>
 
               <button
@@ -254,7 +254,7 @@ export default function CompanyAnalystNotes({ symbol }: CompanyAnalystNotesProps
                 className="flex items-center gap-1 px-3 py-1 bg-[#8C3B32] hover:bg-[#752f28] text-white rounded-[4px] text-xs font-semibold transition-colors shadow-sm"
               >
                 <PlusCircle className="w-3.5 h-3.5" />
-                <span>ملاحظة جديدة</span>
+                <span>New Note</span>
               </button>
             </div>
           </div>

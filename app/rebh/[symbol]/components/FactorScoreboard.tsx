@@ -11,25 +11,27 @@ export default function FactorScoreboard({ grades = {} }: FactorScoreboardProps)
 
   if (entries.length === 0) return null;
 
-  // Mapping from API keys to display names matching the reference design
+  // Mapping from API keys to display names matching the reference design.
+  // NOTE: the Arabic keys below are backend API keys and MUST stay unchanged;
+  // only the display values are translated.
   const factorLabels: Record<string, string> = {
-    "Cash": "(Cash) الربحية والكاش",
-    "الربحية والكفاءة": "(Cash) الربحية والكاش",
-    "Balance": "(Balance) الميزانية والديون",
-    "المتانة المالية والسيولة": "(Balance) الميزانية والديون",
-    "Valuation": "(Valuation) جاذبية التقييم",
-    "التقييم ومضاعفات السوق": "(Valuation) جاذبية التقييم",
-    "Growth": "(Growth) النمو والزخم",
-    "النمو وتوليد النقد": "(Growth) النمو والزخم",
-    "Safety": "(Safety) الأمان والملاءة",
-    "سلامة الأرباح والحوكمة": "(Safety) الأمان والملاءة",
+    "Cash": "(Cash) Profitability & Cash",
+    "الربحية والكفاءة": "(Cash) Profitability & Cash",
+    "Balance": "(Balance) Balance Sheet & Debt",
+    "المتانة المالية والسيولة": "(Balance) Balance Sheet & Debt",
+    "Valuation": "(Valuation) Valuation Appeal",
+    "التقييم ومضاعفات السوق": "(Valuation) Valuation Appeal",
+    "Growth": "(Growth) Growth & Momentum",
+    "النمو وتوليد النقد": "(Growth) Growth & Momentum",
+    "Safety": "(Safety) Safety & Solvency",
+    "سلامة الأرباح والحوكمة": "(Safety) Safety & Solvency",
   };
 
   return (
     <section className="bg-white border border-[#E5E7EB] rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-bold text-[#1A1A1A]">لوحة درجات العوامل الخمسة (Factor Scoreboard)</h3>
-        <span className="text-[11px] text-[#9CA3AF] font-mono">تصنيف كمي معتمد °</span>
+        <h3 className="text-sm font-bold text-[#1A1A1A]">Five-Factor Scoreboard</h3>
+        <span className="text-[11px] text-[#9CA3AF] font-mono">Approved quantitative rating °</span>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
@@ -40,10 +42,10 @@ export default function FactorScoreboard({ grades = {} }: FactorScoreboardProps)
           const gradeColor = isA
             ? "text-[#16A34A]"
             : isB
-            ? "text-[#8C3B32]"
-            : isC
-            ? "text-[#B8863F]"
-            : "text-[#DC2626]";
+              ? "text-[#8C3B32]"
+              : isC
+                ? "text-[#B8863F]"
+                : "text-[#DC2626]";
 
           const displayName = factorLabels[factor] || factor;
 
@@ -57,7 +59,7 @@ export default function FactorScoreboard({ grades = {} }: FactorScoreboardProps)
                 {item.g}
               </div>
               <div className="text-[11px] text-[#9CA3AF] font-mono mt-2">
-                مئين القطاع {item.p}%
+                Sector Percentile {item.p}%
               </div>
             </div>
           );

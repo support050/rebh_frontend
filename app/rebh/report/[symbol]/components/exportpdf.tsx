@@ -58,7 +58,7 @@ export interface OfficialReportPdfData {
 }
 
 const sar = (v: number | null | undefined, dec = 1) =>
-  has(v) && !Number.isNaN(Number(v)) ? `${Number(v).toFixed(dec)} ر.س` : "—";
+  has(v) && !Number.isNaN(Number(v)) ? `${Number(v).toFixed(dec)} SAR` : "—";
 
 export async function generateOfficialReportPdf(d: OfficialReportPdfData): Promise<void> {
   const ctx = await createRebhPdf();
@@ -67,72 +67,72 @@ export async function generateOfficialReportPdf(d: OfficialReportPdfData): Promi
   ctx.drawHeader({
     symbol: d.symbol,
     title: d.name,
-    subtitle: "التقرير المالي التحليلي الشامل",
+    subtitle: "Comprehensive Analytical Financial Report",
   });
 
   // ── 1. Core metrics ────────────────────────────────────────────────────────
-  ctx.heading("1. المؤشرات الأساسية وهيكل التسعير السوقي (Market Pricing & Scale)", 5);
+  ctx.heading("1. Key Metrics & Market Pricing Structure (Market Pricing & Scale)", 5);
   ctx.kvTable([
-    ["السعر السوقي", sar(d.px, 2)],
-    ["القيمة السوقية", d.mc ? `${(d.mc / 1000).toFixed(1)}B ر.س` : "—"],
-    ["مكرر الأرباح P/E", d.pe != null ? `${Number(d.pe).toFixed(1)}x` : "—"],
-    ["جودة بيوتروسكي", `${d.fScore}/9`],
-    ["القطاع", d.sector],
-    ["التصنيف المنهجي", d.category],
-    ["تاريخ السحب والإصدار", d.asOf],
+    ["Market Price", sar(d.px, 2)],
+    ["Market Capitalization", d.mc ? `${(d.mc / 1000).toFixed(1)}B SAR` : "—"],
+    ["P/E Ratio", d.pe != null ? `${Number(d.pe).toFixed(1)}x` : "—"],
+    ["Piotroski F-Score", `${d.fScore}/9`],
+    ["Sector", d.sector],
+    ["Methodology Classification", d.category],
+    ["Data As-Of Date", d.asOf],
   ]);
 
   // ── 1.1 TTM provenance ─────────────────────────────────────────────────────
   if (d.ttm) {
-    ctx.heading("1.1 توثيق القوائم المالية ربع السنوية (TTM Provenance)", 4);
+    ctx.heading("1.1 Quarterly Financial Statement Provenance (TTM Provenance)", 4);
     ctx.kvTable([
-      ["الفترات المشمولة في حساب TTM", `${d.ttm.quartersCount} فترات متتالية`],
-      ["اكتمال القوائم", d.ttm.isComplete ? "مكتملة" : "تقدير جزئي"],
-      ["الإيرادات السنوية TTM", d.ttm.revenue ? `${(d.ttm.revenue / 1000).toFixed(1)}B ر.س` : "—"],
-      ["صافي الدخل TTM", d.ttm.netProfit ? `${(d.ttm.netProfit / 1000).toFixed(1)}B ر.س` : "—"],
+      ["Periods Included in TTM Calculation", `${d.ttm.quartersCount} consecutive periods`],
+      ["Statement Completeness", d.ttm.isComplete ? "Complete" : "Partial estimate"],
+      ["TTM Revenue", d.ttm.revenue ? `${(d.ttm.revenue / 1000).toFixed(1)}B SAR` : "—"],
+      ["TTM Net Income", d.ttm.netProfit ? `${(d.ttm.netProfit / 1000).toFixed(1)}B SAR` : "—"],
     ]);
   }
 
   // ── 2. Shariah & capital structure ─────────────────────────────────────────
-  ctx.heading("2. فحص الهيكل المالي والضوابط الشرعية الكمية (Shariah Quantitative Legs)", 4);
+  ctx.heading("2. Capital Structure & Quantitative Shariah Screening (Shariah Quantitative Legs)", 4);
   ctx.rtlGrid(
-    ["المعيار المالي", "الحد الأقصى المرجعي", "النسبة الفعلية المحسوبة", "حالة الشاشة الكمية"],
+    ["Financial Criterion", "Reference Threshold", "Computed Ratio", "Quantitative Screen Status"],
     [
       [
-        "نسبة الديون إلى حقوق الملكية (D/E)",
-        "معتدل أقل من 1.0x",
+        "Debt-to-Equity Ratio (D/E)",
+        "Moderate: below 1.0x",
         d.de != null ? `${Number(d.de).toFixed(2)}x` : "—",
-        d.de != null ? (d.de < 1.0 ? "سليم" : "تنبيه") : "—",
+        d.de != null ? (d.de < 1.0 ? "Sound" : "Caution") : "—",
       ],
       [
-        "الديون بالنسبة للأصول (Debt / Assets)",
-        "أقل أو يساوي 33.0%",
-        d.debtToAssetsPct != null ? `${Number(d.debtToAssetsPct).toFixed(1)}%` : "مصدر غير متاح",
-        d.debtToAssetsPct != null ? (d.debtToAssetsPct <= 33 ? "متوافق كمياً" : "تجاوز السقف") : "قيد السحب",
+        "Debt-to-Assets Ratio (Debt / Assets)",
+        "≤ 33.0%",
+        d.debtToAssetsPct != null ? `${Number(d.debtToAssetsPct).toFixed(1)}%` : "Source unavailable",
+        d.debtToAssetsPct != null ? (d.debtToAssetsPct <= 33 ? "Quantitatively compliant" : "Exceeds cap") : "Pending retrieval",
       ],
       [
-        "نسبة التداول والسيولة (Current Ratio)",
-        "أكبر أو يساوي 1.50x",
+        "Liquidity Ratio (Current Ratio)",
+        "≥ 1.50x",
         d.current != null ? `${Number(d.current).toFixed(2)}x` : "—",
-        d.current != null ? (d.current >= 1.5 ? "قوي" : "مقبول") : "—",
+        d.current != null ? (d.current >= 1.5 ? "Strong" : "Acceptable") : "—",
       ],
     ]
   );
 
   // ── 3. Safety cluster & Build-Up R ─────────────────────────────────────────
-  ctx.heading("3. عنقود السلامة والعائد المطلوب (Khurafshi Build-Up R)", 4);
+  ctx.heading("3. Safety Cluster & Required Return (Khurafshi Build-Up R)", 4);
   ctx.kvTable([
-    ["العائد المطلوب المعتمد R (Build-Up)", `${d.requiredReturnPct}%`],
-    ["مكونات العائد المطلوب", d.buildUpFormula ?? "—"],
-    ["مصدر الصك الأساسي", d.buildUpSource ?? "—"],
+    ["Adopted Required Return R (Build-Up)", `${d.requiredReturnPct}%`],
+    ["Required Return Components", d.buildUpFormula ?? "—"],
+    ["Base Instrument Source", d.buildUpSource ?? "—"],
   ]);
   ctx.paragraph(d.safetyNarrative);
 
   // ── 3.1 Nine-Box matrix ────────────────────────────────────────────────────
   if (d.nineBox) {
-    ctx.heading("3.1 مصفوفة التقييم التساعية المعتمدة (Khurafshi 9-Box Matrix)", 4);
+    ctx.heading("3.1 Adopted Nine-Box Valuation Matrix (Khurafshi 9-Box Matrix)", 4);
     ctx.paragraph(
-      `تقييم السهم عبر الركائز الثلاث بمستويات النمو الثلاثة (صفر، طويل الأجل ${d.nineBox.glPct}%，وقصير الأجل ${d.nineBox.gsPct}%):`
+      `Valuation of the stock across the three pillars at three growth levels (zero, long-term ${d.nineBox.glPct}%, and short-term ${d.nineBox.gsPct}%):`
     );
     const row = (label: string, r: NineBoxRow | null): string[] => [
       label,
@@ -142,29 +142,29 @@ export async function generateOfficialReportPdf(d: OfficialReportPdfData): Promi
       sar(r?.v3),
     ];
     ctx.rtlGrid(
-      ["الركيزة المنهجية", "القيمة الأساسية X", "V1 (بدون نمو)", `V2 (نمو دائم ${d.nineBox.glPct}%)`, `V3 (نمو انتقالي ${d.nineBox.gsPct}%)`],
+      ["Methodology Pillar", "Base Value X", "V1 (No Growth)", `V2 (Perpetual Growth ${d.nineBox.glPct}%)`, `V3 (Transitional Growth ${d.nineBox.gsPct}%)`],
       [
-        row("أرباح السهم (Earnings)", d.nineBox.earnings),
-        row("التدفق الحر بعد الدين (FCF Net Debt)", d.nineBox.fcfNetDebt),
-        row("التوزيعات النقدية (Dividends)", d.nineBox.dividends),
+        row("Earnings per Share (Earnings)", d.nineBox.earnings),
+        row("Free Cash Flow after Net Debt (FCF Net Debt)", d.nineBox.fcfNetDebt),
+        row("Cash Dividends (Dividends)", d.nineBox.dividends),
       ]
     );
     if (d.zones) {
       ctx.kvTable([
-        ["حد الذهب", sar(d.zones.goldMax)],
-        ["حد الفضة", sar(d.zones.silverMax)],
-        ["حد البرونز", sar(d.zones.bronzeMax)],
-        ["المنطقة الحالية للسعر", d.zones.currentZone],
+        ["Gold Threshold", sar(d.zones.goldMax)],
+        ["Silver Threshold", sar(d.zones.silverMax)],
+        ["Bronze Threshold", sar(d.zones.bronzeMax)],
+        ["Current Price Zone", d.zones.currentZone],
       ]);
     }
   }
 
   // ── 4. R x GS stress matrix ────────────────────────────────────────────────
-  ctx.heading("4. مصفوفة الإجهاد الثنائية (R × GS Stress Matrix)", 5);
-  ctx.paragraph("جدول حساسية القيمة العادلة للسهم (ر.س) عند تقاطع معدلات العائد المطلوب R مع معدلات النمو المتوقعة GS:");
-  const gsHead = ["R \\ GS", ...d.gsRates.map((g) => `نمو ${(g * 100).toFixed(0)}%`)];
+  ctx.heading("4. Two-Way Stress Matrix (R × GS Stress Matrix)", 5);
+  ctx.paragraph("Fair value sensitivity table per share (SAR) at the intersection of required return rates R and expected growth rates GS:");
+  const gsHead = ["R \\ GS", ...d.gsRates.map((g) => `Growth ${(g * 100).toFixed(0)}%`)];
   const matrixRows = d.rRates.map((r) => [
-    `خصم ${(r * 100).toFixed(0)}%`,
+    `Discount ${(r * 100).toFixed(0)}%`,
     ...d.gsRates.map((g) => {
       const baseVal = d.eps && d.eps > 0 && r > g ? (d.eps * (1 + g)) / (r - g) : 0;
       return baseVal > 0 ? baseVal.toFixed(1) : "—";
@@ -173,15 +173,15 @@ export async function generateOfficialReportPdf(d: OfficialReportPdfData): Promi
   ctx.rtlGrid(gsHead, matrixRows);
 
   // ── 5. Reverse DCF ─────────────────────────────────────────────────────────
-  ctx.heading("5. التقييم العكسي وتوقعات السوق (Reverse DCF Analysis)", 3);
+  ctx.heading("5. Reverse Valuation & Market Expectations (Reverse DCF Analysis)", 3);
   ctx.kvTable([
-    ["معدل النمو الذي يسعره السوق حالياً في السهم", d.impliedGrowthPct != null ? `${d.impliedGrowthPct}%` : "—"],
+    ["Growth Rate Currently Priced into the Stock by the Market", d.impliedGrowthPct != null ? `${d.impliedGrowthPct}%` : "—"],
   ]);
   ctx.paragraph(d.reverseDcfNote);
 
   // ── 6. Analyst notes ───────────────────────────────────────────────────────
   if (d.userNotes && clean(d.userNotes)) {
-    ctx.heading("6. سجل وملاحظات المحلل الشخصية (Analyst Notes & Thesis)", 3);
+    ctx.heading("6. Analyst Notes & Thesis (Analyst Notes & Thesis)", 3);
     ctx.paragraph(d.userNotes);
   }
 

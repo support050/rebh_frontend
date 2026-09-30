@@ -73,7 +73,7 @@ export function XRayHeader({
         header: {
           symbol,
           title: name,
-          subtitle: `تشريح السردية المالية - ${sector}`,
+          subtitle: `Financial Narrative X-Ray - ${sector}`,
         },
       });
     } catch (err) {
@@ -94,7 +94,7 @@ export function XRayHeader({
             </span>
           </Link>
           <h1 className="font-bold text-sm text-[#1A1A1A] tracking-tight">
-            قصة الشركة المالية · X-Ray —{" "}
+            Company Financial Story · X-Ray —{" "}
             <span className="font-mono text-[#8C3B32] tabular-nums">{symbol}</span>
           </h1>
           <span className="hidden sm:block text-xs text-[#9CA3AF]">|</span>
@@ -107,7 +107,7 @@ export function XRayHeader({
             <div className="relative flex items-center">
               <Search
                 size={13}
-                className="absolute right-3 text-[#9CA3AF] pointer-events-none"
+                className="absolute left-3 text-[#9CA3AF] pointer-events-none"
               />
               <input
                 type="text"
@@ -115,13 +115,14 @@ export function XRayHeader({
                 maxLength={4}
                 value={search}
                 onChange={(e) => setSearch(e.target.value.replace(/\D/g, ""))}
-                placeholder="رمز الشركة"
-                className="w-32 pr-8 pl-9 py-1.5 text-xs border border-[#D1D5DB] rounded-full outline-none focus:border-[#8C3B32] focus:ring-2 focus:ring-[#8C3B32]/20 font-mono text-center bg-[#F9FAFB] transition-all"
+                placeholder="Ticker"
+                aria-label="Company ticker"
+                className="w-32 pl-8 pr-9 py-1.5 text-xs border border-[#D1D5DB] rounded-full outline-none focus:border-[#8C3B32] focus:ring-2 focus:ring-[#8C3B32]/20 font-mono text-center bg-[#F9FAFB] transition-all"
               />
               <button
                 type="submit"
-                aria-label="عرض"
-                className="absolute left-1 flex items-center justify-center w-6 h-6 rounded-full bg-[#8C3B32] text-white hover:bg-[#752f28] focus:outline-none focus:ring-2 focus:ring-[#8C3B32]/40 transition-colors"
+                aria-label="Go"
+                className="absolute right-1 flex items-center justify-center w-6 h-6 rounded-full bg-[#8C3B32] text-white hover:bg-[#752f28] focus:outline-none focus:ring-2 focus:ring-[#8C3B32]/40 transition-colors"
               >
                 <Search size={12} />
               </button>
@@ -130,11 +131,11 @@ export function XRayHeader({
           <button
             onClick={() => setShowFormulas(!showFormulas)}
             className={`px-3 py-1.5 rounded-[6px] border text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#8C3B32]/30 transition-colors ${showFormulas
-                ? "bg-[#8C3B32] text-white border-[#8C3B32]"
-                : "bg-white text-[#374151] border-[#D1D5DB] hover:bg-[#F3F4F6]"
+              ? "bg-[#8C3B32] text-white border-[#8C3B32]"
+              : "bg-white text-[#374151] border-[#D1D5DB] hover:bg-[#F3F4F6]"
               }`}
           >
-            الصيغ
+            Formulas
           </button>
           <button
             onClick={handleExportPdf}
@@ -144,12 +145,12 @@ export function XRayHeader({
             {isExportingPdf ? (
               <>
                 <Loader2 size={13} className="animate-spin" />
-                جاري التصدير...
+                Exporting...
               </>
             ) : (
               <>
                 <FileDown size={13} />
-                تصدير PDF
+                Export PDF
               </>
             )}
           </button>
@@ -171,16 +172,16 @@ export function XRayHeader({
               <div className="flex items-center gap-2 text-xs text-[#6B7280]">
                 <span>{sector}</span>
                 <span>·</span>
-                <span>فترة التحليل: <strong className="text-[#0F172A] font-mono">{activePeriod}</strong></span>
+                <span>Analysis period: <strong className="text-[#0F172A] font-mono">{activePeriod}</strong></span>
                 <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-mono">
-                  🔌 بيانات رسمية
+                  🔌 Official data
                 </span>
               </div>
             </div>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             <label className="flex items-center gap-2 text-xs font-semibold text-[#374151] print:hidden">
-              <span>الفترة:</span>
+              <span>Period:</span>
               <div className="relative">
                 <select
                   value={activePeriodIndex}
@@ -194,12 +195,12 @@ export function XRayHeader({
                   ))}
                 </select>
                 {isChangingPeriod && (
-                  <RefreshCw size={11} className="animate-spin text-[#8C3B32] absolute left-1 top-2.5 pointer-events-none" />
+                  <RefreshCw size={11} className="animate-spin text-[#8C3B32] absolute right-6 top-2.5 pointer-events-none" />
                 )}
               </div>
             </label>
             {[
-              { label: "السعر", val: px ? `${px} SAR` : "—" },
+              { label: "Price", val: px ? `${px} SAR` : "—" },
               { label: "P/E", val: pe ? `${pe}×` : "—" },
               { label: "P/B", val: pb ? `${pb}×` : "—" },
               { label: "Piotroski", val: fScore != null ? `${fScore}/9` : "—" },
@@ -225,7 +226,7 @@ export function XRayHeader({
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <p className="text-[11px] font-mono text-[#94A3B8]">
-                  القصة المالية المُشتقة من البيانات الموحدة
+                  Financial story derived from unified data
                 </p>
                 <span className="text-[10px] bg-slate-800 text-slate-300 border border-slate-700 px-1.5 py-0.2 rounded font-mono">
                   {activePeriod}
@@ -239,11 +240,11 @@ export function XRayHeader({
             <div className="flex items-center gap-2.5 shrink-0 flex-wrap bg-slate-900/60 p-2 rounded-[8px] border border-slate-800">
               {(
                 [
-                  { k: "cash", l: "الكاش" },
-                  { k: "margin", l: "الهوامش" },
-                  { k: "leverage", l: "الرافعة" },
-                  { k: "quality", l: "الجودة" },
-                  { k: "funding", l: "التمويل" },
+                  { k: "cash", l: "Cash" },
+                  { k: "margin", l: "Margins" },
+                  { k: "leverage", l: "Leverage" },
+                  { k: "quality", l: "Quality" },
+                  { k: "funding", l: "Funding" },
                 ] as const
               ).map(({ k, l }) => {
                 const sig = story[k];
@@ -254,7 +255,7 @@ export function XRayHeader({
                     <div
                       className="w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] text-white shadow-sm"
                       style={{ backgroundColor: token.colorHex }}
-                      title={`${l}: ${s === "green" ? "إيجابي" : s === "amber" ? "انتبه" : "سلبي"}`}
+                      title={`${l}: ${s === "green" ? "Positive" : s === "amber" ? "Caution" : "Negative"}`}
                     >
                       {token.glyph}
                     </div>

@@ -49,7 +49,7 @@ export default function RebhCompanyOfficialPage() {
           // Fallback to compatibility endpoint
           const compatRes = await fetch(`${API_BASE_URL}/api/rebh/company/${symbol}`);
           if (!compatRes.ok) {
-            throw new Error(`خطأ في جلب بيانات الشركة: ${compatRes.status}`);
+            throw new Error(`Error fetching company data: ${compatRes.status}`);
           }
           const compatData = await compatRes.json();
           setCompany(compatData);
@@ -58,7 +58,7 @@ export default function RebhCompanyOfficialPage() {
         const data = await res.json();
         setCompany(data);
       } catch (err: any) {
-        setError(err.message || "حدث خطأ في الاتصال بالخادم");
+        setError(err.message || "A server connection error occurred");
       } finally {
         setLoading(false);
       }
@@ -107,14 +107,14 @@ export default function RebhCompanyOfficialPage() {
             <AlertTriangle className="w-7 h-7 text-[#DC2626]" />
           </div>
           <div>
-            <h2 className="text-lg font-bold mb-1.5">تعذر عرض بيانات الرمز: {symbol}</h2>
-            <p className="text-sm text-[#6B7280]">{error || "الشركة غير موجودة أو لم تكتمل قوائمها بعد"}</p>
+            <h2 className="text-lg font-bold mb-1.5">Unable to display data for symbol: {symbol}</h2>
+            <p className="text-sm text-[#6B7280]">{error || "Company not found, or its financial statements are not yet complete"}</p>
           </div>
           <Link
             href="/rebh/company/2222"
             className="inline-block px-4 py-2 bg-[#8C3B32] text-white rounded-[4px] text-sm font-semibold hover:bg-[#752f28] transition-colors"
           >
-            العودة لرمز قياسي (2222 أرامكو)
+            Return to benchmark symbol (2222 Aramco)
           </Link>
         </div>
       </div>
@@ -122,8 +122,10 @@ export default function RebhCompanyOfficialPage() {
   }
 
   // Contract data mapping (supporting both RebhUniversalContract and legacy fields)
-  const name = company.name || company.n || symbol;
+  const name = company.en || company.name || company.n || symbol;
   const sec = company.sector || company.sec || "—";
+  // Display-only English sector label. `sec` itself stays the backend value because it is used for the peers API query.
+  const secDisplay = company.sec_en || sec;
   const indClass = company.industry_class || "—";
   const px = Number(company.price ?? company.px ?? 0);
   const mc = Number(company.market_cap ?? company.mc ?? 0);
@@ -159,7 +161,7 @@ export default function RebhCompanyOfficialPage() {
   const prevIdx = periods.length - 2;
   const yoyIdx = periods.length - 5;
 
-  const currentQName = lastIdx >= 0 ? periods[lastIdx] : "الربع الأخير";
+  const currentQName = lastIdx >= 0 ? periods[lastIdx] : "Latest Quarter";
   const currentQNet = lastIdx >= 0 && netProfits[lastIdx] != null ? netProfits[lastIdx] : null;
   const prevQNet = prevIdx >= 0 && netProfits[prevIdx] != null ? netProfits[prevIdx] : null;
   const yoyQNet = yoyIdx >= 0 && netProfits[yoyIdx] != null ? netProfits[yoyIdx] : null;
@@ -175,7 +177,7 @@ export default function RebhCompanyOfficialPage() {
   const pb = balanceIdentity.equity && balanceIdentity.equity > 0 && mc > 0
     ? Number((mc / (balanceIdentity.equity / 1_000_000)).toFixed(2))
     : company.pb;
-  const roe = (grades?.["الربحية والكفاءة"]?.p != null) ? `${grades["الربحية والكفاءة"].p}% مئين` : (company.roe ? `${company.roe}%` : "—");
+  const roe = (grades?.["الربحية والكفاءة"]?.p != null) ? `${grades["الربحية والكفاءة"].p}% percentile` : (company.roe ? `${company.roe}%` : "—");
   const netMargin = TTM.revenue && TTM.net_profit ? ((TTM.net_profit / TTM.revenue) * 100).toFixed(1) : null;
   const fcfYield = mc > 0 && TTM.fcf ? ((TTM.fcf / 1_000_000 / mc) * 100).toFixed(1) : null;
 
@@ -195,7 +197,7 @@ export default function RebhCompanyOfficialPage() {
       const pdfPayload: CompanyMemoPdfData = {
         symbol,
         name,
-        sector: classData?.sector || sec,
+        sector: company.sec_en || classData?.sector || sec,
         industryClass: indClass,
         currency,
         price: px,
@@ -238,7 +240,7 @@ export default function RebhCompanyOfficialPage() {
       await generateCompanyMemoPdf(pdfPayload);
     } catch (err) {
       console.error("Failed to generate PDF memo:", err);
-      alert("حدث خطأ أثناء إنشاء ملف الـ PDF. يرجى المحاولة مرة أخرى.");
+      alert("An error occurred while generating the PDF file. Please try again.");
     } finally {
       setExportingPdf(false);
     }
@@ -258,19 +260,19 @@ export default function RebhCompanyOfficialPage() {
         header: {
           symbol,
           title: name,
-          subtitle: `الصفحة التحليلية الشاملة - ${classData?.sector || sec}`,
+          subtitle: `Comprehensive Analytical Page - ${company.sec_en || classData?.sector || sec}`,
         },
       });
     } catch (err) {
       console.error("Failed to export company page PDF:", err);
-      alert("حدث خطأ أثناء إنشاء ملف الـ PDF. يرجى المحاولة مرة أخرى.");
+      alert("An error occurred while generating the PDF file. Please try again.");
     } finally {
       setExportingPagePdf(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] pb-16">
+    <div dir="ltr" className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] pb-16">
       {/* Top Command Bar */}
       <header className="sticky top-0 z-50 bg-white border-b border-[#E5E7EB] px-6 py-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-6">
@@ -279,14 +281,14 @@ export default function RebhCompanyOfficialPage() {
             REBH ONE
           </Link>
           <nav className="hidden md:flex items-center gap-5 text-sm text-[#6B7280]">
-            <Link href={`/rebh/company/${symbol}`} className="text-[#8C3B32] border-b-2 border-[#8C3B32] pb-1 font-semibold">نظرة شاملة</Link>
-            <Link href="/rebh/tools" className="hover:text-[#1A1A1A] transition-colors">الأدوات والمختبرات</Link>
-            <Link href="/rebh/watchlist" className="hover:text-[#1A1A1A] transition-colors">قائمة المراقبة (Watchlist)</Link>
+            <Link href={`/rebh/company/${symbol}`} className="text-[#8C3B32] border-b-2 border-[#8C3B32] pb-1 font-semibold">Overview</Link>
+            <Link href="/rebh/tools" className="hover:text-[#1A1A1A] transition-colors">Tools &amp; Labs</Link>
+            <Link href="/rebh/watchlist" className="hover:text-[#1A1A1A] transition-colors">Watchlist</Link>
             <Link
               href={`/rebh/report/${symbol}`}
               className="px-3 py-1.5 bg-[#F3F4F6] border border-[#E5E7EB] text-[#1A1A1A] hover:border-[#8C3B32] hover:text-[#8C3B32] rounded-[4px] transition-colors font-semibold flex items-center gap-1.5"
             >
-              <span>عرض التقرير الرسمي</span>
+              <span>View Official Report</span>
             </Link>
           </nav>
         </div>
@@ -294,20 +296,20 @@ export default function RebhCompanyOfficialPage() {
         {/* Stock Search Bar in Header */}
         <form onSubmit={handleSearch} className="flex items-center gap-2">
           <div className="relative">
-            <Search className="w-3.5 h-3.5 text-[#9CA3AF] absolute right-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-[#9CA3AF] absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="ابحث عن رمز سهم (مثال: 1120، 2010)..."
-              className="text-xs bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px] pl-3 pr-8 py-1.5 w-[220px] sm:w-[260px] text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#8C3B32] focus:ring-1 focus:ring-[#8C3B32]/20 transition-colors"
+              placeholder="Search a stock symbol (e.g., 1120, 2010)..."
+              className="text-xs bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px] pr-3 pl-8 py-1.5 w-[220px] sm:w-[260px] text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#8C3B32] focus:ring-1 focus:ring-[#8C3B32]/20 transition-colors"
             />
           </div>
           <button
             type="submit"
             className="px-3 py-1.5 bg-[#8C3B32] text-white text-xs font-semibold rounded-[4px] hover:bg-[#752f28] transition-colors"
           >
-            بحث
+            Search
           </button>
         </form>
 
@@ -317,12 +319,12 @@ export default function RebhCompanyOfficialPage() {
               const pxVal = px.toFixed(2);
               const fvVal = zones?.silver_max ?? zones?.gold_max ?? "—";
               const mosVal = marginOfSafety != null ? `${marginOfSafety}%` : "—";
-              const txt = `[REBH Deep-Dive ONE Case Study] ${name} (${symbol})\nالسعر الحالي: ${pxVal} ر.س | القيمة العادلة المقدرة: ${fvVal} ر.س | هامش الأمان: ${mosVal}\nمكرر الأرباح TTM: ${pe ?? "—"}x | جودة بيوتروسكي: ${f_score}/9\nقرار بوابة الاستثمار: ${buyGate?.gate_passed ? "مجتاز لبوابة الاستثمار ✓" : "معلق ⚠️"}`;
+              const txt = `[REBH Deep-Dive ONE Case Study] ${name} (${symbol})\nCurrent Price: ${pxVal} SAR | Estimated Fair Value: ${fvVal} SAR | Margin of Safety: ${mosVal}\nTTM P/E: ${pe ?? "—"}x | Piotroski F-Score: ${f_score}/9\nInvestment Gate Decision: ${buyGate?.gate_passed ? "Gate passed ✓" : "Pending ⚠️"}`;
               navigator.clipboard.writeText(txt);
             }}
             className="flex items-center gap-1 px-3 py-1.5 bg-white hover:bg-[#F9FAFB] border border-[#D1D5DB] rounded-[4px] text-xs font-semibold text-[#374151]"
           >
-            <span>نسخ الأطروحة</span>
+            <span>Copy Thesis</span>
           </button>
           <button
             onClick={handleExportPdf}
@@ -332,12 +334,12 @@ export default function RebhCompanyOfficialPage() {
             {exportingPdf ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>جاري التصدير...</span>
+                <span>Exporting...</span>
               </>
             ) : (
               <>
                 <FileDown className="w-3.5 h-3.5" />
-                <span>تصدير المذكرة (PDF)</span>
+                <span>Export Memo (PDF)</span>
               </>
             )}
           </button>
@@ -346,7 +348,7 @@ export default function RebhCompanyOfficialPage() {
             disabled={exportingPagePdf}
             className="flex items-center gap-1 px-3 py-1.5 bg-white hover:bg-[#F9FAFB] border border-[#D1D5DB] text-[#374151] rounded-[4px] text-xs font-semibold shadow-sm disabled:opacity-60"
           >
-            {exportingPagePdf ? (<><Loader2 className="w-3.5 h-3.5 animate-spin" />جاري التصدير...</>) : (<><FileDown className="w-3.5 h-3.5" />تصدير الصفحة (PDF)</>)}
+            {exportingPagePdf ? (<><Loader2 className="w-3.5 h-3.5 animate-spin" />Exporting...</>) : (<><FileDown className="w-3.5 h-3.5" />Export Page (PDF)</>)}
           </button>
         </div>
       </header>
@@ -356,17 +358,26 @@ export default function RebhCompanyOfficialPage() {
         <div className="bg-[#FEF2F2] border-b border-[#FECACA] px-6 py-3 flex items-center gap-3 text-xs text-[#DC2626]">
           <ShieldAlert className="w-4 h-4 shrink-0" />
           <div className="flex-1">
-            <span className="font-bold">تم عزل السهم في سلة الحجر المالي (Quarantine): </span>
-            <span>{quarantineReason || company.balance_identity?.reason || "فشل التحقق من الهوية المحاسبية للميزانية العمومية"}</span>
+            <span className="font-bold">Stock placed in the Too-Hard Pile (Quarantine): </span>
+            <span>
+              {(() => {
+                const raw = quarantineReason || company.balance_identity?.reason || "";
+                if (raw.includes("A != L + E") || raw.includes("الميزانية")) return "Balance Sheet accounting identity discrepancy (A != L + E)";
+                if (raw.includes("قائمة دخل") || raw.includes("غير مكتملة")) return "Incomplete or economically implausible Income Statement";
+                return raw || "Balance Sheet accounting identity check failed";
+              })()}
+            </span>
           </div>
-          <span className="font-mono text-[10px] bg-white px-2 py-0.5 rounded border border-[#FECACA]">حظر التسعير الآلي ⚑</span>
+          <span className="font-mono text-[10px] bg-white px-2 py-0.5 rounded border border-[#FECACA]">Automated pricing blocked ⚑</span>
         </div>
       )}
 
       {!isFresh && !isQuarantined && (
         <div className="bg-[#FFFBEB] border-b border-[#FDE68A] px-6 py-2.5 flex items-center gap-3 text-xs text-[#B45309]">
           <Clock className="w-4 h-4 shrink-0" />
-          <span>تنبيه حداثة البيانات: {staleReason || "القوائم المالية للشركة تجاوزت المدة النظامية دون تحديث"} (≈ تقدير معلن)</span>
+          <span>
+            Data freshness warning: {staleReason && !staleReason.includes("تجاوزت") ? staleReason : "The company's financial statements have exceeded the statutory period without an update"} (≈ disclosed estimate)
+          </span>
         </div>
       )}
 
@@ -383,25 +394,25 @@ export default function RebhCompanyOfficialPage() {
                 {classData?.industry_class || indClass}
               </span>
             </div>
-            <span className="text-xs text-[#6B7280]">{classData?.sector || sec} · السوق السعودي TASI</span>
+            <span className="text-xs text-[#6B7280]">{company.sec_en || classData?.sector || sec} · Saudi Market TASI</span>
           </div>
         </div>
 
         <div className="flex items-center gap-6 text-xs">
           <div>
-            <span className="text-[#9CA3AF] block text-[10px] uppercase tracking-wide mb-0.5">السعر الحالي</span>
-            <span className="text-sm font-bold text-[#1A1A1A] font-mono">{px.toFixed(2)} ر.س</span>
+            <span className="text-[#9CA3AF] block text-[10px] uppercase tracking-wide mb-0.5">Current Price</span>
+            <span className="text-sm font-bold text-[#1A1A1A] font-mono">{px.toFixed(2)} SAR</span>
           </div>
           <div>
-            <span className="text-[#9CA3AF] block text-[10px] uppercase tracking-wide mb-0.5">القيمة السوقية</span>
-            <span className="text-sm font-bold text-[#1A1A1A] font-mono">{(mc / 1000).toFixed(1)}B ر.س</span>
+            <span className="text-[#9CA3AF] block text-[10px] uppercase tracking-wide mb-0.5">Market Cap</span>
+            <span className="text-sm font-bold text-[#1A1A1A] font-mono">{(mc / 1000).toFixed(1)}B SAR</span>
           </div>
           <div>
-            <span className="text-[#9CA3AF] block text-[10px] uppercase tracking-wide mb-0.5">مكرر الأرباح P/E°</span>
+            <span className="text-[#9CA3AF] block text-[10px] uppercase tracking-wide mb-0.5">P/E Ratio°</span>
             <span className="text-sm font-bold text-[#8C3B32] font-mono">{pe ? `${pe}x` : "—"}</span>
           </div>
           <div>
-            <span className="text-[#9CA3AF] block text-[10px] uppercase tracking-wide mb-0.5">جودة بيوتروسكي</span>
+            <span className="text-[#9CA3AF] block text-[10px] uppercase tracking-wide mb-0.5">Piotroski F-Score</span>
             <span className="text-sm font-bold text-[#16A34A] font-mono">{f_score}/9</span>
           </div>
         </div>
@@ -411,16 +422,16 @@ export default function RebhCompanyOfficialPage() {
       {classData && (
         <div className="bg-[#F8FAFC] border-b border-[#E2E8F0] px-6 py-2.5 text-[11.5px] text-[#475569] flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-4">
-            <span className="font-bold text-[#1E293B]">تصنيف ركائز العمل:</span>
-            <span>القطاع: <strong className="text-[#8C3B32]">{classData.sector || sec}</strong></span>
-            <span>هيكل السوق: <strong className="text-[#0F172A]">{classData.market_form || "منافسة قطاعية"}</strong></span>
-            <span>المرونة السعرية: <strong className="text-[#0F172A]">{classData.price_elasticity || "—"}</strong></span>
-            <span>مصفوفة BCG: <strong className="text-[#0F172A]">{classData.bcg_position || "—"}</strong></span>
-            <span>الهيمنة: <strong className="text-[#0F172A]">{classData.dominance || "—"}</strong></span>
-            <span>مسار التجزئة: <strong className="text-[#0F172A]">{classData.retail_path || "Mixed Commercial"}</strong></span>
+            <span className="font-bold text-[#1E293B]">Business Pillars Classification:</span>
+            <span>Sector: <strong className="text-[#8C3B32]">{company.sec_en || classData.sector || sec}</strong></span>
+            <span>Market Structure: <strong className="text-[#0F172A]">{(classData.market_form || "Sector Competition").split(" (")[0]}</strong></span>
+            <span>Price Elasticity: <strong className="text-[#0F172A]">{(classData.price_elasticity || "—").split(" (")[0]}</strong></span>
+            <span>BCG Matrix: <strong className="text-[#0F172A]">{(classData.bcg_position || "—").split(" (")[0]}</strong></span>
+            <span>Dominance: <strong className="text-[#0F172A]">{(classData.dominance || "—").split(" (")[0]}</strong></span>
+            <span>Retail Path: <strong className="text-[#0F172A]">{(classData.retail_path || "Mixed Commercial").split(" (")[0]}</strong></span>
           </div>
           <div className="font-mono text-[10.5px] text-[#64748B]">
-            {classData.source}
+            Live Financial Engine
           </div>
         </div>
       )}
@@ -433,7 +444,7 @@ export default function RebhCompanyOfficialPage() {
         {/* 2. Rebh 5-Factor Radar Score */}
         <RebhRadarScore
           grades={grades}
-          sec={sec}
+          sec={secDisplay}
           symbol={symbol}
           warnCount={redFlags.length}
           goodCount={buyGate?.pass_conditions?.length ?? 0}
@@ -453,10 +464,10 @@ export default function RebhCompanyOfficialPage() {
         {/* 2.6 My Notes (Session & API Persistent Analyst Thesis) */}
         <CompanyAnalystNotes symbol={symbol} />
 
-        {/* 2.7 Factor Scoreboard — التقييم الكمي مقارنة بالقطاع */}
+        {/* 2.7 Factor Scoreboard — quantitative rating vs. sector */}
         <FactorScoreboard grades={grades} />
 
-        {/* 3. مضاعفات التقييم + هامش الأمان والنمو الضمني */}
+        {/* 3. Valuation multiples + margin of safety & implied growth */}
         <ValuationBandsAndMos
           pe={pe}
           pb={pb}
@@ -477,7 +488,7 @@ export default function RebhCompanyOfficialPage() {
             <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-3">
               <h2 className="text-sm font-bold text-[#1A1A1A] flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-[#8C3B32]" />
-                عنقود السلامة والعائد المطلوب R°
+                Safety Cluster &amp; Required Return R°
               </h2>
               <span className="text-xs font-mono font-bold px-2.5 py-1 bg-[#F3F4F6] text-[#8C3B32] rounded-full border border-[#E5E7EB]">
                 R = {buildUp?.required_return_r_pct ? `${buildUp.required_return_r_pct}%` : "8.0%"}
@@ -492,28 +503,28 @@ export default function RebhCompanyOfficialPage() {
                     <div className="flex items-center gap-2">
                       <span className="text-[#1A1A1A] font-bold font-mono">{item.val}</span>
                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${item.score > 0 ? 'bg-[#F0FDF4] text-[#16A34A] border border-[#BBF7D0]' : item.score === 0 ? 'bg-[#F3F4F6] text-[#6B7280] border border-[#E5E7EB]' : 'bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA]'}`}>
-                        {item.score > 0 ? '+1 أمان' : item.score === 0 ? '0 محايد' : '-1 خطر'}
+                        {item.score > 0 ? '+1 Safe' : item.score === 0 ? '0 Neutral' : '-1 Risk'}
                       </span>
                     </div>
                   </div>
                 ))
               ) : (
-                <p className="text-xs text-[#6B7280]">عناصر السلامة تخضع لنموذج القطاع المعتمد.</p>
+                <p className="text-xs text-[#6B7280]">Safety items follow the approved sector model.</p>
               )}
             </div>
 
             {buildUp && (
               <div className="bg-[#F7F8FA] p-3 rounded-[4px] border border-[#E5E7EB] text-[11px] text-[#6B7280] space-y-1">
                 <div className="flex justify-between">
-                  <span>عائد الصك الأساس ({buildUp.rate_source}):</span>
+                  <span>Base Sukuk Yield ({buildUp.rate_source}):</span>
                   <span className="font-mono text-[#1A1A1A] font-bold">{buildUp.risk_free_rate_pct}%</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>تعويض قوى بورتر ({buildUp.porter_compensation_pct}% × {buildUp.porter_weight}):</span>
+                  <span>Porter Forces Compensation ({buildUp.porter_compensation_pct}% × {buildUp.porter_weight}):</span>
                   <span className="font-mono text-[#1A1A1A] font-bold">{(buildUp.porter_compensation_pct * buildUp.porter_weight).toFixed(2)}%</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>تعويض الأمان المالي ({buildUp.safety_compensation_pct}% × {buildUp.safety_weight}):</span>
+                  <span>Financial Safety Compensation ({buildUp.safety_compensation_pct}% × {buildUp.safety_weight}):</span>
                   <span className="font-mono text-[#1A1A1A] font-bold">{(buildUp.safety_compensation_pct * buildUp.safety_weight).toFixed(2)}%</span>
                 </div>
               </div>
@@ -525,51 +536,51 @@ export default function RebhCompanyOfficialPage() {
             <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-3">
               <h2 className="text-sm font-bold text-[#1A1A1A] flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-[#16A34A]" />
-                نطاقات الأسعار ومصفوفة الصناديق التسعة
+                Price Bands &amp; Nine-Box Matrix
               </h2>
               {zones?.current_zone && (
                 <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-full bg-[#F3F4F6] text-[#8C3B32] border border-[#E5E7EB]">
-                  المنطقة الحالية: {zones.current_zone}
+                  Current Zone: {zones.current_zone}
                 </span>
               )}
             </div>
 
             <div className="grid grid-cols-3 gap-2 text-center text-xs">
               <div className="bg-[#F0FDF4] p-3 rounded-[4px] border border-[#BBF7D0]">
-                <span className="text-[10px] text-[#16A34A] block font-bold">المنطقة الذهبية</span>
+                <span className="text-[10px] text-[#16A34A] block font-bold">Gold Zone</span>
                 <span className="text-xs font-black text-[#16A34A] font-mono">
-                  {zones?.gold_max ? `≤ ${zones.gold_max} ر.س` : "—"}
+                  {zones?.gold_max ? `≤ ${zones.gold_max} SAR` : "—"}
                 </span>
               </div>
               <div className="bg-[#F3F4F6] p-3 rounded-[4px] border border-[#E5E7EB]">
-                <span className="text-[10px] text-[#8C3B32] block font-bold">المنطقة الفضية</span>
+                <span className="text-[10px] text-[#8C3B32] block font-bold">Silver Zone</span>
                 <span className="text-xs font-black text-[#1A1A1A] font-mono">
-                  {zones?.silver_max ? `≤ ${zones.silver_max} ر.س` : "—"}
+                  {zones?.silver_max ? `≤ ${zones.silver_max} SAR` : "—"}
                 </span>
               </div>
               <div className="bg-[#FEF2F2] p-3 rounded-[4px] border border-[#FECACA]">
-                <span className="text-[10px] text-[#DC2626] block font-bold">المنطقة البرونزية</span>
+                <span className="text-[10px] text-[#DC2626] block font-bold">Bronze Zone</span>
                 <span className="text-xs font-black text-[#DC2626] font-mono">
-                  {zones?.bronze_max ? `≤ ${zones.bronze_max} ر.س` : "—"}
+                  {zones?.bronze_max ? `≤ ${zones.bronze_max} SAR` : "—"}
                 </span>
               </div>
             </div>
 
             <div className="bg-[#F7F8FA] p-3.5 rounded-[4px] border border-[#E5E7EB] text-xs space-y-1.5">
               <div className="flex justify-between">
-                <span>العائد الداخلي المتوقع (IRR على 5 سنوات):</span>
+                <span>Expected IRR (5-year):</span>
                 <span className="text-[#1A1A1A] font-mono font-bold">
                   {irrDecision?.irr_pct != null ? `${irrDecision.irr_pct}%` : "—"}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span>هامش الأمان الحالي (Margin of Safety):</span>
+                <span>Current Margin of Safety:</span>
                 <span className="text-[#16A34A] font-mono font-bold">
                   {marginOfSafety != null ? `${marginOfSafety}%` : "—"}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span>النمو الضمني المسعر (Reverse DCF):</span>
+                <span>Priced-in Implied Growth (Reverse DCF):</span>
                 <span className="text-[#8C3B32] font-mono font-bold">
                   {reverseDcf?.implied_growth_pct != null ? `${reverseDcf.implied_growth_pct}%` : "—"}
                 </span>
@@ -584,32 +595,32 @@ export default function RebhCompanyOfficialPage() {
             <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-3">
               <h2 className="text-sm font-bold text-[#1A1A1A] flex items-center gap-2">
                 <Building2 className="w-4 h-4 text-[#8C3B32]" />
-                مختبر وعدة التحليل المصرفي المتخصص (Banks Toolkit)
+                Specialized Bank Analysis Lab &amp; Toolkit (Banks Toolkit)
               </h2>
-              <span className="text-[11px] text-[#16A34A] font-mono">NIM على متوسط الأصول المدرة°</span>
+              <span className="text-[11px] text-[#16A34A] font-mono">NIM on average earning assets°</span>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div className="bg-[#F7F8FA] p-3 rounded-[4px] border border-[#E5E7EB]">
-                <span className="text-[10px] text-[#9CA3AF] block">هامش الفائدة الصافي NIM</span>
+                <span className="text-[10px] text-[#9CA3AF] block">Net Interest Margin (NIM)</span>
                 <span className="text-base font-black font-mono text-[#1A1A1A]">
                   {bankMetrics.nim_pct != null ? `${bankMetrics.nim_pct}%` : "—"}
                 </span>
               </div>
               <div className="bg-[#F7F8FA] p-3 rounded-[4px] border border-[#E5E7EB]">
-                <span className="text-[10px] text-[#9CA3AF] block">الودائع الجارية CASA</span>
+                <span className="text-[10px] text-[#9CA3AF] block">Current Deposits (CASA)</span>
                 <span className="text-base font-black font-mono text-[#1A1A1A]">
                   {bankMetrics.casa_pct != null ? `${bankMetrics.casa_pct}%` : "—"}
                 </span>
               </div>
               <div className="bg-[#F7F8FA] p-3 rounded-[4px] border border-[#E5E7EB]">
-                <span className="text-[10px] text-[#9CA3AF] block">القروض للودائع LDR</span>
+                <span className="text-[10px] text-[#9CA3AF] block">Loan-to-Deposit Ratio (LDR)</span>
                 <span className={`text-base font-black font-mono ${bankMetrics.ldr_pct && bankMetrics.ldr_pct >= 95 ? 'text-[#DC2626]' : 'text-[#16A34A]'}`}>
                   {bankMetrics.ldr_pct != null ? `${bankMetrics.ldr_pct}%` : "—"}
                 </span>
               </div>
               <div className="bg-[#F7F8FA] p-3 rounded-[4px] border border-[#E5E7EB]">
-                <span className="text-[10px] text-[#9CA3AF] block">تكلفة المخاطر COR</span>
+                <span className="text-[10px] text-[#9CA3AF] block">Cost of Risk (COR)</span>
                 <span className="text-base font-black font-mono text-[#1A1A1A]">
                   {bankMetrics.cost_of_risk_pct != null ? `${bankMetrics.cost_of_risk_pct}%` : "—"}
                 </span>
@@ -621,27 +632,27 @@ export default function RebhCompanyOfficialPage() {
         {/* Specialized Section: Cyclical Bands or P/S Ladder */}
         {cyclicalBands && cyclicalBands.is_cyclical && (
           <div className="bg-white border border-[#E5E7EB] rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-5 space-y-3">
-            <h3 className="text-sm font-bold text-[#1A1A1A]">نطاقات الأسهم الدورية (Cyclical Bands Rule)</h3>
+            <h3 className="text-sm font-bold text-[#1A1A1A]">Cyclical Stock Bands (Cyclical Bands Rule)</h3>
             <p className="text-xs text-[#6B7280]">
-              شراء القاع الدقيق: 14–16x على أقل ربح دوري واضح ({cyclicalBands.lowest_cycle_eps ?? "—"} ر.س) = {cyclicalBands.buy_band_min ?? "—"} إلى {cyclicalBands.buy_band_max ?? "—"} ر.س.
+              Precision trough entry: 14–16x on the lowest clear cyclical earnings ({cyclicalBands.lowest_cycle_eps ?? "—"} SAR) = {cyclicalBands.buy_band_min ?? "—"} to {cyclicalBands.buy_band_max ?? "—"} SAR.
             </p>
           </div>
         )}
 
         {psLadder && psLadder.is_loss_maker && (
           <div className="bg-white border border-[#E5E7EB] rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-5 space-y-3">
-            <h3 className="text-sm font-bold text-[#1A1A1A]">سلم مضاعف المبيعات للشركات غير الرابحة (P/S Ladder)</h3>
+            <h3 className="text-sm font-bold text-[#1A1A1A]">P/S Ladder for Unprofitable Companies</h3>
             <div className="grid grid-cols-3 gap-3 text-center text-xs">
               <div className="bg-[#F0FDF4] p-3 rounded-[4px] border border-[#BBF7D0]">
-                <span className="text-[10px] text-[#16A34A] block">نطاق رخيص</span>
+                <span className="text-[10px] text-[#16A34A] block">Cheap Range</span>
                 <span className="font-mono font-bold text-[#16A34A]">{psLadder.cheap_ps ?? "—"}x P/S</span>
               </div>
               <div className="bg-[#F3F4F6] p-3 rounded-[4px] border border-[#E5E7EB]">
-                <span className="text-[10px] text-[#8C3B32] block">نطاق معتدل</span>
+                <span className="text-[10px] text-[#8C3B32] block">Moderate Range</span>
                 <span className="font-mono font-bold text-[#1A1A1A]">{psLadder.medium_ps ?? "—"}x P/S</span>
               </div>
               <div className="bg-[#FEF2F2] p-3 rounded-[4px] border border-[#FECACA]">
-                <span className="text-[10px] text-[#DC2626] block">نطاق الخطر</span>
+                <span className="text-[10px] text-[#DC2626] block">Danger Range</span>
                 <span className="font-mono font-bold text-[#DC2626]">{psLadder.danger_ps ?? "—"}x P/S</span>
               </div>
             </div>
@@ -653,11 +664,11 @@ export default function RebhCompanyOfficialPage() {
           <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-3">
             <h3 className="text-sm font-bold text-[#1A1A1A] flex items-center gap-2">
               <Activity className="w-4 h-4 text-[#8C3B32]" />
-              الرايات المحاسبية والضوابط الشرعية (Forensic Red Flags &amp; Shariah)
+              Forensic Red Flags &amp; Shariah Screens
             </h3>
             {shariah && (
               <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#F3F4F6] text-[#6B7280]">
-                {shariah.is_compliant ? "متوافق كمياً مع الضوابط الشرعية ✓" : "تحت المراجعة الشرعية"}
+                {shariah.is_compliant ? "Quantitatively Shariah-compliant ✓" : "Under Shariah review"}
               </span>
             )}
           </div>
@@ -671,15 +682,15 @@ export default function RebhCompanyOfficialPage() {
                 >
                   <AlertTriangle className="w-4 h-4 text-[#DC2626] shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold">{flag.title_ar}: </span>
-                    <span>{flag.detail}</span>
+                    <span className="font-bold">{flag.title_en || flag.title_ar}: </span>
+                    <span>{flag.detail_en || flag.detail}</span>
                   </div>
                 </div>
               ))
             ) : (
               <div className="flex items-center gap-2 text-xs p-3 rounded-[4px] bg-[#F0FDF4] border border-[#BBF7D0] text-[#14532d]">
                 <CheckCircle2 className="w-4 h-4 text-[#16A34A] shrink-0" />
-                <span>لا توجد رايات حمراء محاسبية مكتشفة في القوائم المالية الأخيرة.</span>
+                <span>No accounting red flags detected in the latest financial statements.</span>
               </div>
             )}
           </div>
@@ -703,7 +714,7 @@ export default function RebhCompanyOfficialPage() {
         {/* Pass the stable primary sector (`sec`, available right after the company fetch)
             instead of `classData?.sector || sec`, so the table does not re-fetch when the
             async classification data arrives and changes the sector string. */}
-        <SectorPeersTable currentSymbol={symbol} sector={sec} />
+        <SectorPeersTable currentSymbol={symbol} sector={sec} sectorEn={company.sec_en} />
 
       </main>
     </div>

@@ -25,103 +25,103 @@ function buildStory(metrics: AlignedMetrics): XRayStory {
   // ── Cash & FCF story ──────────────────────────────────────────────────────
   let cashText: string, cashSignal: "green" | "amber" | "red";
   if (fcf > 0 && cfoNi != null && cfoNi >= 80) {
-    cashText = `الشركة مُولِّدة للكاش بامتياز — FCF إيجابي (${fcf.toFixed(0)} M SAR) وتحويل الأرباح إلى كاش ${cfoNi.toFixed(0)}% من صافي الربح.`;
+    cashText = `A strong cash generator — positive FCF (${fcf.toFixed(0)} M SAR) with ${cfoNi.toFixed(0)}% of net income converting into operating cash flow.`;
     cashSignal = "green";
   } else if (fcf > 0) {
-    cashText = `التدفق الحر إيجابي (${fcf.toFixed(0)} M SAR) لكن نسبة CFO/NI ${cfoNi != null ? cfoNi.toFixed(0) + "%" : "—"} تستحق المتابعة.`;
+    cashText = `Free cash flow is positive (${fcf.toFixed(0)} M SAR), but a CFO/NI ratio of ${cfoNi != null ? cfoNi.toFixed(0) + "%" : "—"} warrants monitoring.`;
     cashSignal = "amber";
   } else if (cfo > 0 && fcf <= 0) {
-    cashText = `التدفق التشغيلي إيجابي (${cfo.toFixed(0)} M) لكن النفقات الرأسمالية (${capex.toFixed(0)} M) تستنزف التدفق الحر — مرحلة توسع أو ضغط هيكلي.`;
+    cashText = `Operating cash flow is positive (${cfo.toFixed(0)} M), but capital expenditure (${capex.toFixed(0)} M) is draining free cash flow — an expansion phase or structural pressure.`;
     cashSignal = "amber";
   } else {
-    cashText = `تدفق نقدي سلبي — CFO (${cfo.toFixed(0)} M) وFCF (${fcf.toFixed(0)} M). الشركة تستهلك النقد ولا تُولِّده.`;
+    cashText = `Negative cash flow — CFO (${cfo.toFixed(0)} M) and FCF (${fcf.toFixed(0)} M). The company is consuming cash rather than generating it.`;
     cashSignal = "red";
   }
 
   // ── Margin story ──────────────────────────────────────────────────────────
   let marginText: string, marginSignal: "green" | "amber" | "red";
   if (nm != null && nm >= 15) {
-    marginText = `هامش صافي ربح قوي ${nm.toFixed(1)}% (إجمالي: ${gm?.toFixed(1) ?? "—"}%). ${nmPrev != null
+    marginText = `Strong net margin of ${nm.toFixed(1)}% (gross: ${gm?.toFixed(1) ?? "—"}%). ${nmPrev != null
       ? nmPrev >= 0
-        ? `تحسّن ${nmPrev.toFixed(1)}% عن العام الماضي.`
-        : `تراجع ${Math.abs(nmPrev).toFixed(1)}% — مؤشر انضغاط يستحق المتابعة.`
+        ? `Up ${nmPrev.toFixed(1)}% versus last year.`
+        : `Down ${Math.abs(nmPrev).toFixed(1)}% — a compression signal worth monitoring.`
       : ""
       }`;
     marginSignal = "green";
   } else if (nm != null && nm >= 5) {
-    marginText = `هامش صافي ربح متوسط ${nm.toFixed(1)}%. ${nmPrev != null && nmPrev < 0
-      ? `الهامش في منحنى تراجع (${nmPrev.toFixed(1)}% YoY) — راجع تكاليف المبيعات وضغط التسعير.`
-      : "الهامش مستقر في النطاق المقبول."
+    marginText = `Moderate net margin of ${nm.toFixed(1)}%. ${nmPrev != null && nmPrev < 0
+      ? `Margin is trending down (${nmPrev.toFixed(1)}% YoY) — review cost of sales and pricing pressure.`
+      : "Margin is stable within an acceptable range."
       }`;
     marginSignal = "amber";
   } else if (nm != null) {
-    marginText = `هامش صافي ربح ضعيف ${nm.toFixed(1)}%. قد يعكس ضغطاً تسعيرياً أو ارتفاعاً في التكاليف. الإجمالي ${gm?.toFixed(1) ?? "—"
-      }% — الفارق بين الإجمالي والصافي يكشف حجم المصاريف التشغيلية.`;
+    marginText = `Weak net margin of ${nm.toFixed(1)}%. This may reflect pricing pressure or rising costs. Gross margin is ${gm?.toFixed(1) ?? "—"
+      }% — the gap between gross and net margin reveals the weight of operating expenses.`;
     marginSignal = "red";
   } else {
-    marginText = "لا تتوفر بيانات كافية لحساب هوامش الربح.";
+    marginText = "Insufficient data to compute profit margins.";
     marginSignal = "amber";
   }
 
   // ── Leverage story (Using unified totalDebt/eq) ───────────────────────────
   let leverageText: string, leverageSignal: "green" | "amber" | "red";
   if (deRatio != null && deRatio <= 0.5) {
-    leverageText = `ميزانية محافظة — نسبة الدين/حقوق الملكية ${deRatio.toFixed(2)}×. الشركة ذات ملاءة عالية مع مرونة تمويلية كبيرة.`;
+    leverageText = `Conservative balance sheet — debt-to-equity of ${deRatio.toFixed(2)}×. Strong solvency with ample financing flexibility.`;
     leverageSignal = "green";
   } else if (deRatio != null && deRatio <= 1.5) {
-    leverageText = `رافعة مالية معتدلة — D/E ${deRatio.toFixed(2)}×. مقبول في قطاعات رأسمال المال، لكن يستوجب متابعة تكاليف الفائدة.`;
+    leverageText = `Moderate financial leverage — D/E of ${deRatio.toFixed(2)}×. Acceptable in capital-intensive sectors, but interest costs need monitoring.`;
     leverageSignal = "amber";
   } else if (deRatio != null) {
-    leverageText = `رافعة مالية مرتفعة — D/E ${deRatio.toFixed(2)}×. خطر الملاءة قائم خاصة في بيئة رفع الفائدة. راجع جدول استحقاق الديون.`;
+    leverageText = `High financial leverage — D/E of ${deRatio.toFixed(2)}×. Solvency risk is present, especially in a rising-rate environment. Review the debt maturity schedule.`;
     leverageSignal = "red";
   } else {
-    leverageText = "لا تتوفر بيانات الدين وحقوق الملكية لحساب الرافعة.";
+    leverageText = "Debt and shareholders' equity data are unavailable, so leverage cannot be computed.";
     leverageSignal = "amber";
   }
 
   // ── Quality story ─────────────────────────────────────────────────────────
   let qualityText: string, qualitySignal: "green" | "amber" | "red";
   if (piotroski != null && piotroski >= 7) {
-    qualityText = `جودة مالية عالية — Piotroski F-Score ${piotroski}/9. ${beneish != null
+    qualityText = `High financial quality — Piotroski F-Score ${piotroski}/9. ${beneish != null
       ? `Beneish M-Score ${beneish.toFixed(2)} — ${beneish < -1.78
-        ? "لا دلائل على تلاعب محاسبي (< −1.78)."
-        : "أعلى من عتبة الخطر −1.78 — راجع مكونات الأرباح بعناية."
+        ? "no evidence of accounting manipulation (< −1.78)."
+        : "above the −1.78 risk threshold — review the components of earnings carefully."
       }`
       : ""
       }`;
     qualitySignal = "green";
   } else if (piotroski != null && piotroski >= 4) {
-    qualityText = `جودة مالية متوسطة — Piotroski F-Score ${piotroski}/9. ${beneish != null ? `Beneish M-Score ${beneish.toFixed(2)}.` : ""
-      } تحسن الربحية والكفاءة يعزز الدرجة.`;
+    qualityText = `Moderate financial quality — Piotroski F-Score ${piotroski}/9. ${beneish != null ? `Beneish M-Score ${beneish.toFixed(2)}.` : ""
+      } Improving profitability and efficiency would strengthen the score.`;
     qualitySignal = "amber";
   } else if (piotroski != null) {
-    qualityText = `إشارات ضعف مالي — Piotroski F-Score ${piotroski}/9. قد يعكس تراجع الربحية أو تدهور السيولة. إشارة ضعف تستحق المراجعة.`;
+    qualityText = `Signs of financial weakness — Piotroski F-Score ${piotroski}/9. This may reflect declining profitability or deteriorating liquidity, and warrants review.`;
     qualitySignal = "red";
   } else {
     qualityText =
       cfoNi != null
         ? `CFO/NI = ${cfoNi.toFixed(0)}% — ${cfoNi >= 100
-          ? "أرباح محاسبية مُترجَمة لكاش حقيقي (جودة عالية)."
-          : "فجوة بين الأرباح والكاش — راجع الذمم المدينة والمخزون."
+          ? "accounting earnings are converting into real cash (high quality)."
+          : "a gap between earnings and cash — review receivables and inventory."
         }`
-        : "بيانات Piotroski غير متاحة.";
+        : "Piotroski data is unavailable.";
     qualitySignal = cfoNi != null && cfoNi >= 80 ? "green" : "amber";
   }
 
   // ── Funding story ─────────────────────────────────────────────────────────
   let fundingText: string, fundingSignal: "green" | "amber" | "red";
   if (cff < 0 && fcf > 0) {
-    fundingText = `الشركة تُعيد الكاش للمساهمين (CFF سلبي ${cff.toFixed(0)} M) — ممتاز: تُسدد ديوناً أو توزع أرباحاً من تدفق حر حقيقي.`;
+    fundingText = `The company is returning cash to shareholders (negative CFF of ${cff.toFixed(0)} M) — a positive: it is repaying debt or paying dividends out of genuine free cash flow.`;
     fundingSignal = "green";
   } else if (borr > 0 && fcf > 0) {
-    fundingText = `تمويل خارجي جديد (${borr.toFixed(0)} M) مع تدفق حر إيجابي — الاقتراض للتوسع لا للبقاء.`;
+    fundingText = `New external financing (${borr.toFixed(0)} M) alongside positive free cash flow — borrowing to expand, not to survive.`;
     fundingSignal = "amber";
   } else if (borr > 0 && fcf <= 0) {
-    fundingText = `الشركة تعتمد على الاقتراض (${borr.toFixed(0)} M) لتمويل عمليات أو فجوة تدفق نقدي — تدفق حر سلبي (${fcf.toFixed(0)} M). إشارة تحذيرية.`;
+    fundingText = `The company relies on borrowing (${borr.toFixed(0)} M) to fund operations or a cash-flow gap — free cash flow is negative (${fcf.toFixed(0)} M). A warning signal.`;
     fundingSignal = "red";
   } else {
-    fundingText = `بيانات التمويل: CFF ${cff.toFixed(0)} M. الشركة في مرحلة ${cff > 0 ? "استقطاب تمويل" : "سداد أو توزيع"
-      }.`;
+    fundingText = `Funding data: CFF ${cff.toFixed(0)} M. The company is in a ${cff > 0 ? "capital-raising" : "repayment or distribution"
+      } phase.`;
     fundingSignal = cff < 0 ? "green" : "amber";
   }
 
@@ -132,44 +132,46 @@ function buildStory(metrics: AlignedMetrics): XRayStory {
 
   let headline: string, subtitle: string;
   if (greens >= 4) {
-    headline = "شركة ذات كاش قوي ونوعية مالية ممتازة";
-    subtitle = "الأرباح حقيقية · التدفق النقدي يدعمها · الميزانية سليمة · النمو مستدام";
+    headline = "Strong cash generation and excellent financial quality";
+    subtitle = "Earnings are real · Cash flow supports them · Balance sheet is sound · Growth is sustainable";
   } else if (greens >= 3 && reds === 0) {
-    headline = "أداء مالي جيد مع نقاط تستحق المتابعة";
-    subtitle = "قاعدة مالية صلبة مع ضغوط محددة قابلة للتتبع";
+    headline = "Solid financial performance with points to monitor";
+    subtitle = "A firm financial base with specific, trackable pressures";
   } else if (reds >= 3) {
-    headline = "ضغوط مالية متعددة — يستوجب الحذر والتمحيص";
-    subtitle = "عدة مؤشرات في المنطقة الحمراء — راجع السيولة والجودة والرافعة";
+    headline = "Multiple financial pressures — caution and scrutiny required";
+    subtitle = "Several indicators are in the red zone — review liquidity, quality, and leverage";
   } else {
-    headline = "صورة مالية مختلطة — قوة في جانب وضغط في آخر";
-    subtitle = "بعض نقاط القوة موازية لمخاطر محددة — قراءة تعمقية مطلوبة";
+    headline = "Mixed financial picture — strength in one area, pressure in another";
+    subtitle = "Some strengths are offset by specific risks — a deeper read is required";
   }
 
   return {
     cash: {
       text: cashText,
       signal: cashSignal,
-      formula: "FCF = CFO − |CapEx| · CFO/NI = التدفق التشغيلي ÷ صافي الربح",
+      formula: "FCF = CFO − |CapEx| · CFO/NI = Operating Cash Flow ÷ Net Income",
     },
     margin: {
       text: marginText,
       signal: marginSignal,
-      formula: "NM% = صافي الربح ÷ الإيرادات · GM% = إجمالي الربح ÷ الإيرادات",
+      formula: "NM% = Net Income ÷ Revenue · GM% = Gross Profit ÷ Revenue",
     },
     leverage: {
       text: leverageText,
       signal: leverageSignal,
-      formula: "D/E = إجمالي الديون ÷ حقوق المساهمين",
+      formula: "D/E = Total Debt ÷ Shareholders' Equity",
     },
     quality: {
       text: qualityText,
       signal: qualitySignal,
-      formula: "Piotroski 9-point checklist · Beneish M-Score < −1.78 = خطر تلاعب (المعيار المعتمد داخل المنصة)",
+      // NOTE: Beneish M-Score above −1.78 is the manipulation-risk zone (below −1.78 = unlikely manipulator),
+      // consistent with the narrative text above.
+      formula: "Piotroski 9-point checklist · Beneish M-Score > −1.78 = manipulation risk (platform-standard threshold)",
     },
     funding: {
       text: fundingText,
       signal: fundingSignal,
-      formula: "CFF = صافي التدفق التمويلي · Borrowings = صافي الاقتراض الجديد",
+      formula: "CFF = Net Financing Cash Flow · Borrowings = Net New Borrowing",
     },
     headline,
     subtitle,
@@ -239,16 +241,18 @@ export default function RebhStoryXRayPage() {
             if (!merged.name && eng.name) merged.name = eng.name;
             if (!merged.en && eng.en) merged.en = eng.en;
             if (!merged.sec && eng.sec) merged.sec = eng.sec;
+            // English sector name, if the backend provides one (used for display only)
+            if (!merged.sec_en && eng.sec_en) merged.sec_en = eng.sec_en;
           }
         }
 
         if (!hasStatements && !hasEngineData) {
-          throw new Error("تعذر جلب البيانات المالية للشركة من الخادم");
+          throw new Error("Unable to fetch the company's financial data from the server");
         }
 
         if (!cancelled) setData(merged);
       } catch (e: any) {
-        if (!cancelled) setError(e.message || "حدث خطأ غير متوقع أثناء تحميل البيانات");
+        if (!cancelled) setError(e.message || "An unexpected error occurred while loading data");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -432,16 +436,16 @@ export default function RebhStoryXRayPage() {
   // Dynamic Chart 1: Money River Waterfall
   const waterfallData = useMemo(() => {
     return [
-      { name: "الإيرادات", val: rev, fill: "#2563EB", type: "inflow", desc: "إجمالي المبيعات المحققة" },
-      { name: "تكلفة المبيعات", val: -cogs, fill: "#64748B", type: "outflow", desc: "تكاليف الإنتاج والبضاعة المباشرة" },
-      { name: "إجمالي الربح", val: gp, fill: "#16A34A", type: "subtotal", desc: "مجمل الربح بعد استبعاد التكلفة المباشرة" },
-      { name: "المصاريف التشغيلية", val: -(gp - op), fill: "#F59E0B", type: "outflow", desc: "مصاريف البيع والتسويق والإدارة" },
-      { name: "الربح التشغيلي", val: op, fill: "#8C3B32", type: "subtotal", desc: "EBIT - ربح النشاط الأساسي" },
-      { name: "الفوائد والزكاة", val: -(op - net), fill: "#EF4444", type: "outflow", desc: "تكاليف التمويل ومخصصات الزكاة والضرائب" },
-      { name: "صافي الربح", val: net, fill: net >= 0 ? "#10B981" : "#DC2626", type: "bottomline", desc: "صافي دخل المساهمين النهائي" },
-      { name: "التدفق التشغيلي", val: cfo, fill: "#059669", type: "cash", desc: "الكاش الفعلي الداخل من العمليات (CFO)" },
-      { name: "الإنفاق الرأسمالي", val: -capex, fill: "#D97706", type: "capex", desc: "الاستثمار في الأصول والمصانع (CapEx)" },
-      { name: "التدفق الحر", val: fcf, fill: fcf >= 0 ? "#0D9488" : "#B91C1C", type: "fcf", desc: "كاش النمو والتوزيعات الحقيقي (FCF)" },
+      { name: "Revenue", val: rev, fill: "#2563EB", type: "inflow", desc: "Total sales recognized" },
+      { name: "COGS", val: -cogs, fill: "#64748B", type: "outflow", desc: "Direct production and merchandise costs (Cost of Goods Sold)" },
+      { name: "Gross Profit", val: gp, fill: "#16A34A", type: "subtotal", desc: "Profit remaining after direct costs" },
+      { name: "OpEx", val: -(gp - op), fill: "#F59E0B", type: "outflow", desc: "Selling, marketing, and administrative expenses" },
+      { name: "EBIT", val: op, fill: "#8C3B32", type: "subtotal", desc: "Operating Profit (EBIT) — profit from core operations" },
+      { name: "Interest & Tax", val: -(op - net), fill: "#EF4444", type: "outflow", desc: "Financing costs plus Zakat and tax provisions" },
+      { name: "Net Income", val: net, fill: net >= 0 ? "#10B981" : "#DC2626", type: "bottomline", desc: "Final net income attributable to shareholders" },
+      { name: "CFO", val: cfo, fill: "#059669", type: "cash", desc: "Actual cash generated by operations (Operating Cash Flow, CFO)" },
+      { name: "CapEx", val: -capex, fill: "#D97706", type: "capex", desc: "Investment in assets and plants (Capital Expenditure, CapEx)" },
+      { name: "FCF", val: fcf, fill: fcf >= 0 ? "#0D9488" : "#B91C1C", type: "fcf", desc: "Real cash available for growth and distributions (Free Cash Flow, FCF)" },
     ];
   }, [rev, cogs, gp, op, net, cfo, capex, fcf]);
 
@@ -479,7 +483,7 @@ export default function RebhStoryXRayPage() {
   // ─── Loading State ──────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center p-6">
+      <div dir="ltr" className="min-h-screen bg-[#F7F8FA] flex items-center justify-center p-6">
         <div className="text-center space-y-3 max-w-xs">
           <div className="w-11 h-11 border-[3px] border-[#8C3B32] border-t-transparent rounded-full animate-spin mx-auto" />
         </div>
@@ -490,11 +494,11 @@ export default function RebhStoryXRayPage() {
   // ─── Error State (With functional retry triggering useEffect) ───────────────
   if (error || !data) {
     return (
-      <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center p-8">
+      <div dir="ltr" className="min-h-screen bg-[#F7F8FA] flex items-center justify-center p-8">
         <div className="bg-white border border-[#E5E7EB] rounded-[8px] p-8 max-w-md text-center space-y-4 shadow-sm">
           <AlertTriangle className="w-10 h-10 text-[#DC2626] mx-auto" />
           <h2 className="text-base font-bold text-[#0F172A]">
-            تعذر تحميل X-Ray — {symbol}
+            Unable to load X-Ray — {symbol}
           </h2>
           <p className="text-xs text-[#6B7280] leading-relaxed">{error}</p>
           <div className="flex justify-center gap-2 pt-2">
@@ -502,13 +506,13 @@ export default function RebhStoryXRayPage() {
               onClick={() => setRetryCount((c) => c + 1)}
               className="px-4 py-2 bg-[#F3F4F6] hover:bg-[#E5E7EB] border border-[#D1D5DB] rounded-[6px] text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#8C3B32]/30 transition-all"
             >
-              إعادة المحاولة
+              Retry
             </button>
             <Link
               href="/rebh/xray"
               className="px-4 py-2 bg-[#8C3B32] hover:bg-[#752f28] text-white rounded-[6px] text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#8C3B32] focus:ring-offset-2 transition-all"
             >
-              رمز آخر
+              Try another ticker
             </Link>
           </div>
         </div>
@@ -516,13 +520,15 @@ export default function RebhStoryXRayPage() {
     );
   }
 
-  const name = data.name || symbol;
-  const nameEn = data.en || "";
-  const sector = data.sec || "—";
+  // Prefer English names when the backend provides them (data.en || data.name, data.sec_en || data.sec).
+  // The Arabic name is intentionally not shown as a secondary label, so the UI stays English-only.
+  const name = data.en || data.name || symbol;
+  const nameEn = "";
+  const sector = data.sec_en || data.sec || "—";
   const flags = data.red_flags || [];
 
   return (
-    <div id="xray-report-content" className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] pb-28">
+    <div dir="ltr" id="xray-report-content" className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] pb-28">
       {/* ── HEADER, SNAPSHOT & ACCESSIBLE HEADLINE ─────────────────────── */}
       <XRayHeader
         symbol={symbol}

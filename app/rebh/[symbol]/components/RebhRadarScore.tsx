@@ -44,12 +44,13 @@ export default function RebhRadarScore({
   predictabilityStars = null,
 }: RebhRadarScoreProps) {
   const dims = ["Valuation", "Growth", "Profitability", "Balance", "Cash"];
+  // NOTE: variable name kept as `dimsAr` to avoid renaming; values are now English display labels.
   const dimsAr: Record<string, string> = {
-    Valuation: "التقييم",
-    Growth: "النمو",
-    Profitability: "الربحية",
-    Balance: "الميزانية",
-    Cash: "التدفقات",
+    Valuation: "Valuation",
+    Growth: "Growth",
+    Profitability: "Profitability",
+    Balance: "Balance Sheet",
+    Cash: "Cash Flow",
   };
 
   const ps = dims.map(k => (grades[k] ? grades[k].p : null));
@@ -70,20 +71,20 @@ export default function RebhRadarScore({
     }));
   }, [grades]);
 
-  const statusLabel = score >= 70 ? "قوة استثمارية مرتفعة" : score >= 50 ? "أداء مالي متزن" : "تحت المراقبة";
+  const statusLabel = score >= 70 ? "Strong Investment Quality" : score >= 50 ? "Balanced Financial Performance" : "Under Watch";
 
   return (
-    <div className="bg-white border border-[#E5E7EB] rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-6">
+    <div dir="ltr" className="bg-white border border-[#E5E7EB] rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-6">
       <div className="flex justify-between items-center mb-4 pb-4 border-b border-[#E5E7EB]">
         <div>
           <h3 className="text-sm font-bold text-[#1A1A1A]">
-            REBH Score — مقياس جودة الشركة الخماسي
+            REBH Score — Five-Pillar Company Quality Gauge
           </h3>
           <span className="text-[11px] text-[#6B7280]">
-            تغطية العوامل: {have.length} من 5 محاور {isStaleOrFallback ? "≈ تقدير معلن" : "° موثق"}
+            Factor coverage: {have.length} of 5 pillars {isStaleOrFallback ? "≈ disclosed estimate" : "° verified"}
           </span>
         </div>
-        <span className="text-[11px] text-[#6B7280] font-mono">دمج خوارزميات GF-Score &amp; SA Quant</span>
+        <span className="text-[11px] text-[#6B7280] font-mono">Blends GF-Score &amp; SA Quant algorithms</span>
       </div>
 
       <div className="flex flex-col sm:flex-row items-center gap-8">
@@ -118,7 +119,7 @@ export default function RebhRadarScore({
                     return (
                       <div className="bg-[#1E293B] text-white text-[11px] px-2.5 py-1.5 rounded shadow-lg font-mono">
                         <div className="font-bold text-[#F8FAFC]">{d.subject}</div>
-                        <div className="text-[#93C5FD]">الدرجة: {d.score}%</div>
+                        <div className="text-[#93C5FD]">Score: {d.score}%</div>
                       </div>
                     );
                   }
@@ -130,11 +131,11 @@ export default function RebhRadarScore({
         </div>
 
         {/* Score & Ranking Details */}
-        <div className="flex-1 space-y-3 text-right w-full">
+        <div className="flex-1 space-y-3 text-left w-full">
           <div className="flex items-baseline gap-2 flex-wrap">
             <span className="text-4xl font-black text-[#1A1A1A]">{score}</span>
             <span className="text-sm text-[#9CA3AF]">/ 100{isStaleOrFallback ? "≈" : "°"}</span>
-            <span className="text-xs px-2.5 py-1 rounded-full bg-[#F3F4F6] text-[#8C3B32] font-semibold border border-[#E5E7EB] mr-auto">
+            <span className="text-xs px-2.5 py-1 rounded-full bg-[#F3F4F6] text-[#8C3B32] font-semibold border border-[#E5E7EB] ml-auto">
               {statusLabel}
             </span>
           </div>
@@ -142,29 +143,29 @@ export default function RebhRadarScore({
           <div className="text-xs text-[#6B7280] space-y-1.5 leading-relaxed">
             <div className="flex items-center gap-4">
               {sectorRank != null && (
-                <span>الرتبة القطاعية: <b className="text-[#1A1A1A] font-mono">#{sectorRank}</b> في ({sec})</span>
+                <span>Sector Rank: <b className="text-[#1A1A1A] font-mono">#{sectorRank}</b> in ({sec})</span>
               )}
               {marketRank != null && (
-                <span>الرتبة في تاسي: <b className="text-[#1A1A1A] font-mono">#{marketRank}</b></span>
+                <span>TASI Rank: <b className="text-[#1A1A1A] font-mono">#{marketRank}</b></span>
               )}
-              <span>المئين القطاعي: <b className="text-[#1A1A1A] font-mono">{comp.toFixed(0)}%</b></span>
+              <span>Sector Percentile: <b className="text-[#1A1A1A] font-mono">{comp.toFixed(0)}%</b></span>
             </div>
 
             {predictabilityStars != null && (
               <div className="flex items-center gap-2 pt-1">
-                <span className="text-xs text-[#4B5563] font-medium">استقرار مسار الأرباح (Predictability°):</span>
+                <span className="text-xs text-[#4B5563] font-medium">Earnings Stability (Predictability°):</span>
                 <span className="text-[#F59E0B] tracking-widest text-sm">
                   {"★".repeat(Math.max(1, Math.min(5, predictabilityStars)))}
                   {"☆".repeat(Math.max(0, 5 - Math.max(1, Math.min(5, predictabilityStars))))}
                 </span>
                 <span className="text-[10px] text-[#9CA3AF] font-mono">
-                  (GF Stars · نافذة 9 أرباع)
+                  (GF Stars · 9-quarter window)
                 </span>
               </div>
             )}
 
             <p className="text-[11px] text-[#9CA3AF]">
-              توليد مركب من العوامل الخمسة: التقييم ومعدلات النمو والربحية والرافعة المالية والتدفق النقدي الحر.
+              Composite of five factors: valuation, growth rates, profitability, financial leverage, and free cash flow.
             </p>
           </div>
 
@@ -172,16 +173,16 @@ export default function RebhRadarScore({
           <div className="flex flex-wrap gap-2 pt-3 border-t border-[#E5E7EB]">
             {goodCount > 0 && (
               <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#F0FDF4] text-[#16A34A] border border-[#BBF7D0]">
-                {goodCount} إشارة إيجابية
+                {goodCount} positive signals
               </span>
             )}
             {warnCount > 0 && (
               <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA]">
-                {warnCount} تنبيهات مخاطر
+                {warnCount} risk alerts
               </span>
             )}
             <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#F3F4F6] text-[#6B7280] border border-[#E5E7EB]">
-              تحديث القوائم: {isStaleOrFallback ? "تنبيه حداثة" : "مدقق ومطابق°"}
+              Statements update: {isStaleOrFallback ? "Freshness warning" : "Audited & reconciled°"}
             </span>
           </div>
         </div>

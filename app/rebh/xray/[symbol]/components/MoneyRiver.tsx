@@ -1,5 +1,5 @@
 import React from "react";
-import { TrendingUp, ArrowDownLeft, ArrowUpLeft } from "lucide-react";
+import { TrendingUp, ArrowDownRight, ArrowUpRight } from "lucide-react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -28,7 +28,7 @@ export function FlowBar({ label, value, max, color, unit = "M SAR" }: FlowBarPro
 
   return (
     <div className="flex items-center gap-3 group">
-      <span className="text-[11px] font-semibold text-[#374151] w-36 shrink-0 text-right flex items-center justify-end gap-1">
+      <span className="text-[11px] font-semibold text-[#374151] w-44 shrink-0 text-left flex items-center justify-start gap-1">
         {label}
       </span>
       {/* Bidirectional visual cue */}
@@ -39,15 +39,15 @@ export function FlowBar({ label, value, max, color, unit = "M SAR" }: FlowBarPro
           style={{
             width: `${pct}%`,
             backgroundImage: isNeg
-              ? "linear-gradient(to left, #DC2626, #FCA5A5)"
-              : `linear-gradient(to left, ${color}, ${color}CC)`,
+              ? "linear-gradient(to right, #DC2626, #FCA5A5)"
+              : `linear-gradient(to right, ${color}, ${color}CC)`,
           }}
         >
           {pct > 12 &&
             (isNeg ? (
-              <ArrowDownLeft size={10} className="text-white/95" strokeWidth={2.5} />
+              <ArrowDownRight size={10} className="text-white/95" strokeWidth={2.5} />
             ) : (
-              <ArrowUpLeft size={10} className="text-white/90 mr-1" strokeWidth={2.5} />
+              <ArrowUpRight size={10} className="text-white/90 ml-1" strokeWidth={2.5} />
             ))}
         </div>
       </div>
@@ -164,14 +164,14 @@ export function MoneyRiverSection({
         <div>
           <h3 className="text-sm font-bold text-[#1A1A1A] flex items-center gap-2">
             <TrendingUp size={15} className="text-[#8C3B32]" />
-            نهر المال التفاعلي — Interactive Money River ({activePeriod})
+            Interactive Money River ({activePeriod})
           </h3>
           <p className="text-xs text-[#6B7280] mt-0.5">
-            تدرج توليد وتوزيع القيمة من إجمالي الإيرادات حتى الكاش الحر النهائي (FCF).
+            How value is generated and distributed, from total revenue down to final Free Cash Flow (FCF).
           </p>
         </div>
         <span className="text-[10px] font-mono text-[#64748B] bg-[#F8FAFC] border border-[#E2E8F0] px-2.5 py-1 rounded-[6px]">
-          وحدة: مليون SAR
+          Unit: SAR millions
         </span>
       </div>
 
@@ -195,7 +195,7 @@ export function MoneyRiverSection({
             <YAxis
               tick={{ fontSize: 10, fill: "#64748B" }}
               tickFormatter={(val) => `${Number(val).toLocaleString()}M`}
-              orientation="right"
+              orientation="left"
             />
             <ReferenceLine y={0} stroke="#CBD5E1" strokeWidth={1} />
             <RechartsTooltip
@@ -216,7 +216,7 @@ export function MoneyRiverSection({
                       <p className="text-[11px] text-[#94A3B8]">{d.desc}</p>
                       {rev > 0 && (
                         <div className="text-[10px] font-mono text-[#CBD5E1] pt-1 tabular-nums">
-                          يمثل {Math.abs((d.rawVal / rev) * 100).toFixed(1)}% من إجمالي الإيراد
+                          Represents {Math.abs((d.rawVal / rev) * 100).toFixed(1)}% of total revenue
                         </div>
                       )}
                     </div>
@@ -243,20 +243,20 @@ export function MoneyRiverSection({
 
       {/* Detailed Metric Rows */}
       <div className="space-y-2 pt-2 border-t border-[#E5E7EB]">
-        <FlowBar label="الإيرادات (Revenue)" value={rev} max={rev} color="#2563EB" />
-        <FlowBar label="تكلفة المبيعات (COGS)" value={-cogs} max={rev} color="#94A3B8" />
-        <FlowBar label="إجمالي الربح (GP)" value={gp} max={rev} color="#16A34A" />
-        <FlowBar label="الربح التشغيلي (EBIT)" value={op} max={rev} color="#8C3B32" />
-        <FlowBar label="صافي الربح (Net Income)" value={net} max={rev} color="#DC2626" />
+        <FlowBar label="Revenue" value={rev} max={rev} color="#2563EB" />
+        <FlowBar label="Cost of Goods Sold (COGS)" value={-cogs} max={rev} color="#94A3B8" />
+        <FlowBar label="Gross Profit (GP)" value={gp} max={rev} color="#16A34A" />
+        <FlowBar label="Operating Profit (EBIT)" value={op} max={rev} color="#8C3B32" />
+        <FlowBar label="Net Income" value={net} max={rev} color="#DC2626" />
         <div className="border-t border-dashed border-[#E5E7EB] pt-1" />
-        <FlowBar label="التدفق التشغيلي (CFO)" value={cfo} max={Math.abs(rev)} color="#059669" />
-        <FlowBar label="الإنفاق الرأسمالي (CapEx)" value={-capex} max={Math.abs(rev)} color="#D97706" />
-        <FlowBar label="التدفق الحر (FCF)" value={fcf} max={Math.abs(rev)} color="#0D9488" />
+        <FlowBar label="Operating Cash Flow (CFO)" value={cfo} max={Math.abs(rev)} color="#059669" />
+        <FlowBar label="Capital Expenditure (CapEx)" value={-capex} max={Math.abs(rev)} color="#D97706" />
+        <FlowBar label="Free Cash Flow (FCF)" value={fcf} max={Math.abs(rev)} color="#0D9488" />
       </div>
 
       {showFormulas && (
         <div className="text-[10px] font-mono text-[#64748B] bg-[#F8FAFC] border border-[#E2E8F0] rounded-[6px] px-3 py-2 mt-1">
-          GP = Rev − COGS · EBIT = GP − OpEx · FCF = CFO − |CapEx| · الأشرطة الحمراء بعلامة ▼ = قيم سالبة
+          GP = Rev − COGS · EBIT = GP − OpEx · FCF = CFO − |CapEx| · Red bars marked ▼ = negative values
         </div>
       )}
     </SectionPanel>

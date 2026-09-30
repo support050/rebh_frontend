@@ -40,13 +40,13 @@ const STORAGE_KEY = "rebh-trade-journal-v2";
 const CAPITAL_KEY = "rebh-trade-journal-capital-v2";
 
 const DEMO_TRADES: Trade[] = [
-    { id: "demo-1", symbol: "1120", type: "buy", shares: 200, buyPrice: 58, sellPrice: 64.4, reason: "تسارع أرباح ربعي + دخول عند المنطقة الفضية", status: "closed", createdAt: "2026-05-02", isLocalOnly: false },
-    { id: "demo-2", symbol: "7010", type: "buy", shares: 300, buyPrice: 39, sellPrice: 43.7, reason: "دخول عند المنطقة الفضية — نمو مستدام", status: "closed", createdAt: "2026-05-10", isLocalOnly: false },
-    { id: "demo-3", symbol: "4300", type: "buy", shares: 500, buyPrice: 22, sellPrice: 20.3, reason: "خروج: تغطية الفوائد أقل من 2× — كسر عنصر أمان", status: "closed", createdAt: "2026-05-18", isLocalOnly: false },
-    { id: "demo-4", symbol: "2030", type: "buy", shares: 150, buyPrice: 48, sellPrice: 51.2, reason: "شراء عند نطاق قاع الدورة (14-16× أرباح القاع)", status: "closed", createdAt: "2026-06-01", isLocalOnly: false },
-    { id: "demo-5", symbol: "1010", type: "buy", shares: 400, buyPrice: 18.5, sellPrice: 20.2, reason: "قصة تحسن هامش الفائدة الصافي (NIM)", status: "closed", createdAt: "2026-06-12", isLocalOnly: false },
-    { id: "demo-6", symbol: "2222", type: "buy", shares: 250, buyPrice: 28, sellPrice: 26.6, reason: "خروج: القوائم المالية غير محدّثة (stale)", status: "closed", createdAt: "2026-06-20", isLocalOnly: false },
-    { id: "demo-7", symbol: "1211", type: "buy", shares: 100, buyPrice: 72, sellPrice: null, reason: "مركز نشط — بانتظار نتائج الربع القادم", status: "active", createdAt: "2026-07-15", isLocalOnly: false },
+    { id: "demo-1", symbol: "1120", type: "buy", shares: 200, buyPrice: 58, sellPrice: 64.4, reason: "Quarterly earnings acceleration + entry at the silver zone", status: "closed", createdAt: "2026-05-02", isLocalOnly: false },
+    { id: "demo-2", symbol: "7010", type: "buy", shares: 300, buyPrice: 39, sellPrice: 43.7, reason: "Entry at the silver zone — sustainable growth", status: "closed", createdAt: "2026-05-10", isLocalOnly: false },
+    { id: "demo-3", symbol: "4300", type: "buy", shares: 500, buyPrice: 22, sellPrice: 20.3, reason: "Exit: interest coverage below 2× — safety element breached", status: "closed", createdAt: "2026-05-18", isLocalOnly: false },
+    { id: "demo-4", symbol: "2030", type: "buy", shares: 150, buyPrice: 48, sellPrice: 51.2, reason: "Bought at the cycle-bottom range (14-16× trough earnings)", status: "closed", createdAt: "2026-06-01", isLocalOnly: false },
+    { id: "demo-5", symbol: "1010", type: "buy", shares: 400, buyPrice: 18.5, sellPrice: 20.2, reason: "Net interest margin (NIM) improvement story", status: "closed", createdAt: "2026-06-12", isLocalOnly: false },
+    { id: "demo-6", symbol: "2222", type: "buy", shares: 250, buyPrice: 28, sellPrice: 26.6, reason: "Exit: financial statements not updated (stale)", status: "closed", createdAt: "2026-06-20", isLocalOnly: false },
+    { id: "demo-7", symbol: "1211", type: "buy", shares: 100, buyPrice: 72, sellPrice: null, reason: "Active position — awaiting next quarter's results", status: "active", createdAt: "2026-07-15", isLocalOnly: false },
 ];
 
 function generateUuid(): string {
@@ -136,8 +136,8 @@ export default function TradeJournalTab() {
             } else {
                 setError(
                     res.status === 401
-                        ? "جلسة غير مسجلة — يتم حفظ بيانات الصفقات على هذا المتصفح محلياً"
-                        : "تعذر الاتصال بالخادم — يتم استخدام النسخة المحلية المخزنة"
+                        ? "Not signed in — trade data is saved locally in this browser"
+                        : "Unable to reach the server — using the locally stored copy"
                 );
                 setSyncState("local");
                 try {
@@ -155,7 +155,7 @@ export default function TradeJournalTab() {
             isInitialLoadRef.current = false;
         } catch (e: unknown) {
             if ((e as Error)?.name === "AbortError") return;
-            setError("حدث خطأ أثناء تحميل سجل الصفقات");
+            setError("An error occurred while loading the trade journal");
             setSyncState("local");
             isInitialLoadRef.current = false;
         } finally {
@@ -286,12 +286,12 @@ export default function TradeJournalTab() {
                 const res = await updateTradeApi(targetId, payload);
                 if (!res.ok) {
                     setTrades((prev) => prev.map((t) => (t.id === targetId ? original : t)));
-                    setError(`تعذر تحديث الصفقة على الخادم (${res.status}) — تم إلغاء الإغلاق`);
+                    setError(`Failed to update the trade on the server (${res.status}) — the close was reverted`);
                 }
             } catch (err) {
                 console.error("Failed to update trade on server", err);
                 setTrades((prev) => prev.map((t) => (t.id === targetId ? original : t)));
-                setError("تعذر تحديث الصفقة بسبب انقطاع الاتصال — تم إلغاء الإغلاق");
+                setError("Failed to update the trade due to a connection loss — the close was reverted");
             }
         }
     }
@@ -319,7 +319,7 @@ export default function TradeJournalTab() {
                         }
                         return next;
                     });
-                    setError(`تعذر حذف الصفقة من الخادم (${res.status}) — تمت استعادة الصفقة`);
+                    setError(`Failed to delete the trade from the server (${res.status}) — the trade was restored`);
                 }
             } catch (err) {
                 console.error("Failed to delete trade on server", err);
@@ -332,7 +332,7 @@ export default function TradeJournalTab() {
                     }
                     return next;
                 });
-                setError("تعذر حذف الصفقة بسبب انقطاع الاتصال — تمت استعادة الصفقة");
+                setError("Failed to delete the trade due to a connection loss — the trade was restored");
             }
         }
     }
@@ -363,15 +363,15 @@ export default function TradeJournalTab() {
 
     const exportJournalCSV = () => {
         if (computedTrades.length === 0) return;
-        const headers = ["التاريخ", "الرمز", "النوع", "الحالة", "الكمية", "سعر الشراء", "سعر البيع", "العائد %", "الربح/الخسارة", "سبب الصفقة"];
+        const headers = ["Date", "Symbol", "Type", "Status", "Quantity", "Buy Price", "Sell Price", "Return %", "P&L", "Trade Rationale"];
         const rows = computedTrades.map((t) => {
             const retText = t.ret != null ? (t.ret * 100).toFixed(2) : "—";
             const pnlText = t.pnl != null ? t.pnl.toFixed(2) : "—";
             return [
                 t.createdAt,
                 t.symbol,
-                t.type === "buy" ? "شراء" : "بيع",
-                t.status === "closed" ? "مغلقة" : "نشطة",
+                t.type === "buy" ? "Buy" : "Sell",
+                t.status === "closed" ? "Closed" : "Active",
                 t.shares,
                 t.buyPrice,
                 t.sellPrice != null ? t.sellPrice : "—",
@@ -397,14 +397,14 @@ export default function TradeJournalTab() {
                 <div>
                     <div className="flex items-center gap-2 mb-1">
                         <h2 className="text-base font-bold text-[#1A1A1A]">
-                            سجل وانضباط الصفقات (Trade Journal — جلسة العامر + معادلة مينرفيني)
+                            Trade Journal &amp; Discipline (Al-Amer Session + Minervini Expectancy Formula)
                         </h2>
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#F0FDF4] text-[#16A34A] border border-[#BBF7D0]">
-                            قاعدة بيانات موحدة
+                            Unified database
                         </span>
                     </div>
                     <p className="text-xs text-[#6B7280]">
-                        تطبيق مباشر لمنهجية أحمد العامر في تسجيل الصفقات ومراقبة قاعدة قيد الخسارة ≤3% من رأس المال، وحساب الأمل الرياضي لمينرفيني.
+                        A direct application of Ahmed Al-Amer&apos;s trade-logging methodology, monitoring the loss cap rule of ≤3% of capital and computing Minervini&apos;s mathematical expectancy.
                     </p>
                 </div>
 
@@ -414,7 +414,7 @@ export default function TradeJournalTab() {
                         href="/rebh/journal"
                         className="px-3 py-1.5 bg-[#FBEAE8] hover:bg-[#F7D8D3] text-[#8C3B32] border border-[#F0CFC9] rounded-[4px] text-xs font-bold inline-flex items-center gap-1.5 transition"
                     >
-                        <span>فتح الصفحة المستقلة الكاملة (مع دليل الباب 7)</span>
+                        <span>Open the full standalone page (with the Chapter 7 guide)</span>
                         <ExternalLink size={13} />
                     </Link>
 
@@ -430,15 +430,15 @@ export default function TradeJournalTab() {
                         />
                         <span className="text-[#6B7280]">
                             {syncState === "synced"
-                                ? "متصل ومُزامن"
+                                ? "Connected & synced"
                                 : syncState === "local"
-                                    ? "محلي (Local)"
-                                    : "مزامنة…"}
+                                    ? "Local"
+                                    : "Syncing…"}
                         </span>
                         <button
                             type="button"
                             onClick={triggerRefresh}
-                            title="إعادة التحديث"
+                            title="Refresh"
                             className="p-0.5 rounded text-[#6B7280] hover:text-[#1A1A1A] transition"
                         >
                             <RefreshCw size={11} className={loading ? "animate-spin" : ""} />
@@ -452,14 +452,14 @@ export default function TradeJournalTab() {
                         className="px-3 py-1.5 bg-white border border-[#E5E7EB] hover:bg-[#F7F8FA] text-[#1A1A1A] rounded-[4px] text-xs font-semibold inline-flex items-center gap-1.5 transition disabled:opacity-50"
                     >
                         <Download className="w-3.5 h-3.5 text-[#6B7280]" />
-                        تصدير CSV
+                        Export CSV
                     </button>
 
                     {trades.length > 0 && (
                         <button
                             onClick={() => setShowClearConfirm(true)}
                             className="p-1.5 text-[#6B7280] hover:text-[#DC2626] transition bg-white border border-[#E5E7EB] rounded-[4px]"
-                            title="مسح الصفقات المحلية"
+                            title="Clear local trades"
                         >
                             <RotateCcw className="w-3.5 h-3.5" />
                         </button>
@@ -471,7 +471,7 @@ export default function TradeJournalTab() {
             {error && (
                 <div
                     role="status"
-                    className="p-3 rounded-[4px] bg-[#FFFBEB] border border-[#FDE68A] border-r-4 border-r-[#B45309] text-[12px] text-[#92400E] flex items-center justify-between"
+                    className="p-3 rounded-[4px] bg-[#FFFBEB] border border-[#FDE68A] border-l-4 border-l-[#B45309] text-[12px] text-[#92400E] flex items-center justify-between"
                 >
                     <div className="flex items-center gap-2">
                         <AlertTriangle size={15} />
@@ -482,7 +482,7 @@ export default function TradeJournalTab() {
                         onClick={() => setError(null)}
                         className="text-[11px] font-bold underline hover:text-[#78350F]"
                     >
-                        تجاهل
+                        Dismiss
                     </button>
                 </div>
             )}
@@ -491,13 +491,13 @@ export default function TradeJournalTab() {
             {stats.oversizedLosses.length > 0 && (
                 <div
                     role="status"
-                    className="p-3.5 rounded-[4px] bg-[#FEF2F2] border border-[#FECACA] border-r-4 border-r-[#DC2626] text-[12.5px] text-[#DC2626] flex items-center justify-between gap-3"
+                    className="p-3.5 rounded-[4px] bg-[#FEF2F2] border border-[#FECACA] border-l-4 border-l-[#DC2626] text-[12.5px] text-[#DC2626] flex items-center justify-between gap-3"
                 >
                     <div className="flex items-center gap-2">
                         <ShieldAlert size={18} className="shrink-0" />
                         <div>
-                            <b>تنبيه انضباط ⚑:</b> يوجد {stats.oversizedLosses.length} صفقة تجاوزت خسارتها {BENCHMARKS.MAX_LOSS_PCT * 100}% من رأس المال الحالي ({formatNum(capital, 0)} SAR).
-                            تذكر دائماً مبدأ أحمد العامر: <i>«حجم المركز، لا أمر وقف الخسارة، هو خط الدفاع الأول عن المحفظة»</i>.
+                            <b>Discipline alert ⚑:</b> {stats.oversizedLosses.length} {stats.oversizedLosses.length === 1 ? "trade" : "trades"} exceeded a loss of {BENCHMARKS.MAX_LOSS_PCT * 100}% of current capital ({formatNum(capital, 0)} SAR).
+                            Always remember Ahmed Al-Amer&apos;s principle: <i>“Position size, not the stop-loss order, is the portfolio&apos;s first line of defense.”</i>.
                         </div>
                     </div>
                 </div>
@@ -507,8 +507,8 @@ export default function TradeJournalTab() {
             <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
                 <KpiCard
                     icon={<CheckCircle2 size={18} className={stats.winRate != null && stats.winRate >= BENCHMARKS.MIN_WIN_RATE ? "text-[#16A34A]" : "text-[#B45309]"} />}
-                    label="معدل الربح (Win Rate)"
-                    sublabel={`الهدف ≥ ${BENCHMARKS.MIN_WIN_RATE * 100}%`}
+                    label="Win Rate"
+                    sublabel={`Target ≥ ${BENCHMARKS.MIN_WIN_RATE * 100}%`}
                     value={stats.winRate != null ? formatPct(stats.winRate * 100, 0, false) : "—"}
                     valueColor={
                         stats.winRate == null
@@ -519,20 +519,20 @@ export default function TradeJournalTab() {
                                     ? "text-[#B45309]"
                                     : "text-[#DC2626]"
                     }
-                    badge={stats.winRate != null && stats.winRate >= BENCHMARKS.MIN_WIN_RATE ? "ضمن معيار الدورة" : undefined}
+                    badge={stats.winRate != null && stats.winRate >= BENCHMARKS.MIN_WIN_RATE ? "Meets course standard" : undefined}
                     honestyMark={stats.hasLowSample ? "⚠" : "°"}
-                    honestyTooltip={stats.hasLowSample ? `⚠ عدد الصفقات المغلقة أقل من ${BENCHMARKS.MIN_SAMPLE_SIZE} صفقات` : "° محسوب من الصفقات المغلقة الفعلية"}
+                    honestyTooltip={stats.hasLowSample ? `⚠ Fewer than ${BENCHMARKS.MIN_SAMPLE_SIZE} closed trades` : "° Computed from actual closed trades"}
                     footnote={
                         stats.closedCount > 0
-                            ? `${stats.wins} رابحة / ${stats.losses} خاسرة من إجمالي ${stats.closedCount} صفقة مغلقة`
-                            : "لا توجد صفقات مغلقة بعد لاحتساب المعدل"
+                            ? `${stats.wins} winning / ${stats.losses} losing out of ${stats.closedCount} closed trades`
+                            : "No closed trades yet to compute the rate"
                     }
                 />
 
                 <KpiCard
                     icon={<TrendingUp size={18} className="text-[#2563EB]" />}
-                    label="المكافأة / المخاطرة (R/R)"
-                    sublabel={`الهدف ≥ ${BENCHMARKS.MIN_RR_TARGET.toFixed(1)}×`}
+                    label="Reward / Risk (R/R)"
+                    sublabel={`Target ≥ ${BENCHMARKS.MIN_RR_TARGET.toFixed(1)}×`}
                     value={stats.rr != null ? `${formatNum(stats.rr, 2)}×` : "—"}
                     valueColor={
                         stats.rr == null
@@ -543,24 +543,24 @@ export default function TradeJournalTab() {
                                     ? "text-[#B45309]"
                                     : "text-[#DC2626]"
                     }
-                    badge={stats.rr != null && stats.rr >= BENCHMARKS.MIN_RR_TARGET ? `الهدف ≥ ${BENCHMARKS.MIN_RR_TARGET}×` : undefined}
+                    badge={stats.rr != null && stats.rr >= BENCHMARKS.MIN_RR_TARGET ? `Target ≥ ${BENCHMARKS.MIN_RR_TARGET}×` : undefined}
                     honestyMark={stats.hasLowSample ? "⚠" : "°"}
                     honestyTooltip={
                         stats.hasLowSample
-                            ? `⚠ عدد الصفقات المغلقة أقل من ${BENCHMARKS.MIN_SAMPLE_SIZE} صفقات`
-                            : "° نسبة متوسط العائد في الصفقات الرابحة إلى متوسط الخسارة في الصفقات الخاسرة"
+                            ? `⚠ Fewer than ${BENCHMARKS.MIN_SAMPLE_SIZE} closed trades`
+                            : "° Ratio of average return on winning trades to average loss on losing trades"
                     }
                     footnote={
                         stats.closedCount > 0
-                            ? `متوسط ربح ${stats.avgGain != null ? formatPct(stats.avgGain * 100, 1) : "—"} / متوسط خسارة ${stats.avgLoss != null ? formatPct(-stats.avgLoss * 100, 1) : "لا توجد خسائر"}`
-                            : "يتطلب صفقات رابحة وخاسرة لحساب النسبة"
+                            ? `Average gain ${stats.avgGain != null ? formatPct(stats.avgGain * 100, 1) : "—"} / average loss ${stats.avgLoss != null ? formatPct(-stats.avgLoss * 100, 1) : "no losses"}`
+                            : "Requires winning and losing trades to compute the ratio"
                     }
                 />
 
                 <KpiCard
                     icon={<DollarSign size={18} className={stats.expectancyPct != null && stats.expectancyPct > 0 ? "text-[#16A34A]" : "text-[#DC2626]"} />}
-                    label="التوقّع الرياضي (Expectancy)"
-                    sublabel="رياضيات مينرفيني"
+                    label="Mathematical Expectancy"
+                    sublabel="Minervini mathematics"
                     value={stats.expectancyPct != null ? formatPct(stats.expectancyPct * 100, 2) : "—"}
                     valueColor={
                         stats.expectancyPct == null
@@ -572,35 +572,35 @@ export default function TradeJournalTab() {
                     honestyMark={stats.hasLowSample ? ["⚠", "≈"] : "≈"}
                     honestyTooltip={
                         stats.hasLowSample
-                            ? `⚠ عدد الصفقات المغلقة أقل من ${BENCHMARKS.MIN_SAMPLE_SIZE} — ≈ تقدير بافتراض حجم مركز ${BENCHMARKS.POSITION_SIZE_RATIO * 100}% من رأس المال`
-                            : `≈ تقدير القيمة النقدية بافتراض حجم مركز ${BENCHMARKS.POSITION_SIZE_RATIO * 100}% من رأس المال الحالي`
+                            ? `⚠ Fewer than ${BENCHMARKS.MIN_SAMPLE_SIZE} closed trades — ≈ estimate assuming a ${BENCHMARKS.POSITION_SIZE_RATIO * 100}% position size of capital`
+                            : `≈ Cash value estimate assuming a ${BENCHMARKS.POSITION_SIZE_RATIO * 100}% position size of current capital`
                     }
                     footnote={
                         stats.expectancySar != null
-                            ? `${formatSar(stats.expectancySar, 0)} ≈ عائد متوقع لكل صفقة (بافتراض مركز ${BENCHMARKS.POSITION_SIZE_RATIO * 100}%)`
+                            ? `${formatSar(stats.expectancySar, 0)} ≈ expected return per trade (assuming a ${BENCHMARKS.POSITION_SIZE_RATIO * 100}% position)`
                             : stats.closedCount === 0
-                                ? "لا توجد صفقات مغلقة بعد لاحتساب التوقع"
+                                ? "No closed trades yet to compute expectancy"
                                 : stats.losses === 0
-                                    ? "يتطلب وجود صفقات خاسرة مغلقة لتحديد متوسط الخسارة"
+                                    ? "Requires closed losing trades to determine the average loss"
                                     : stats.wins === 0
-                                        ? "يتطلب وجود صفقات رابحة مغلقة لتحديد متوسط الربح"
-                                        : "المعادلة: (نسبة الربح × متوسط الربح) - (نسبة الخسارة × متوسط الخسارة)"
+                                        ? "Requires closed winning trades to determine the average gain"
+                                        : "Formula: (win rate × average gain) - (loss rate × average loss)"
                     }
                 />
 
                 <KpiCard
                     icon={<DollarSign size={18} className={stats.netPnl >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"} />}
-                    label="صافي الأرباح المحققة"
-                    sublabel="الربح الفعلي"
+                    label="Net Realized Profit"
+                    sublabel="Actual profit"
                     value={formatSar(stats.netPnl, 0)}
                     valueColor={stats.netPnl > 0 ? "text-[#16A34A]" : stats.netPnl < 0 ? "text-[#DC2626]" : "text-[#1A1A1A]"}
                     honestyMark={stats.hasLowSample ? "⚠" : "°"}
                     honestyTooltip={
                         stats.hasLowSample
-                            ? `⚠ عدد الصفقات المغلقة أقل من ${BENCHMARKS.MIN_SAMPLE_SIZE} صفقات`
-                            : "° صافي ناتج الصفقات المغلقة بالريال السعودي"
+                            ? `⚠ Fewer than ${BENCHMARKS.MIN_SAMPLE_SIZE} closed trades`
+                            : "° Net result of closed trades in Saudi riyals"
                     }
-                    footnote={`${stats.activeCount} مراكز نشطة حالياً تحت المتابعة`}
+                    footnote={`${stats.activeCount} active ${stats.activeCount === 1 ? "position" : "positions"} currently being monitored`}
                 />
             </section>
 
@@ -608,7 +608,7 @@ export default function TradeJournalTab() {
             <Card className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-3">
                     <label className="flex items-center gap-2 text-[12px] text-[#4B5563]">
-                        <span className="font-semibold whitespace-nowrap">رأس المال الإجمالي (SAR):</span>
+                        <span className="font-semibold whitespace-nowrap">Total Capital (SAR):</span>
                         <input
                             type="number"
                             inputMode="numeric"
@@ -616,7 +616,7 @@ export default function TradeJournalTab() {
                             onChange={(e) => setCapitalInput(e.target.value)}
                             onBlur={handleCapitalBlur}
                             className="w-36 bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px] px-3 py-1.5 text-[13px] font-mono tabular-nums font-bold text-[#1A1A1A] outline-none focus:border-[#8C3B32] focus:ring-2 focus:ring-[#8C3B32]/10 dir-ltr text-right"
-                            title="اضغط خارج الحقل لتحديث رأس المال"
+                            title="Click outside the field to update capital"
                         />
                     </label>
 
@@ -624,14 +624,14 @@ export default function TradeJournalTab() {
                         variant="primary"
                         onClick={() => setShowForm((s) => !s)}
                     >
-                        <PlusCircle size={15} className="ml-1.5" />
-                        {showForm ? "إغلاق النموذج" : "تسجيل صفقة جديدة"}
+                        <PlusCircle size={15} className="mr-1.5" />
+                        {showForm ? "Close form" : "Log a new trade"}
                     </Button>
                 </div>
 
                 <div className="flex items-center gap-2">
                     <Button variant="ghost" onClick={() => setShowDemoConfirm(true)}>
-                        تحميل بيانات تجريبية
+                        Load demo data
                     </Button>
                 </div>
             </Card>
@@ -667,9 +667,9 @@ export default function TradeJournalTab() {
             {/* Delete Single Trade Confirm Modal */}
             {tradeToDelete && (
                 <ConfirmDialog
-                    title={`حذف صفقة ${tradeToDelete.symbol}`}
-                    message={`هل أنت متأكد من رغبتك في حذف صفقة ${tradeToDelete.symbol} (${tradeToDelete.shares} سهم)؟ لا يمكن التراجع عن هذا الإجراء.`}
-                    confirmText="حذف الصفقة"
+                    title={`Delete ${tradeToDelete.symbol} trade`}
+                    message={`Are you sure you want to delete the ${tradeToDelete.symbol} trade (${tradeToDelete.shares} shares)? This action cannot be undone.`}
+                    confirmText="Delete trade"
                     danger
                     onConfirm={handleDeleteTradeConfirm}
                     onCancel={() => setTradeToDelete(null)}
@@ -679,9 +679,9 @@ export default function TradeJournalTab() {
             {/* Load Demo Data Confirm Modal */}
             {showDemoConfirm && (
                 <ConfirmDialog
-                    title="تحميل البيانات التجريبية"
-                    message="هل أنت متأكد من رغبتك في تحميل البيانات التجريبية؟ سيؤدي ذلك إلى استبدال الصفقات الحالية المعروضة بنموذج بيانات توضيحي لمنهجية الدورة."
-                    confirmText="تحميل النموذج التجريبي"
+                    title="Load demo data"
+                    message="Are you sure you want to load the demo data? This will replace the currently displayed trades with a sample dataset illustrating the course methodology."
+                    confirmText="Load demo sample"
                     onConfirm={handleLoadDemoConfirm}
                     onCancel={() => setShowDemoConfirm(false)}
                 />
@@ -690,9 +690,9 @@ export default function TradeJournalTab() {
             {/* Clear Confirm Modal */}
             {showClearConfirm && (
                 <ConfirmDialog
-                    title="مسح جميع الصفقات"
-                    message="هل أنت متأكد من رغبتك في مسح جميع الصفقات المحلية؟ لا يمكن استرجاع الصفقات بعد مسحها."
-                    confirmText="تأكيد المسح"
+                    title="Clear all trades"
+                    message="Are you sure you want to clear all local trades? Trades cannot be recovered after clearing."
+                    confirmText="Confirm clear"
                     danger
                     onConfirm={handleClearConfirm}
                     onCancel={() => setShowClearConfirm(false)}

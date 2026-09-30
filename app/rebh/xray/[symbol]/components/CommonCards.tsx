@@ -69,7 +69,7 @@ export function KpiCard({
         {val != null
           ? val.toLocaleString(undefined, { maximumFractionDigits: maxFractionDigits })
           : "—"}
-        {unit && <span className="text-xs font-normal mr-1 text-[#64748B]">{unit}</span>}
+        {unit && <span className="text-xs font-normal ml-1 text-[#64748B]">{unit}</span>}
       </span>
 
       {note && (

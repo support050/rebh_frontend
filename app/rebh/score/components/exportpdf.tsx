@@ -41,37 +41,38 @@ export async function generateScorecardPdf(d: ScorecardPdfData): Promise<void> {
   const { doc } = ctx;
 
   ctx.drawHeader({
-    title: "بطاقة تغطية المنصة — 35 متطلباً",
-    subtitle: "Platform Coverage Scorecard",
+    title: "Platform Coverage Scorecard — 35 Requirements",
+    subtitle: "Investment Advisor & Institutional Standards Coverage Matrix",
   });
 
   ctx.paragraph(
-    "35 مستشاراً ومعياراً استثمارياً ومؤسسياً — كل واحد له مطلب محدد، والمنصة توثّق كيف تُجيب عنه. هذه المصفوفة تغطية توثيقية وليست درجات محسوبة مستقلة لكل مستشار.",
+    "35 investment advisors and institutional standards — each with a specific requirement, and the platform documents how it answers each one. This matrix is a documented coverage map, not an independently computed score for each advisor.",
     { size: 10 }
   );
   ctx.paragraph(
-    "تنبيه: هذا Scorecard يقيّم تغطية المنصة لا السهم — score: 10 يعني أن الأداة متوفرة، لا أن كل سهم مناسب للشراء.",
+    "Note: this Scorecard evaluates platform coverage, not any individual stock — a score of 10 means the tool is available, not that every stock is a suitable buy.",
     { size: 9.5 }
   );
 
   // ── Live stats ─────────────────────────────────────────────────────────────
   if (d.liveData) {
-    ctx.heading("أرقام حية من قاعدة البيانات", 6);
+    ctx.heading("Live Database Figures", 6);
     ctx.kvTable([
-      ["تاريخ الحساب", d.liveData.computed_at ?? "—"],
-      ["كون الشركات", `${num(d.liveData.total_coverage)} شركة`],
-      ["مجتازة الاختبار", `${num(d.liveData.pass_count)} شركة`],
-      ["محجورة (Too-Hard)", `${num(d.liveData.stale_quarantined)} شركة`],
-      ["أسعار سوقية حية", `${num(d.liveData.live_price_symbols)} رمز`],
-      ["قطاعات فريدة", `${num(d.liveData.sectors_unique)} قطاع`],
+      ["Computed At", d.liveData.computed_at ?? "—"],
+      ["Company Universe", `${num(d.liveData.total_coverage)} companies`],
+      ["Passed Screening", `${num(d.liveData.pass_count)} companies`],
+      ["Quarantined (Too-Hard Pile)", `${num(d.liveData.stale_quarantined)} companies`],
+      ["Live Market Prices", `${num(d.liveData.live_price_symbols)} symbols`],
+      ["Unique Sectors", `${num(d.liveData.sectors_unique)} sectors`],
     ]);
   }
 
   // ── Coverage matrix (per school) ───────────────────────────────────────────
   d.groups.forEach((g) => {
-    ctx.heading(`${g.label} (${g.labelEn}) — ${g.rows.length} متطلبات`, g.rows.length + 1);
+    const groupTitle = g.labelEn && g.labelEn !== g.label ? `${g.label} (${g.labelEn})` : g.label;
+    ctx.heading(`${groupTitle} — ${g.rows.length} requirements`, g.rows.length + 1);
     ctx.rtlGrid(
-      ["المستشار", "المطلب", "كيف تُجيب المنصة", "أين في المنصة"],
+      ["Advisor", "Requirement", "How the Platform Answers", "Where in the Platform"],
       g.rows.map((a) => [a.advisor, a.demand, a.platformAnswer, a.where]),
       30
     );

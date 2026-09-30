@@ -20,7 +20,7 @@ export function StoryCard({ icon, title, entry, showFormula }: StoryCardProps) {
         </div>
         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${c.badge}`}>
           <span>{c.glyph}</span>
-          <span>{entry.signal === "green" ? "إيجابي" : entry.signal === "amber" ? "انتبه" : "سلبي"}</span>
+          <span>{entry.signal === "green" ? "Positive" : entry.signal === "amber" ? "Caution" : "Negative"}</span>
         </span>
       </div>
       <p className="text-xs text-[#374151] leading-relaxed">{entry.text}</p>
@@ -43,36 +43,36 @@ export function StoryNarrativeSection({ story, showFormulas }: StorySectionProps
     <div className="space-y-3">
       <h3 className="text-sm font-bold text-[#1A1A1A] flex items-center gap-2">
         <Activity size={15} className="text-[#8C3B32]" />
-        قصة X-Ray — بطاقات القراءة السردية
+        X-Ray Story — Narrative Reading Cards
       </h3>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
         <StoryCard
           icon={<Droplets size={14} />}
-          title="قصة التدفق النقدي"
+          title="Cash Flow Story"
           entry={story.cash}
           showFormula={showFormulas}
         />
         <StoryCard
           icon={<Flame size={14} />}
-          title="قصة الهوامش"
+          title="Margin Story"
           entry={story.margin}
           showFormula={showFormulas}
         />
         <StoryCard
           icon={<Anchor size={14} />}
-          title="قصة الرافعة والديون"
+          title="Leverage & Debt Story"
           entry={story.leverage}
           showFormula={showFormulas}
         />
         <StoryCard
           icon={<Zap size={14} />}
-          title="قصة جودة الأرباح"
+          title="Earnings Quality Story"
           entry={story.quality}
           showFormula={showFormulas}
         />
         <StoryCard
           icon={<Wind size={14} />}
-          title="قصة التمويل والتوزيعات"
+          title="Funding & Distributions Story"
           entry={story.funding}
           showFormula={showFormulas}
         />

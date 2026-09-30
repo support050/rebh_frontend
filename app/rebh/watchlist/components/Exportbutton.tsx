@@ -6,8 +6,8 @@ import { Download, FileSpreadsheet, FileText, ChevronDown } from "lucide-react";
 // ---------------------------------------------------------------------------
 // Generic export helpers — no external dependencies (no xlsx/sheetjs needed).
 // CSV is exported natively. "Excel" is exported as an HTML-table .xls file,
-// which Excel / Google Sheets / LibreOffice open natively and correctly
-// render Arabic (UTF-8 BOM included).
+// which Excel / Google Sheets / LibreOffice open natively (UTF-8 BOM included
+// so any non-ASCII company names still render correctly).
 // ---------------------------------------------------------------------------
 
 export interface ExportColumn<T> {
@@ -46,7 +46,7 @@ export function exportToCsv<T>(rows: T[], columns: ExportColumn<T>[], filename: 
     const lines = rows.map((row) =>
         columns.map((c) => csvEscape(formatCell(c.value(row)))).join(",")
     );
-    // UTF-8 BOM so Excel opens Arabic text correctly instead of mojibake.
+    // UTF-8 BOM so Excel opens non-ASCII text correctly instead of mojibake.
     const csv = "\uFEFF" + [header, ...lines].join("\r\n");
     downloadBlob(csv, "text/csv;charset=utf-8;", filename);
 }
@@ -69,7 +69,7 @@ export function exportToExcel<T>(rows: T[], columns: ExportColumn<T>[], filename
         .join("");
 
     const html = `
-    <html dir="rtl">
+    <html dir="ltr">
       <head><meta charset="UTF-8" /></head>
       <body>
         <table border="1">
@@ -90,7 +90,7 @@ interface ExportButtonProps<T> {
     /** Rows to export — pass whatever is currently visible (already filtered by tab/screen/search/sector). */
     rows: T[];
     columns: ExportColumn<T>[];
-    /** Base filename without extension, e.g. "rebh-الجودة" */
+    /** Base filename without extension, e.g. "rebh-Quality" */
     filenameBase: string;
     /** Optional label shown next to the count, e.g. current screen/tab name */
     contextLabel?: string;
@@ -142,7 +142,7 @@ export function ExportButton<T>({
             >
                 <Download className="h-3.5 w-3.5" />
                 <span>
-                    تصدير{contextLabel ? ` (${contextLabel})` : ""} · {rows.length}
+                    Export{contextLabel ? ` (${contextLabel})` : ""} · {rows.length}
                 </span>
                 <ChevronDown className="h-3 w-3 opacity-60" />
             </button>
@@ -150,13 +150,13 @@ export function ExportButton<T>({
             {open && (
                 <div
                     role="menu"
-                    className="absolute left-0 z-20 mt-1 w-44 overflow-hidden rounded-[4px] border border-[#E5E7EB] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
+                    className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-[4px] border border-[#E5E7EB] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
                 >
                     <button
                         type="button"
                         role="menuitem"
                         onClick={handleCsv}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-right text-xs text-[#1A1A1A] hover:bg-[#F3F4F6]"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[#1A1A1A] hover:bg-[#F3F4F6]"
                     >
                         <FileText className="h-3.5 w-3.5 text-[#6B7280]" />
                         CSV
@@ -165,7 +165,7 @@ export function ExportButton<T>({
                         type="button"
                         role="menuitem"
                         onClick={handleExcel}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-right text-xs text-[#1A1A1A] hover:bg-[#F3F4F6]"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[#1A1A1A] hover:bg-[#F3F4F6]"
                     >
                         <FileSpreadsheet className="h-3.5 w-3.5 text-[#6B7280]" />
                         Excel (.xls)

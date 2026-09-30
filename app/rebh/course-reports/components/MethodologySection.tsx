@@ -12,25 +12,25 @@ const METHODOLOGY_SECTIONS: Record<string, {
   content: React.ReactNode;
 }> = {
   m1: {
-    title: "خريطة اختيار الطريقة",
-    subtitle: "شجرة القرار — من أين أبدأ؟",
+    title: "Method Selection Map",
+    subtitle: "Decision tree — where do I start?",
     content: (
       <div className="space-y-4 text-xs text-[#6B7280] leading-relaxed">
-        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-r-2 border-r-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <h4 className="text-[#1A1A1A] font-bold mb-2">السؤال الأول: هل الشركة تربح؟</h4>
+        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-l-2 border-l-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <h4 className="text-[#1A1A1A] font-bold mb-2">Question 1: Is the company profitable?</h4>
           <div className="space-y-1.5">
-            <p><span className="text-[#16A34A] font-bold">✓ نعم →</span> انتقل للسؤال الثاني.</p>
-            <p><span className="text-[#DC2626] font-bold">✗ لا →</span> <span className="text-[#8C3B32]">P/S (راجع الباب السادس)</span> إذا كانت تبيع. إذا لم تبع بعد: <span className="text-[#8C3B32]">rNPV أو الافتراض على الحقيقة</span>.</p>
+            <p><span className="text-[#16A34A] font-bold">✓ Yes →</span> go to Question 2.</p>
+            <p><span className="text-[#DC2626] font-bold">✗ No →</span> <span className="text-[#8C3B32]">P/S (see Chapter 6)</span> if it is selling. If it has not sold yet: <span className="text-[#8C3B32]">rNPV or the reality-based assumption</span>.</p>
           </div>
         </div>
-        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-r-2 border-r-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <h4 className="text-[#1A1A1A] font-bold mb-2">السؤال الثاني: ما نوع الشركة؟</h4>
+        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-l-2 border-l-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <h4 className="text-[#1A1A1A] font-bold mb-2">Question 2: What type of company is it?</h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
             {[
-              { type: "بنك أو تأمين", path: "عدة العسيري (NII, NIM, CASA, LDR, مخصصات/إيراد) — الباب الرابع" },
-              { type: "دورية (سلعة/إسمنت)", path: "نطاقات التاريخية + P/BV + إشارة الخروج — الباب الثالث" },
-              { type: "عقارية", path: "القيمة الدائمة + NAV + FFO — الباب الأول" },
-              { type: "دفاعية أو نمو", path: "المعادلات التسع (بدون نمو / جوردون / عابر) — الباب الثاني" },
+              { type: "Bank or insurer", path: "Al-Asiri toolkit (NII, NIM, CASA, LDR, provisions/revenue) — Chapter 4" },
+              { type: "Cyclical (commodity/cement)", path: "Historical ranges + P/BV + exit signal — Chapter 3" },
+              { type: "Real estate", path: "Perpetuity value + NAV + FFO — Chapter 1" },
+              { type: "Defensive or growth", path: "The nine equations (no growth / Gordon / transitional) — Chapter 2" },
             ].map((item, i) => (
               <div key={i} className="bg-[#F3F4F6] rounded p-3 border border-[#E5E7EB]">
                 <div className="text-[#1A1A1A] font-bold">{item.type}</div>
@@ -39,37 +39,37 @@ const METHODOLOGY_SECTIONS: Record<string, {
             ))}
           </div>
         </div>
-        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-r-2 border-r-[#16A34A] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <h4 className="text-[#1A1A1A] font-bold mb-2">القاعدة الذهبية — الترتيب</h4>
-          <p>الـ IRR على أفقك مقارنة بعتبتك (R المطلوب) هو المُقرر فوق كل الأدوات. الـ DCF والقيمة العادلة أدوات مساعدة لا مُقررة.</p>
+        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-l-2 border-l-[#16A34A] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <h4 className="text-[#1A1A1A] font-bold mb-2">The Golden Rule — Order of Authority</h4>
+          <p>The IRR over your horizon versus your threshold (required R) is the decider above all tools. DCF and fair value are supporting tools, not deciders.</p>
         </div>
       </div>
     ),
   },
   m2: {
-    title: "العادية والنمو",
-    subtitle: "المعادلات التسع والمناطق ولينش",
+    title: "Ordinary & Growth Companies",
+    subtitle: "The nine equations, zones and Lynch",
     content: (
       <div className="space-y-4 text-xs text-[#6B7280]">
-        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-r-2 border-r-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <h4 className="text-[#1A1A1A] font-bold mb-3">المعادلات التسع — المربع (3 عدسات × 3 إيقاعات)</h4>
+        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-l-2 border-l-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <h4 className="text-[#1A1A1A] font-bold mb-3">The Nine Equations — The Square (3 lenses × 3 rhythms)</h4>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-[11px]">
               <thead>
                 <tr className="border-b border-[#E5E7EB] text-[#9CA3AF]">
-                  <th className="py-1.5 px-2 text-right">العدسة</th>
-                  <th className="py-1.5 px-2 text-left font-mono">بدون نمو X/R</th>
-                  <th className="py-1.5 px-2 text-left font-mono">جوردون X(1+GL)/(R−GL)</th>
-                  <th className="py-1.5 px-2 text-left font-mono">عابر + X(N/2)(GS−GL)/(R−GL)</th>
+                  <th className="py-1.5 px-2 text-left">Lens</th>
+                  <th className="py-1.5 px-2 text-left font-mono">No Growth X/R</th>
+                  <th className="py-1.5 px-2 text-left font-mono">Gordon X(1+GL)/(R−GL)</th>
+                  <th className="py-1.5 px-2 text-left font-mono">Transitional + X(N/2)(GS−GL)/(R−GL)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E5E7EB]">
-                {["التوزيعات", "الأرباح", "التدفق الحر (صافي الدين°)"].map((row, i) => (
+                {["Dividends", "Earnings", "Free Cash Flow (net debt°)"].map((row, i) => (
                   <tr key={i}>
                     <td className="py-1.5 px-2 text-[#1A1A1A] font-bold">{row}</td>
-                    <td className="py-1.5 px-2 text-left font-mono text-[#8C3B32]">السعر الذهبي</td>
-                    <td className="py-1.5 px-2 text-left font-mono text-[#8C3B32]">السعر الفضي</td>
-                    <td className="py-1.5 px-2 text-left font-mono text-[#8C3B32]">السعر البرونزي</td>
+                    <td className="py-1.5 px-2 text-left font-mono text-[#8C3B32]">Gold Price</td>
+                    <td className="py-1.5 px-2 text-left font-mono text-[#8C3B32]">Silver Price</td>
+                    <td className="py-1.5 px-2 text-left font-mono text-[#8C3B32]">Bronze Price</td>
                   </tr>
                 ))}
               </tbody>
@@ -78,40 +78,40 @@ const METHODOLOGY_SECTIONS: Record<string, {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
-            { zone: "ذهبية", color: "text-[#16A34A]", border: "border-r-[#16A34A]", desc: "السعر ≤ بدون نمو — هامش الأمان الأكبر" },
-            { zone: "فضية", color: "text-[#8C3B32]", border: "border-r-[#8C3B32]", desc: "بدون نمو < السعر ≤ جوردون" },
-            { zone: "برونزية", color: "text-[#8C3B32]", border: "border-r-[#8C3B32]", desc: "جوردون < السعر ≤ عابر — نقطة دخول GS فقط" },
+            { zone: "Gold", color: "text-[#16A34A]", border: "border-l-[#16A34A]", desc: "Price ≤ No Growth — the largest margin of safety" },
+            { zone: "Silver", color: "text-[#8C3B32]", border: "border-l-[#8C3B32]", desc: "No Growth < Price ≤ Gordon" },
+            { zone: "Bronze", color: "text-[#8C3B32]", border: "border-l-[#8C3B32]", desc: "Gordon < Price ≤ Transitional — GS-only entry point" },
           ].map((z, i) => (
-            <div key={i} className={`bg-[#FFFFFF] border border-[#E5E7EB] border-r-2 ${z.border} rounded-[4px] p-3 shadow-[0_1px_3px_rgba(0,0,0,0.06)]`}>
+            <div key={i} className={`bg-[#FFFFFF] border border-[#E5E7EB] border-l-2 ${z.border} rounded-[4px] p-3 shadow-[0_1px_3px_rgba(0,0,0,0.06)]`}>
               <div className={`font-bold ${z.color}`}>{z.zone}</div>
               <div className="text-[#9CA3AF] mt-1">{z.desc}</div>
             </div>
           ))}
         </div>
-        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-r-2 border-r-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <h4 className="text-[#1A1A1A] font-bold mb-2">عداد لينش للفرص</h4>
-          <p>1–2 فرصة من مئة شركة = قمة السوق. 20–30% فرصاً = قاع السوق. يُستخدم كمقياس نفسي جماعي لا كأداة دخول مباشرة.</p>
+        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-l-2 border-l-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <h4 className="text-[#1A1A1A] font-bold mb-2">Lynch Opportunity Meter</h4>
+          <p>1–2 opportunities per hundred companies = market top. 20–30% opportunities = market bottom. Used as a collective psychological gauge, not as a direct entry tool.</p>
         </div>
       </div>
     ),
   },
   m3: {
-    title: "شركات الدورات",
-    subtitle: "النطاقات وإشارة الخروج",
+    title: "Cyclical Companies",
+    subtitle: "Ranges and the exit signal",
     content: (
       <div className="space-y-4 text-xs text-[#6B7280]">
-        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-r-2 border-r-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <h4 className="text-[#1A1A1A] font-bold mb-2">لماذا تفشل معادلات النمو مع الدوريات؟</h4>
-          <p>الأرباح في ذروة الدورة تضخّم المكرر الأمامي وتُظهر السهم رخيصاً — والعكس في القاع. القاعدة: مكرر منخفض في الذروة = إشارة خروج، ومكرر مرتفع في القاع = إشارة دخول.</p>
+        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-l-2 border-l-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <h4 className="text-[#1A1A1A] font-bold mb-2">Why do growth equations fail with cyclicals?</h4>
+          <p>Earnings at the cycle peak inflate the forward multiple and make the stock look cheap — and the reverse at the trough. The rule: a low multiple at the peak = exit signal, and a high multiple at the trough = entry signal.</p>
         </div>
-        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-r-2 border-r-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <h4 className="text-[#1A1A1A] font-bold mb-3">أدوات الدوريات</h4>
+        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-l-2 border-l-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <h4 className="text-[#1A1A1A] font-bold mb-3">Cyclical Tools</h4>
           <div className="space-y-2">
             {[
-              { tool: "P/BV التاريخي", usage: "الشراء في الجزء السفلي من النطاق التاريخي (مثلاً 0.8–1.5× للإسمنت)" },
-              { tool: "P/S وسطي الدورة", usage: "مقارنة السعر بالإيراد وسط الدورة لا بذروتها" },
-              { tool: "Normalized EPS", usage: "متوسط الأرباح على دورة كاملة (5–7 سنوات) لا آخر ربع" },
-              { tool: "إشارة الخروج", usage: "ارتفاع P/BV لأعلى الثلث التاريخي + تحسن الهوامش = بيع وانتظار" },
+              { tool: "Historical P/BV", usage: "Buy in the lower part of the historical range (e.g., 0.8–1.5× for cement)" },
+              { tool: "Mid-Cycle P/S", usage: "Compare price to mid-cycle revenue, not peak revenue" },
+              { tool: "Normalized EPS", usage: "Average earnings over a full cycle (5–7 years), not the last quarter" },
+              { tool: "Exit Signal", usage: "P/BV rising to the top third of its historical range + improving margins = sell and wait" },
             ].map((item, i) => (
               <div key={i} className="flex gap-3 border-b border-[#E5E7EB]/50 pb-2 last:border-0 last:pb-0">
                 <span className="text-[#8C3B32] font-bold shrink-0">{item.tool}:</span>
@@ -124,28 +124,28 @@ const METHODOLOGY_SECTIONS: Record<string, {
     ),
   },
   m4: {
-    title: "البنوك والتأمين",
-    subtitle: "عدة العسيري كاملة",
+    title: "Banks & Insurance",
+    subtitle: "The complete Al-Asiri toolkit",
     content: (
       <div className="space-y-4 text-xs text-[#6B7280]">
-        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-r-2 border-r-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <h4 className="text-[#1A1A1A] font-bold mb-3">المقاييس الرئيسية للبنك (عدة العسيري)</h4>
+        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-l-2 border-l-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <h4 className="text-[#1A1A1A] font-bold mb-3">Key Bank Metrics (Al-Asiri Toolkit)</h4>
           <div className="overflow-x-auto">
             <table className="w-full text-[11px]">
               <thead>
                 <tr className="border-b border-[#E5E7EB] text-[#9CA3AF]">
-                  <th className="py-1.5 px-2 text-right">المقياس</th>
-                  <th className="py-1.5 px-2 text-left">المعادلة</th>
-                  <th className="py-1.5 px-2 text-right">الحدود المرجعية</th>
+                  <th className="py-1.5 px-2 text-left">Metric</th>
+                  <th className="py-1.5 px-2 text-left">Formula</th>
+                  <th className="py-1.5 px-2 text-left">Reference Thresholds</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E5E7EB]">
                 {[
-                  { m: "NIM (هامش صافي التمويل)", f: "صافي دخل التمويل / الأصول المدرة", t: "≥3% ممتاز · 2–3% جيد" },
-                  { m: "CASA %", f: "الحسابات الجارية والتوفير / إجمالي الودائع", t: "↑ كلما ارتفع كلما انخفضت تكلفة الأموال" },
-                  { m: "LDR (نسبة التمويل للودائع)", f: "إجمالي التمويل / إجمالي الودائع", t: "80–90% مثالي · >100% محفوف بالمخاطر" },
-                  { m: "المخصصات / الإيراد", f: "مخصصات خسائر التمويل / إجمالي الدخل", t: "أقل = أحسن · >30% ضغط كبير" },
-                  { m: "CAR (كفاية رأس المال)", f: "رأس المال الأساسي / الأصول الموزونة بالمخاطر", t: "≥12% قوي" },
+                  { m: "NIM (Net Financing Margin)", f: "Net financing income / earning assets", t: "≥3% excellent · 2–3% good" },
+                  { m: "CASA %", f: "Current and savings accounts / total deposits", t: "Higher = lower cost of funds" },
+                  { m: "LDR (Financing-to-Deposits Ratio)", f: "Total financing / total deposits", t: "80–90% ideal · >100% risky" },
+                  { m: "Provisions / Revenue", f: "Financing loss provisions / total income", t: "Lower = better · >30% heavy pressure" },
+                  { m: "CAR (Capital Adequacy Ratio)", f: "Tier 1 capital / risk-weighted assets", t: "≥12% strong" },
                 ].map((row, i) => (
                   <tr key={i} className="hover:bg-[#F3F4F6]">
                     <td className="py-2 px-2 text-[#1A1A1A] font-bold">{row.m}</td>
@@ -157,37 +157,37 @@ const METHODOLOGY_SECTIONS: Record<string, {
             </table>
           </div>
         </div>
-        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-r-2 border-r-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <h4 className="text-[#1A1A1A] font-bold mb-2">لماذا عناصر السلامة الصناعية لا تنطبق على البنوك؟</h4>
-          <p>البنك بطبيعته يملك نسب دين/أصول عالية ({'&lt;'}80%) لأن الودائع التزامات لا ديون بالمفهوم الصناعي. قاعدة الدورة: وزن التعويض 100% على بورتر للبنوك.</p>
+        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-l-2 border-l-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <h4 className="text-[#1A1A1A] font-bold mb-2">Why don't industrial safety elements apply to banks?</h4>
+          <p>A bank naturally carries high debt/assets ratios ({"<"}80%) because deposits are liabilities, not debt in the industrial sense. Course rule: 100% premium weight on Porter for banks.</p>
         </div>
       </div>
     ),
   },
   m5: {
-    title: "القوائم والنسب",
-    subtitle: "السلامة والكفاءة والأعلام",
+    title: "Statements & Ratios",
+    subtitle: "Safety, efficiency and red flags",
     content: (
       <div className="space-y-4 text-xs text-[#6B7280]">
-        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-r-2 border-r-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <h4 className="text-[#1A1A1A] font-bold mb-3">عناصر السلامة الخمسة — الحدود الحرفية</h4>
+        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-l-2 border-l-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <h4 className="text-[#1A1A1A] font-bold mb-3">The Five Safety Elements — Literal Thresholds</h4>
           <div className="overflow-x-auto">
             <table className="w-full text-[11px]">
               <thead>
                 <tr className="border-b border-[#E5E7EB] text-[#9CA3AF]">
-                  <th className="py-1.5 px-2 text-right">العنصر</th>
-                  <th className="py-1.5 px-2 text-right">+1 (ممتاز)</th>
-                  <th className="py-1.5 px-2 text-right">0 (مقبول)</th>
-                  <th className="py-1.5 px-2 text-right">−1 (ضعيف)</th>
+                  <th className="py-1.5 px-2 text-left">Element</th>
+                  <th className="py-1.5 px-2 text-left">+1 (Excellent)</th>
+                  <th className="py-1.5 px-2 text-left">0 (Acceptable)</th>
+                  <th className="py-1.5 px-2 text-left">−1 (Weak)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E5E7EB]">
                 {[
                   { el: "ROE", good: "≥15%", ok: "10–15%", bad: "<10%" },
                   { el: "ROA", good: "≥10%", ok: "6–10%", bad: "≤6%" },
-                  { el: "نسبة التداول", good: "≥2×", ok: "1–2×", bad: "≤1×" },
-                  { el: "الدين/الأصول", good: "≤40%", ok: "40–60%", bad: "≥60%" },
-                  { el: "تغطية الفائدة", good: "≥10×", ok: "6–10×", bad: "≤6×" },
+                  { el: "Current Ratio", good: "≥2×", ok: "1–2×", bad: "≤1×" },
+                  { el: "Debt/Assets", good: "≤40%", ok: "40–60%", bad: "≥60%" },
+                  { el: "Interest Coverage", good: "≥10×", ok: "6–10×", bad: "≤6×" },
                 ].map((row, i) => (
                   <tr key={i} className="hover:bg-[#F3F4F6]">
                     <td className="py-1.5 px-2 text-[#1A1A1A] font-bold">{row.el}</td>
@@ -200,17 +200,17 @@ const METHODOLOGY_SECTIONS: Record<string, {
             </table>
           </div>
         </div>
-        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-r-2 border-r-[#DC2626] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <h4 className="text-[#1A1A1A] font-bold mb-2">الأعلام الحمراء الحسابية°</h4>
+        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-l-2 border-l-[#DC2626] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <h4 className="text-[#1A1A1A] font-bold mb-2">Computational Red Flags°</h4>
           <div className="space-y-1.5">
             {[
-              "تسارع الذمم المدينة > تسارع الإيراد — إشارة أرباح ورقية",
-              "التدفق النقدي التشغيلي سالب مع صافي ربح موجب — فجوة نوعية",
-              "انخفاض المخزون مع ارتفاع التكلفة — احتمال إدارة أرباح",
-              "توزيعات أعلى من التدفق الحر — اقتراض لتوزيع",
-              "تضخم المخصصات أو العكس فجأة — بينيش M-Score",
+              "Receivables growing faster than revenue — a sign of paper profits",
+              "Negative operating cash flow with positive net income — a quality gap",
+              "Falling inventory with rising cost — possible earnings management",
+              "Dividends above free cash flow — borrowing to distribute",
+              "Sudden provision inflation or reversal — Beneish M-Score",
             ].map((flag, i) => (
-              <div key={i} className="flex items-start gap-2 border-r-2 border-r-[#DC2626]/60 pr-2 py-0.5">
+              <div key={i} className="flex items-start gap-2 border-l-2 border-l-[#DC2626]/60 pl-2 py-0.5">
                 <span className="text-[#DC2626] font-bold shrink-0">⚑</span>
                 <span>{flag}</span>
               </div>
@@ -221,54 +221,54 @@ const METHODOLOGY_SECTIONS: Record<string, {
     ),
   },
   m6: {
-    title: "لم تربح أو لم تبع بعد",
-    subtitle: "P/S والافتراض على الحقيقة وrNPV",
+    title: "Unprofitable or Not Yet Selling",
+    subtitle: "P/S, reality-based assumption and rNPV",
     content: (
       <div className="space-y-4 text-xs text-[#6B7280]">
-        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-r-2 border-r-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <h4 className="text-[#1A1A1A] font-bold mb-3">متى تستخدم P/S؟</h4>
-          <p className="mb-2">الشركة تبيع لكنها لم تربح بعد (هوامش صافية سالبة أو شبه صفر). شرط الاستخدام: <span className="text-[#8C3B32]">وجود طريق واضح للربحية</span>.</p>
+        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-l-2 border-l-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <h4 className="text-[#1A1A1A] font-bold mb-3">When to use P/S?</h4>
+          <p className="mb-2">The company sells but is not yet profitable (negative or near-zero net margins). Condition of use: <span className="text-[#8C3B32]">a clear path to profitability</span>.</p>
           <div className="font-mono bg-[#F3F4F6] rounded p-3 text-[#8C3B32] border border-[#E5E7EB]">
-            P/S المستهدف = (هامش صافي مستهدف ÷ هامش صافي متوسط القطاع) × P/S القطاع
+            Target P/S = (Target net margin ÷ Sector average net margin) × Sector P/S
           </div>
         </div>
-        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-r-2 border-r-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <h4 className="text-[#1A1A1A] font-bold mb-3">rNPV — القيمة الحالية المعدلة للمخاطر</h4>
-          <p className="mb-2">للشركات ذات الأصول غير المعلنة أو المراحل (بيوتك، عقود حكومية كبرى):</p>
+        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-l-2 border-l-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <h4 className="text-[#1A1A1A] font-bold mb-3">rNPV — Risk-Adjusted Net Present Value</h4>
+          <p className="mb-2">For companies with undisclosed or staged assets (biotech, large government contracts):</p>
           <div className="font-mono bg-[#F3F4F6] rounded p-3 text-[#8C3B32] border border-[#E5E7EB]">
-            rNPV = Σ (PV كل مرحلة × احتمال نجاحها) − Σ (PV التكاليف المرجحة)
+            rNPV = Σ (PV of each stage × probability of success) − Σ (probability-weighted PV of costs)
           </div>
-          <p className="mt-2 text-[#9CA3AF]">الخطأ الشائع: NPV الساذجة تتجاهل احتمال الفشل الذي يصل لـ 88% في المراحل المبكرة للبيوتك.</p>
+          <p className="mt-2 text-[#9CA3AF]">Common mistake: naive NPV ignores the probability of failure, which reaches 88% in the early stages of biotech.</p>
         </div>
-        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-r-2 border-r-[#DC2626] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <h4 className="text-[#1A1A1A] font-bold mb-2">الافتراض على الحقيقة (الشركة لم تبع بعد)</h4>
+        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-l-2 border-l-[#DC2626] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <h4 className="text-[#1A1A1A] font-bold mb-2">Reality-Based Assumption (the company has not sold yet)</h4>
           <div className="font-mono bg-[#F3F4F6] rounded p-3 text-[#8C3B32] border border-[#E5E7EB]">
-            قطاع مقاس × حصة سوقية 1–2% مسببة ومدافع عنها → إيراد افتراضي → هامش القطاع → ربح → تقييم
+            Measured sector × 1–2% reasoned and defensible market share → hypothetical revenue → sector margin → profit → valuation
           </div>
-          <p className="mt-2 text-[#9CA3AF]">تُطبق على الموقّع من العقود فقط — لا على التوقعات والأمنيات.</p>
+          <p className="mt-2 text-[#9CA3AF]">Applied only to what is contractually signed — not to forecasts and wishes.</p>
         </div>
       </div>
     ),
   },
   m7: {
-    title: "منهجية أبو سعد نفسه",
-    subtitle: "العقيدة والقرار والانضباط",
+    title: "Abu Saad's Own Methodology",
+    subtitle: "Creed, decision and discipline",
     content: (
       <div className="space-y-4 text-xs text-[#6B7280]">
-        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-r-2 border-r-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <h4 className="text-[#1A1A1A] font-bold mb-3">العقيدة الاستثمارية — المبادئ العشرة</h4>
+        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-l-2 border-l-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <h4 className="text-[#1A1A1A] font-bold mb-3">Investment Creed — The Ten Principles</h4>
           <div className="space-y-1.5">
             {[
-              "استثمر ما تفهمه فقط — سلة تخلط ما تفهم بما لا تفهم خطر",
-              "الـ IRR المُقرر — ليس الـ DCF ولا القيمة العادلة مباشرة",
-              "الأفق 3–5 سنوات — أقل من ذلك مضاربة لا استثمار",
-              "النمو GS العابر — لا تُسعّر نمواً خارقاً لا تعرف مصدره",
-              "لست مستثمر قيمة حتى تشتري تحت المنطقة الذهبية",
-              "المنطقة البرونزية آخر نقطة دخول — ما فوقها تكلفة",
-              "بوابة الشراء: IRR > R المطلوب + شراء مطلعين + اختراق فني",
-              "قاعدة الـ 3%: لا تخاطر بأكثر من 3% من رأس المال في صفقة",
-              "التنويع مقابل التركيز: عدد الأسهم التي تعرفها جيداً",
-              "الصبر فضيلة — المنصة تعرض ولا توصي، والقرار لك وحدك",
+              "Invest only in what you understand — a basket mixing what you understand with what you don't is a danger",
+              "The IRR decides — not the DCF and not fair value directly",
+              "A horizon of 3–5 years — anything shorter is speculation, not investing",
+              "Transitional growth GS — never price extraordinary growth whose source you don't know",
+              "You are not a value investor until you buy below the gold zone",
+              "The bronze zone is the last entry point — anything above it is cost",
+              "The buy gate: IRR > required R + insider buying + technical breakout",
+              "The 3% rule: never risk more than 3% of capital on a single trade",
+              "Diversification vs. concentration: the number of stocks you know well",
+              "Patience is a virtue — the platform displays and does not recommend; the decision is yours alone",
             ].map((p, i) => (
               <div key={i} className="flex items-start gap-2 py-0.5">
                 <span className="text-[#8C3B32] font-mono shrink-0">{i + 1}.</span>
@@ -281,8 +281,8 @@ const METHODOLOGY_SECTIONS: Record<string, {
     ),
   },
   m8: {
-    title: "كل الطرق — الجدول الجامع",
-    subtitle: "كل طريقة: متى ومتى لا وأين تعيش",
+    title: "All Methods — The Master Table",
+    subtitle: "Each method: when, when not, and where it lives",
     content: (
       <div className="space-y-4 text-xs text-[#6B7280]">
         <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
@@ -290,22 +290,22 @@ const METHODOLOGY_SECTIONS: Record<string, {
             <table className="w-full text-[11px] border-collapse">
               <thead>
                 <tr className="border-b border-[#E5E7EB] bg-[#F3F4F6] text-[#9CA3AF]">
-                  <th className="py-2 px-3 text-right">الطريقة</th>
-                  <th className="py-2 px-3 text-right">القاعدة/المعادلة</th>
-                  <th className="py-2 px-3 text-right">متى تُستخدم</th>
-                  <th className="py-2 px-3 text-right">متى لا تُستخدم</th>
+                  <th className="py-2 px-3 text-left">Method</th>
+                  <th className="py-2 px-3 text-left">Rule / Formula</th>
+                  <th className="py-2 px-3 text-left">When to Use</th>
+                  <th className="py-2 px-3 text-left">When Not to Use</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E5E7EB]">
                 {[
-                  { m: "المربع التسعة", f: "X/R · جوردون · عابر", w: "دفاعية ونمو رابحة", nw: "دورية وبنوك" },
-                  { m: "P/BV التاريخي", f: "سعر ÷ قيمة الدفترية", w: "الدوريات في قاع الدورة", nw: "شركات نمو (أصول لا تعكس القيمة)" },
-                  { m: "عدة البنوك", f: "NII · NIM · CASA · LDR", w: "البنوك والتأمين حصراً", nw: "أي شركة غير مالية" },
-                  { m: "P/S", f: "سعر ÷ إيراد للسهم", w: "خاسرة بطريق واضح للربح", nw: "خاسرة بلا مسار ربح" },
-                  { m: "rNPV", f: "Σ(PV×احتمال) − تكاليف", w: "مراحل (بيوتك/عقود)", nw: "شركات ناضجة رابحة" },
-                  { m: "Beneish M°", f: ">−1.78 = احتمال تلاعب", w: "قراءة مستمرة لكل شركة", nw: "كمؤشر دخول وحيد" },
-                  { m: "Altman Z°", f: "درجات الإفلاس المركبة", w: "تقييم المتانة الائتمانية", nw: "البنوك (نموذج مختلف)" },
-                  { m: "Piotroski F°", f: "9 نقاط جودة مالية", w: "فلترة قوائم مقبولة", nw: "كأداة تقييم وحيدة" },
+                  { m: "Nine-Box Square", f: "X/R · Gordon · Transitional", w: "Profitable defensive & growth companies", nw: "Cyclicals and banks" },
+                  { m: "Historical P/BV", f: "Price ÷ book value", w: "Cyclicals at the cycle trough", nw: "Growth companies (assets don't reflect value)" },
+                  { m: "Banking Toolkit", f: "NII · NIM · CASA · LDR", w: "Banks and insurance only", nw: "Any non-financial company" },
+                  { m: "P/S", f: "Price ÷ revenue per share", w: "Loss-making with a clear path to profit", nw: "Loss-making with no path to profit" },
+                  { m: "rNPV", f: "Σ(PV × probability) − costs", w: "Staged businesses (biotech/contracts)", nw: "Mature profitable companies" },
+                  { m: "Beneish M°", f: ">−1.78 = manipulation probability", w: "Continuous reading for every company", nw: "As the sole entry indicator" },
+                  { m: "Altman Z°", f: "Composite bankruptcy scores", w: "Assessing credit strength", nw: "Banks (different model)" },
+                  { m: "Piotroski F°", f: "9-point financial quality score", w: "Screening acceptable statements", nw: "As the sole valuation tool" },
                 ].map((row, i) => (
                   <tr key={i} className="hover:bg-[#F3F4F6]">
                     <td className="py-2 px-3 text-[#1A1A1A] font-bold">{row.m}</td>
@@ -318,9 +318,9 @@ const METHODOLOGY_SECTIONS: Record<string, {
             </table>
           </div>
         </div>
-        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-r-2 border-r-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <p className="text-[#1A1A1A]">كل طريقة في هذا الجدول إما تعمل حية على المنصة الآن (° من السحب المتحقق)، أو معلنة بمكانها في المنهج — <b>ولا توجد طريقة وردت في الدورة بلا مصير معلن.</b></p>
-          <p className="mt-2 text-[#9CA3AF]">والمُقرر فوقها جميعاً واحد: الـ IRR على أفقك مقابل عتبتك — والمنصة تعرض ولا توصي.</p>
+        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 border-l-2 border-l-[#8C3B32] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <p className="text-[#1A1A1A]">Every method in this table either runs live on the platform now (° from the verified pull), or is declared with its place in the curriculum — <b>no method mentioned in the course lacks a declared fate.</b></p>
+          <p className="mt-2 text-[#9CA3AF]">And the one decider above them all: the IRR over your horizon versus your threshold — the platform displays and does not recommend.</p>
         </div>
       </div>
     ),
@@ -337,7 +337,7 @@ export default function MethodologySection({ sectionId }: Props) {
   if (!section) {
     return (
       <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-6 text-center text-xs text-[#9CA3AF] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        هذا الباب غير متوفر بعد.
+        This chapter is not available yet.
       </div>
     );
   }

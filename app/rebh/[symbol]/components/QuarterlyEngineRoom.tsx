@@ -79,7 +79,7 @@ export default function QuarterlyEngineRoom({ symbol }: Props) {
   if (loading) {
     return (
       <div className="bg-white border border-[#E5E7EB] rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-6 text-center text-xs text-[#6B7280] font-mono">
-        جاري تحميل بيانات غرفة المحركات الربعية (9 Quarters Engine)...
+        Loading Quarterly Engine Room data (9 Quarters Engine)...
       </div>
     );
   }
@@ -99,11 +99,11 @@ export default function QuarterlyEngineRoom({ symbol }: Props) {
 
   const lines: { label: string; vals: (number | null)[]; isEps?: boolean; color: string }[] = [];
 
-  if (rev.length > 0) lines.push({ label: "الإيرادات (Revenue)", vals: rev, color: LINE_COLORS[0] });
-  if (gp.length > 0) lines.push({ label: "إجمالي الربح (Gross Profit)", vals: gp, color: LINE_COLORS[1] });
-  if (op.length > 0) lines.push({ label: "الربح التشغيلي (Operating Profit)", vals: op, color: LINE_COLORS[2] });
-  if (net.length > 0) lines.push({ label: "صافي الربح (Net Profit)", vals: net, color: LINE_COLORS[3] });
-  if (eps.length > 0) lines.push({ label: "ربحية السهم (EPS ر.س)", vals: eps, isEps: true, color: LINE_COLORS[4] });
+  if (rev.length > 0) lines.push({ label: "Revenue", vals: rev, color: LINE_COLORS[0] });
+  if (gp.length > 0) lines.push({ label: "Gross Profit", vals: gp, color: LINE_COLORS[1] });
+  if (op.length > 0) lines.push({ label: "Operating Profit (EBIT)", vals: op, color: LINE_COLORS[2] });
+  if (net.length > 0) lines.push({ label: "Net Income", vals: net, color: LINE_COLORS[3] });
+  if (eps.length > 0) lines.push({ label: "Earnings per Share (EPS, SAR)", vals: eps, isEps: true, color: LINE_COLORS[4] });
 
   if (lines.length === 0) return null;
 
@@ -120,17 +120,17 @@ export default function QuarterlyEngineRoom({ symbol }: Props) {
   };
 
   return (
-    // UX note: on narrow screens, the first column ("البند المالي") scrolls away with the
+    // UX note: on narrow screens, the first column ("Line Item") scrolls away with the
     // rest of the table even though it's the row label. Made it sticky below so it stays
     // readable while scrolling through 9 quarters of data.
-    <div className="bg-white border border-[#E5E7EB] rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-6 overflow-hidden space-y-4">
+    <div dir="ltr" className="bg-white border border-[#E5E7EB] rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-6 overflow-hidden space-y-4">
       <div className="flex flex-wrap justify-between items-center gap-2 border-b border-[#E5E7EB] pb-4">
         <h3 className="text-sm font-bold text-[#1A1A1A] flex items-center gap-2">
           <Calendar className="w-4 h-4 text-[#8C3B32]" />
-          غرفة المحركات الربعية — Quarterly Engine Room (9 أرباع)
+          Quarterly Engine Room (9 Quarters)
         </h3>
         <span className="text-[11px] text-[#6B7280] font-mono">
-          سلسلة الـ 9 أرباع المالية المدققة مع مؤشر TTM ومسار النمو
+          Audited 9-quarter financial series with TTM indicator and growth trend
         </span>
       </div>
 
@@ -138,20 +138,20 @@ export default function QuarterlyEngineRoom({ symbol }: Props) {
         <table className="w-full text-xs text-left border-collapse">
           <thead>
             <tr className="text-[#6B7280] bg-[#F3F4F6] border-b border-[#E5E7EB]">
-              <th className="p-2.5 text-right min-w-[150px] sticky right-0 bg-[#F3F4F6] font-semibold">البند المالي</th>
+              <th className="p-2.5 text-left min-w-[150px] sticky left-0 bg-[#F3F4F6] font-semibold">Line Item</th>
               {qPeriods.map((p: string, idx: number) => (
                 <th key={idx} className="p-2.5 text-right whitespace-nowrap font-mono font-normal">
                   {idx === qPeriods.length - 1 ? <b className="text-[#1A1A1A] font-semibold">{p}</b> : p}
                 </th>
               ))}
-              <th className="p-2.5 text-right bg-[#F3F4F6] text-[#8C3B32] font-bold border-r border-[#E5E7EB]">TTM°</th>
-              <th className="p-2.5 text-center min-w-[120px]">مسار النمو</th>
+              <th className="p-2.5 text-right bg-[#F3F4F6] text-[#8C3B32] font-bold border-l border-[#E5E7EB]">TTM°</th>
+              <th className="p-2.5 text-center min-w-[120px]">Growth Trend</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#E5E7EB]">
             {lines.map((line, idx) => (
               <tr key={idx} className="hover:bg-[#F3F4F6]/60 transition-colors">
-                <td className="p-2.5 text-right font-semibold text-[#1A1A1A] sticky right-0 bg-white">
+                <td className="p-2.5 text-left font-semibold text-[#1A1A1A] sticky left-0 bg-white">
                   {line.label}
                 </td>
                 {line.vals.map((v, vIdx) => {
@@ -165,7 +165,7 @@ export default function QuarterlyEngineRoom({ symbol }: Props) {
                     </td>
                   );
                 })}
-                <td className="p-2.5 text-right font-bold text-[#1A1A1A] bg-[#F3F4F6] tabular-nums font-mono border-r border-[#E5E7EB]">
+                <td className="p-2.5 text-right font-bold text-[#1A1A1A] bg-[#F3F4F6] tabular-nums font-mono border-l border-[#E5E7EB]">
                   {getTTM(line.vals, line.isEps)}
                 </td>
                 <td className="p-2.5 text-center">
@@ -178,8 +178,8 @@ export default function QuarterlyEngineRoom({ symbol }: Props) {
       </div>
 
       <div className="pt-3 border-t border-[#E5E7EB] text-[11px] text-[#9CA3AF] flex flex-wrap justify-between gap-1">
-        <span>ملاحظة: الربع الرابع محسوب آلياً بالفرق° (القوائم السنوية − مجموع 9 أشهر)</span>
-        <span>القيم بملايين الريالات ما عدا ربحية السهم (EPS)</span>
+        <span>Note: Q4 is derived automatically by difference° (annual statements − 9-month total)</span>
+        <span>Values in SAR millions except Earnings per Share (EPS)</span>
       </div>
     </div>
   );

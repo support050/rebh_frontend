@@ -23,15 +23,15 @@ export const StudioRightRail: React.FC<StudioRightRailProps> = ({
   const pe = engineData?.pe || engineData?.pe_ttm || data?.cur?.pe || data?.pe || null;
   const pb = engineData?.pb || data?.cur?.pb || data?.pb || null;
   const netDebt = engineData?.net_debt ?? bs?.net_debt?.[bs?.net_debt?.length - 1] ?? null;
-  
+
   // Calculate coverage
   const opArr = is_d?.op || [];
   const fcArr = is_d?.fin_cost || is_d?.fc || [];
   const lastOp = opArr.length ? opArr[opArr.length - 1] : null;
   const lastFc = fcArr.length ? fcArr[fcArr.length - 1] : null;
-  const coverage = (lastOp !== null && lastFc !== null && lastFc > 0) 
-    ? (lastOp / lastFc).toFixed(1) 
-    : (lastFc === 0 ? "بدون تكلفة تمويل" : (engineData?.coverage ? Number(engineData.coverage).toFixed(1) : "—"));
+  const coverage = (lastOp !== null && lastFc !== null && lastFc > 0)
+    ? (lastOp / lastFc).toFixed(1)
+    : (lastFc === 0 ? "No finance cost" : (engineData?.coverage ? Number(engineData.coverage).toFixed(1) : "—"));
 
   // Next quarter net forecast
   const qNet = q_d?.net || [];
@@ -68,34 +68,34 @@ export const StudioRightRail: React.FC<StudioRightRailProps> = ({
       {/* ── Key Stats ── */}
       <div className="bg-white border border-[#E5E7EB] rounded-[6px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         <h4 className="text-xs font-bold text-[#1A1A1A] border-b border-[#F1F5F9] pb-2 mb-3 flex items-center justify-between">
-          <span>الإحصائيات الأساسية (Key Stats)</span>
+          <span>Key Stats</span>
           <span className="text-[10px] text-[#8C3B32] font-mono font-semibold">{symbol}</span>
         </h4>
         <div className="space-y-2 text-xs">
           <div className="flex items-center justify-between">
-            <span className="text-[#64748B]">القيمة السوقية</span>
+            <span className="text-[#64748B]">Market Cap</span>
             <span className="font-mono font-bold text-[#0F172A]">
-              {mktCap ? `${Number(mktCap).toLocaleString(undefined, { maximumFractionDigits: 0 })}M` : "—"}
+              {mktCap ? `${Number(mktCap).toLocaleString("en-US", { maximumFractionDigits: 0 })}M` : "—"}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-[#64748B]">مكرر الأرباح P/E (TTM)</span>
+            <span className="text-[#64748B]">P/E Ratio (TTM)</span>
             <span className="font-mono font-bold text-[#0F172A]">{pe ? (+pe).toFixed(1) : "—"}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-[#64748B]">مضاعف القيمة الدفترية P/B</span>
+            <span className="text-[#64748B]">P/B Ratio</span>
             <span className="font-mono font-bold text-[#0F172A]">{pb ? (+pb).toFixed(2) : "—"}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-[#64748B]">صافي الدين (Net Debt)</span>
+            <span className="text-[#64748B]">Net Debt</span>
             <span className="font-mono font-bold text-[#0F172A]">
-              {netDebt != null ? `${Number(netDebt).toLocaleString(undefined, { maximumFractionDigits: 0 })}M` : "—"}
+              {netDebt != null ? `${Number(netDebt).toLocaleString("en-US", { maximumFractionDigits: 0 })}M` : "—"}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-[#64748B]">تغطية الفوائد (Coverage)</span>
+            <span className="text-[#64748B]">Interest Coverage</span>
             <span className={`font-mono font-bold ${coverage !== "—" && +coverage < 1.5 ? "text-[#DC2626]" : "text-[#16A34A]"}`}>
-              {coverage !== "—" ? `${coverage}×` : "—"}
+              {coverage !== "—" ? (Number.isNaN(+coverage) ? coverage : `${coverage}×`) : "—"}
             </span>
           </div>
         </div>
@@ -106,7 +106,7 @@ export const StudioRightRail: React.FC<StudioRightRailProps> = ({
         <h4 className="text-xs font-bold text-[#1A1A1A] border-b border-[#F1F5F9] pb-2 mb-3 flex items-center justify-between">
           <span className="flex items-center gap-1.5">
             <ShieldCheck size={13} className="text-[#8C3B32]" />
-            تقييم العوامل (Factor Grades)
+            Factor Grades
           </span>
         </h4>
         <div className="grid grid-cols-5 gap-1.5 text-center">
@@ -128,26 +128,26 @@ export const StudioRightRail: React.FC<StudioRightRailProps> = ({
             );
           })}
         </div>
-        <p className="text-[9.5px] text-[#94A3B8] mt-3 text-center">مقارنة بوسطاء القطاع الفعليين في السوق السعودي</p>
+        <p className="text-[9.5px] text-[#94A3B8] mt-3 text-center">Benchmarked against actual sector medians in the Saudi market</p>
       </div>
 
       {/* ── Next Quarter Engine ── */}
       <div className="bg-white border border-[#E5E7EB] rounded-[6px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] space-y-1.5">
         <h4 className="text-xs font-bold text-[#1A1A1A] flex items-center gap-1">
           <Activity size={13} className="text-[#8C3B32]" />
-          تقدير الربع القادم · Engine°
+          Next-Quarter Estimate · Engine°
         </h4>
         <div className="text-xl font-black text-[#8C3B32] font-mono">
-          ≈ {estNextQ > 0 ? estNextQ.toLocaleString() : "—"}M SAR
+          ≈ {estNextQ > 0 ? estNextQ.toLocaleString("en-US") : "—"}M SAR
         </div>
         <p className="text-[10.5px] text-[#475569] leading-tight">
-          {estNextQ > 0 
-            ? `النطاق المتوقع (${estLow.toLocaleString()} – ${estHigh.toLocaleString()}) بهامش تقديري (±18.5%).`
-            : "البيانات الربعية الأخيرة غير كافية لحساب التقدير."}
+          {estNextQ > 0
+            ? `Expected range (${estLow.toLocaleString("en-US")} – ${estHigh.toLocaleString("en-US")}) with an estimated margin of error (±18.5%).`
+            : "Insufficient recent quarterly data to compute an estimate."}
         </p>
         {estNextQ > 0 && (
           <span className="inline-block text-[9.5px] text-[#8C3B32] bg-[#FFF1EF] px-2 py-0.5 rounded font-mono font-semibold">
-            ← مرسوم كمخروط تقدير على الشارت الربعي
+            ← Plotted as an estimate band on the quarterly chart
           </span>
         )}
       </div>
@@ -155,9 +155,9 @@ export const StudioRightRail: React.FC<StudioRightRailProps> = ({
       {/* ── Fair Value Mini ── */}
       <div className="bg-white border border-[#E5E7EB] rounded-[6px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] space-y-2">
         <div className="flex items-center justify-between">
-          <h4 className="text-xs font-bold text-[#1A1A1A]">القيمة العادلة · Fair Value</h4>
+          <h4 className="text-xs font-bold text-[#1A1A1A]">Fair Value</h4>
           <span className="text-xs font-mono font-bold text-[#16A34A]">
-            {fairValue ? `${Number(fairValue).toFixed(2)} SAR` : "غير محددة ⚑"}
+            {fairValue ? `${Number(fairValue).toFixed(2)} SAR` : "Not determined ⚑"}
           </span>
         </div>
         <div className="relative pt-2 pb-1">
@@ -167,11 +167,11 @@ export const StudioRightRail: React.FC<StudioRightRailProps> = ({
             <div className="w-1/3 bg-[#10B981]/20" />
           </div>
           <div className="flex justify-between text-[9px] font-mono text-[#94A3B8] mt-1">
-            <span>منخفض</span>
+            <span>Low</span>
             <span className="text-[#1A1A1A] font-bold">
-              {price ? `السعر: ${Number(price).toFixed(2)}` : "السعر: —"}
+              {price ? `Price: ${Number(price).toFixed(2)}` : "Price: —"}
             </span>
-            <span>مرتفع</span>
+            <span>High</span>
           </div>
         </div>
       </div>

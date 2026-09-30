@@ -1,5 +1,5 @@
 import React from "react";
-import { Zap, ArrowLeft } from "lucide-react";
+import { Zap, ArrowRight } from "lucide-react";
 import { SectionPanel, KpiCard } from "./CommonCards";
 
 interface CashConversionCycleProps {
@@ -35,15 +35,15 @@ export function CashConversionCycleSection({
         <div>
           <h3 className="text-sm font-bold text-[#1A1A1A] flex items-center gap-2">
             <Zap size={15} className="text-[#8C3B32]" />
-            دورة التحويل النقدي المباشرة — Cash Conversion Cycle (CCC)
+            Cash Conversion Cycle (CCC)
           </h3>
           <p className="text-xs text-[#6B7280] mt-0.5">
-            كم يوماً يحتاج الريال من خروجه كمخزون حتى عودته كاش في الحساب البنكي
+            How many days each riyal takes to travel from inventory back to cash in the bank
           </p>
         </div>
         {dso != null && dIO != null && dPO != null && (
-          <span className="inline-flex items-center gap-1.5 text-xs font-black font-mono px-3.5 py-1.5 rounded-full bg-gradient-to-l from-[#16A34A] to-[#15803D] text-white shadow-[0_2px_8px_rgba(22,163,74,0.35)] tabular-nums">
-            CCC {Math.max(0, dso + dIO - dPO)} يوم عمل
+          <span className="inline-flex items-center gap-1.5 text-xs font-black font-mono px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#16A34A] to-[#15803D] text-white shadow-[0_2px_8px_rgba(22,163,74,0.35)] tabular-nums">
+            CCC {Math.max(0, dso + dIO - dPO)} days
           </span>
         )}
       </div>
@@ -52,31 +52,31 @@ export function CashConversionCycleSection({
       <div className="flex flex-col md:flex-row items-stretch gap-0">
         {[
           {
-            label: "فترة التحصيل",
+            label: "Collection Period",
             code: "DSO",
             val: dso,
             color: "#D97706",
             bg: "#FFFBEB",
             border: "#FDE68A",
-            formula: "الذمم المدينة ÷ الإيراد × 365",
+            formula: "Receivables ÷ Revenue × 365",
           },
           {
-            label: "فترة بقاء المخزون",
+            label: "Inventory Holding Period",
             code: "DIO",
             val: dIO,
             color: "#2563EB",
             bg: "#EFF6FF",
             border: "#BFDBFE",
-            formula: "المخزون ÷ تكلفة المبيعات × 365",
+            formula: "Inventory ÷ COGS × 365",
           },
           {
-            label: "فترة سداد الموردين",
+            label: "Payables Period",
             code: "DPO",
             val: dPO,
             color: "#16A34A",
             bg: "#F0FDF4",
             border: "#BBF7D0",
-            formula: "الدائنون ÷ تكلفة المبيعات × 365",
+            formula: "Payables ÷ COGS × 365",
           },
         ].map((stage, i, arr) => (
           <React.Fragment key={stage.code}>
@@ -97,13 +97,13 @@ export function CashConversionCycleSection({
                 className="text-xl font-black font-mono block mt-1.5 tabular-nums"
                 style={{ color: stage.color }}
               >
-                {stage.val != null ? `${stage.val} يوم` : "—"}
+                {stage.val != null ? `${stage.val} days` : "—"}
               </span>
               <span className="text-[9.5px] text-[#94A3B8] block mt-1">{stage.formula}</span>
             </div>
             {i < arr.length - 1 && (
               <div className="flex items-center justify-center px-1 shrink-0 rotate-90 md:rotate-0">
-                <ArrowLeft size={16} className="text-[#CBD5E1]" strokeWidth={2.5} />
+                <ArrowRight size={16} className="text-[#CBD5E1]" strokeWidth={2.5} />
               </div>
             )}
           </React.Fragment>
@@ -113,7 +113,7 @@ export function CashConversionCycleSection({
       {/* Additional Working Capital & Quality KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 pt-2">
         <KpiCard
-          label="CFO/NI (تحويل الأرباح)"
+          label="CFO/NI (Earnings Conversion)"
           val={cfoNi}
           unit="%"
           color={
@@ -128,19 +128,19 @@ export function CashConversionCycleSection({
           note={
             cfoNi != null
               ? cfoNi >= 100
-                ? "✓ كاش ممتاز"
+                ? "✓ Excellent cash conversion"
                 : cfoNi >= 60
-                  ? "◑ مقبول"
-                  : "✗ جودة منخفضة"
+                  ? "◑ Acceptable"
+                  : "✗ Low quality"
               : "—"
           }
-          formula="CFO ÷ صافي الربح × 100"
+          formula="CFO ÷ Net Income × 100"
           showFormula={showFormulas}
-          tooltipText="نسبة صافي الربح المحاسبي المحول فعلياً إلى تدفق نقدي تشغيلي داخل البنك"
+          tooltipText="Share of accounting net income actually converted into operating cash flow in the bank"
         />
 
         <KpiCard
-          label="FCF Yield على الأصول"
+          label="FCF Yield on Assets"
           val={fcfYield}
           unit="%"
           color={
@@ -155,21 +155,21 @@ export function CashConversionCycleSection({
           note={
             fcfYield != null
               ? fcfYield > 5
-                ? "✓ عائد نقدي قوي"
+                ? "✓ Strong cash yield"
                 : fcfYield > 0
-                  ? "◑ معقول"
-                  : "✗ FCF سلبي"
+                  ? "◑ Reasonable"
+                  : "✗ Negative FCF"
               : "—"
           }
-          formula="FCF ÷ إجمالي الأصول × 100"
+          formula="FCF ÷ Total Assets × 100"
           showFormula={showFormulas}
-          tooltipText="عائد التدفق الحر الفعلي المولد من كل ريال مستثمر في أصول الشركة"
+          tooltipText="Actual free cash flow generated per riyal invested in the company's assets"
         />
 
         <KpiCard
-          label="تغطية الدين بالتشغيل"
+          label="Debt Coverage by Operations"
           val={debtCover}
-          unit="× سنوات"
+          unit="× yrs"
           color={
             debtCover != null
               ? debtCover <= 3
@@ -182,19 +182,19 @@ export function CashConversionCycleSection({
           note={
             debtCover != null
               ? debtCover <= 3
-                ? "✓ تسديد سريع"
+                ? "✓ Fast repayment"
                 : debtCover <= 6
-                  ? "◑ متوسط"
-                  : "✗ عبء ديون مرتفع"
+                  ? "◑ Moderate"
+                  : "✗ Heavy debt burden"
               : "—"
           }
-          formula="إجمالي الديون ÷ CFO"
+          formula="Total Debt ÷ CFO"
           showFormula={showFormulas}
-          tooltipText="عدد السنوات اللازمة لسداد كافة ديون الشركة باستخدام تدفقها التشغيلي الحالي"
+          tooltipText="Years needed to repay all company debt using current operating cash flow"
         />
 
         <KpiCard
-          label="هامش التشغيل (EBIT%)"
+          label="Operating Margin (EBIT%)"
           val={opm}
           unit="%"
           color={
@@ -209,54 +209,54 @@ export function CashConversionCycleSection({
           note={
             opm != null
               ? opm >= 15
-                ? "✓ ربحية تشغيلية قوية"
+                ? "✓ Strong operating profitability"
                 : opm >= 5
-                  ? "◑ معقول"
-                  : "✗ ضغط تشغيلي"
+                  ? "◑ Reasonable"
+                  : "✗ Operating pressure"
               : "—"
           }
-          formula="الربح التشغيلي ÷ الإيرادات × 100"
+          formula="Operating Profit (EBIT) ÷ Revenue × 100"
           showFormula={showFormulas}
-          tooltipText="هامش أرباح النشاط الأساسي قبل خصم تكاليف التمويل والزكاة والضرائب"
+          tooltipText="Core operating profit margin before financing costs, Zakat, and taxes"
         />
 
         <KpiCard
-          label="رأس المال العامل"
+          label="Working Capital"
           val={workingCapital}
           unit="M SAR"
           color={workingCapital >= 0 ? "#16A34A" : "#DC2626"}
-          note="الأصول المتداولة − الالتزامات المتداولة"
-          formula="رأس المال العامل = الأصول المتداولة − الالتزامات المتداولة"
+          note="Current Assets − Current Liabilities"
+          formula="Working Capital = Current Assets − Current Liabilities"
           showFormula={showFormulas}
-          tooltipText="السيولة الصافية المتاحة لتمويل العمليات اليومية للشركة"
+          tooltipText="Net liquidity available to fund the company's day-to-day operations"
           maxFractionDigits={0}
         />
 
         <KpiCard
           label="DSO ≈"
           val={dso}
-          unit="يوم"
+          unit="days"
           color="#D97706"
-          note={dso != null ? "≈ ذمم ÷ إيراد سنوي × 365" : "🔌 لا مصدر"}
-          formula="DSO التقريبي = الذمم المدينة ÷ الإيرادات × 365"
+          note={dso != null ? "≈ Receivables ÷ annual revenue × 365" : "🔌 No source"}
+          formula="Approx. DSO = Receivables ÷ Revenue × 365"
           showFormula={showFormulas}
-          tooltipText="متوسط عدد الأيام التي تستغرقها الشركة لتحصيل مستحقاتها من العملاء"
+          tooltipText="Average number of days the company takes to collect what customers owe"
           maxFractionDigits={0}
         />
 
         <KpiCard
           label="DIO / DPO"
           val={dIO != null && dPO != null ? dIO + dPO : null}
-          unit="يوم"
+          unit="days"
           color="#94A3B8"
           note={
             dIO != null && dPO != null
               ? `DIO ${dIO} · DPO ${dPO}`
-              : "🔌 بيانات المخزون/الموردين غير متاحة"
+              : "🔌 Inventory / payables data unavailable"
           }
-          formula="DIO = المخزون ÷ COGS × 365 · DPO = الدائنون ÷ COGS × 365"
+          formula="DIO = Inventory ÷ COGS × 365 · DPO = Payables ÷ COGS × 365"
           showFormula={showFormulas}
-          tooltipText="مدة دوران المخزون وفترة سداد الموردين"
+          tooltipText="Inventory turnover period and supplier payment period"
           maxFractionDigits={0}
         />
       </div>

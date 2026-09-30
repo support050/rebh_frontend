@@ -3,7 +3,7 @@
 import React, { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Activity, Search, Droplets, Flame, Anchor, Zap, Wind, BarChart3, Loader2, ArrowLeft
+  Activity, Search, Droplets, Flame, Anchor, Zap, Wind, BarChart3, Loader2, ArrowRight
 } from "lucide-react";
 
 interface QuickSymbol {
@@ -13,23 +13,23 @@ interface QuickSymbol {
 }
 
 const QUICK_SYMBOLS: QuickSymbol[] = [
-  { sym: "2222", name: "أرامكو السعودية", sec: "طاقة" },
-  { sym: "1120", name: "الراجحي", sec: "بنوك" },
-  { sym: "2010", name: "سابك", sec: "بتروكيماويات" },
-  { sym: "7010", name: "STC", sec: "اتصالات" },
-  { sym: "1180", name: "الأهلي", sec: "بنوك" },
-  { sym: "4030", name: "دار الأركان", sec: "عقارات" },
-  { sym: "2380", name: "بترو رابغ", sec: "طاقة" },
-  { sym: "4200", name: "الأندلس", sec: "تجزئة" },
+  { sym: "2222", name: "Saudi Aramco", sec: "Energy" },
+  { sym: "1120", name: "Al Rajhi Bank", sec: "Banks" },
+  { sym: "2010", name: "SABIC", sec: "Petrochemicals" },
+  { sym: "7010", name: "STC", sec: "Telecom" },
+  { sym: "1180", name: "Saudi National Bank", sec: "Banks" },
+  { sym: "4030", name: "Dar Al Arkan", sec: "Real Estate" },
+  { sym: "2380", name: "Petro Rabigh", sec: "Energy" },
+  { sym: "4200", name: "Al Andalus", sec: "Retail" },
 ];
 
 const WHAT_INSIDE = [
-  { icon: <Droplets size={16} />, title: "قصة التدفق النقدي", desc: "FCF · CFO/NI · مرحلة التوسع أو الانكماش" },
-  { icon: <Flame size={16} />, title: "قصة الهوامش", desc: "ضغط التسعير · انضغاط الإجمالي/التشغيلي/الصافي" },
-  { icon: <Anchor size={16} />, title: "قصة الديون والرافعة", desc: "D/E · تغطية الفائدة · جدول الاستحقاق" },
-  { icon: <Zap size={16} />, title: "قصة جودة الأرباح", desc: "Piotroski · Beneish · CFO/NI مقابل الأرباح" },
-  { icon: <Wind size={16} />, title: "قصة التمويل والتوزيعات", desc: "CFF · إعادة الكاش للمساهمين · اقتراض جديد" },
-  { icon: <BarChart3 size={16} />, title: "لوحة البيانات المرئية", desc: "نهر المال · تنفّس الميزانية · دورة التحويل النقدي" },
+  { icon: <Droplets size={16} />, title: "Cash Flow Story", desc: "FCF · CFO/NI · expansion or contraction phase" },
+  { icon: <Flame size={16} />, title: "Margin Story", desc: "Pricing pressure · gross / operating / net margin compression" },
+  { icon: <Anchor size={16} />, title: "Debt & Leverage Story", desc: "D/E · interest coverage · maturity schedule" },
+  { icon: <Zap size={16} />, title: "Earnings Quality Story", desc: "Piotroski · Beneish · CFO/NI vs. reported earnings" },
+  { icon: <Wind size={16} />, title: "Funding & Distributions Story", desc: "CFF · cash returned to shareholders · new borrowing" },
+  { icon: <BarChart3 size={16} />, title: "Visual Dashboard", desc: "Money River · Balance Sheet Breathing · Cash Conversion Cycle" },
 ];
 
 // Unified Card Shell styling
@@ -53,7 +53,7 @@ export default function RebhXRayLandingPage() {
   const navigateToSymbol = (rawSym: string) => {
     const clean = normalizeSymbol(rawSym);
     if (clean.length !== 4) {
-      setInputError("يرجى إدخال رمز شركة سعودية مكون من 4 أرقام (مثال: 2222 أو 1120)");
+      setInputError("Please enter a 4-digit Saudi company ticker (e.g., 2222 or 1120)");
       return;
     }
     setInputError(null);
@@ -77,7 +77,7 @@ export default function RebhXRayLandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] pb-24">
+    <div dir="ltr" className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] pb-24">
       {/* ── Top Header ──────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 bg-white border-b border-[#E5E7EB] px-6 py-3.5 flex items-center justify-between gap-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="flex items-center gap-3">
@@ -85,18 +85,18 @@ export default function RebhXRayLandingPage() {
             X-RAY
           </span>
           <h1 className="font-bold text-sm tracking-tight text-[#1A1A1A]">
-            قصة الشركة المالية · X-Ray
+            Company Financial Story · X-Ray
           </h1>
           <span className="hidden sm:inline-block text-xs text-[#9CA3AF]">|</span>
           <span className="hidden sm:inline-block text-xs text-[#6B7280]">
-            القصة المالية مُشتقة آلياً من الأرقام — لا نصوص مكتوبة يدوياً
+            The financial story is derived automatically from the numbers — no manually written text
           </span>
         </div>
 
         {/* Global Honesty Mark */}
         <div className="flex items-center gap-1.5 text-[11px] font-mono text-[#6B7280] bg-[#F8FAFC] border border-[#E2E8F0] px-2.5 py-1 rounded-[4px]">
           <span className="w-1.5 h-1.5 rounded-full bg-[#16A34A]" />
-          <span>° استخراج جنائي مباشر</span>
+          <span>° Live forensic extraction</span>
         </div>
       </header>
 
@@ -107,34 +107,33 @@ export default function RebhXRayLandingPage() {
         <section className={`${CARD_SHELL} p-6 sm:p-8 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-5 max-w-3xl mx-auto`}>
           <div>
             <span className="text-[11px] font-bold text-[#8C3B32] uppercase tracking-wider block mb-1">
-              مختبر الفحص المالي المعمق
+              Deep Financial Forensics Lab
             </span>
             <h2 className="text-xl sm:text-2xl font-black text-[#1A1A1A] tracking-tight">
-              تشريح القصة المالية لأي شركة سعودية مُدرجة
+              Dissect the financial story of any Tadawul-listed company
             </h2>
             <p className="text-xs sm:text-sm text-[#6B7280] mt-1.5 leading-relaxed">
-              يُولِّد محرك REBH قصة مالية متكاملة من القوائم الحقيقية — شلال نهر المال · تنفّس الميزانية · ضغط الهوامش · الرافعة والديون · واختبارات التلاعب بجودة الأرباح.
+              The REBH engine generates a complete financial story from the actual statements — Money River waterfall · Balance Sheet Breathing · margin compression · leverage and debt · and earnings-quality manipulation tests.
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-2">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
               <div className="relative flex-1">
-                <Search size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] pointer-events-none" />
+                <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] pointer-events-none" />
                 <input
                   type="text"
                   inputMode="numeric"
                   maxLength={4}
                   value={input}
                   onChange={handleInputChange}
-                  placeholder="أدخل رمز الشركة (مثال: 2222 أو 1120)"
+                  placeholder="Enter a ticker (e.g., 2222 or 1120)"
                   disabled={isPending}
-                  className={`w-full pr-10 pl-3 py-3 text-sm border rounded-[6px] outline-none font-mono tabular-nums text-center bg-[#F9FAFB] transition-all ${
-                    inputError
-                      ? "border-[#DC2626] focus:border-[#DC2626] focus:ring-1 focus:ring-[#DC2626]"
-                      : "border-[#D1D5DB] focus:border-[#8C3B32] focus:ring-2 focus:ring-[#8C3B32]/10"
-                  }`}
-                  aria-label="رمز الشركة"
+                  className={`w-full pl-10 pr-3 py-3 text-sm border rounded-[6px] outline-none font-mono tabular-nums text-center bg-[#F9FAFB] transition-all ${inputError
+                    ? "border-[#DC2626] focus:border-[#DC2626] focus:ring-1 focus:ring-[#DC2626]"
+                    : "border-[#D1D5DB] focus:border-[#8C3B32] focus:ring-2 focus:ring-[#8C3B32]/10"
+                    }`}
+                  aria-label="Company ticker"
                 />
               </div>
 
@@ -146,12 +145,12 @@ export default function RebhXRayLandingPage() {
                 {isPending ? (
                   <>
                     <Loader2 size={16} className="animate-spin" />
-                    <span>جاري التشغيل ({targetSymbol})…</span>
+                    <span>Running ({targetSymbol})…</span>
                   </>
                 ) : (
                   <>
                     <Activity size={16} />
-                    <span>تشريح السهم بالأشعة</span>
+                    <span>Run X-Ray</span>
                   </>
                 )}
               </button>
@@ -170,10 +169,10 @@ export default function RebhXRayLandingPage() {
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-[#374151] flex items-center gap-2">
               <Activity size={16} className="text-[#8C3B32]" />
-              شركات قيادية نموذجية (وصول سريع)
+              Blue-Chip Examples (Quick Access)
             </h3>
             <span className="text-[10px] text-[#9CA3AF] font-mono">
-              عينة استرشادية منتقاة
+              Curated illustrative sample
             </span>
           </div>
 
@@ -185,9 +184,8 @@ export default function RebhXRayLandingPage() {
                   key={s.sym}
                   onClick={() => navigateToSymbol(s.sym)}
                   disabled={isPending}
-                  className={`${CARD_SHELL} p-4 text-right hover:border-[#8C3B32] hover:shadow-sm group relative ${FOCUS_RING} ${
-                    isLoadingThis ? "border-[#8C3B32] bg-[#FFF5F4]" : "hover:bg-[#FDFBFB]"
-                  }`}
+                  className={`${CARD_SHELL} p-4 text-left hover:border-[#8C3B32] hover:shadow-sm group relative ${FOCUS_RING} ${isLoadingThis ? "border-[#8C3B32] bg-[#FFF5F4]" : "hover:bg-[#FDFBFB]"
+                    }`}
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span className="font-mono tabular-nums font-black text-[#8C3B32] text-lg">
@@ -196,7 +194,7 @@ export default function RebhXRayLandingPage() {
                     {isLoadingThis ? (
                       <Loader2 size={14} className="animate-spin text-[#8C3B32]" />
                     ) : (
-                      <ArrowLeft size={13} className="text-[#9CA3AF] group-hover:text-[#8C3B32] group-hover:-translate-x-0.5 transition-all" />
+                      <ArrowRight size={13} className="text-[#9CA3AF] group-hover:text-[#8C3B32] group-hover:translate-x-0.5 transition-all" />
                     )}
                   </div>
                   <span className="block text-xs font-bold text-[#0F172A] truncate">
@@ -216,10 +214,10 @@ export default function RebhXRayLandingPage() {
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-[#374151] flex items-center gap-2">
               <Droplets size={16} className="text-[#8C3B32]" />
-              محاور التشريح المالي بالتقرير
+              Areas of Financial Analysis in the Report
             </h3>
             <span className="text-[10px] text-[#9CA3AF] font-mono">
-              6 قصص مالية مربوطة بالصيغ
+              6 financial stories tied to formulas
             </span>
           </div>
 
@@ -248,7 +246,7 @@ export default function RebhXRayLandingPage() {
 
       {/* ── Footer ──────────────────────────────────────────────────────────── */}
       <footer className="text-center text-[11px] text-[#9CA3AF] pt-8 border-t border-[#E5E7EB] max-w-5xl mx-auto">
-        منصة REBH — Story &amp; X-Ray Engine · القصة المالية مشتقة آلياً بالكامل من القوائم المحاسبية المنشورة
+        REBH Platform — Story &amp; X-Ray Engine · The financial story is derived entirely and automatically from published accounting statements
       </footer>
     </div>
   );

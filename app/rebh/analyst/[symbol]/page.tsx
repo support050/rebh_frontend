@@ -3,357 +3,51 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  FileSpreadsheet, Search, ArrowUpRight, ArrowDownRight,
-  BarChart3, FileDown, Loader2, AlertTriangle, ShieldCheck, RefreshCw,
-  Info, ChevronRight, CheckCircle2, XCircle, Minus,
-  TrendingUp, Layers, Activity, BookOpen
-} from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api/config";
 import { generateAnalystPdf, AnalystPdfData, AnalystRatioItem } from "./components/exportpdf";
+import {
+  Tab,
+  SectorTemplate,
+  AnalysisMode,
+  SECTOR_TEMPLATES,
+} from "./components/types";
+import { AnalystHeader } from "./components/AnalystHeader";
+import { CompanyHero } from "./components/CompanyHero";
+import { AnalystNavigation } from "./components/AnalystNavigation";
+import { IncomeStatementTab } from "./components/IncomeStatementTab";
+import { BalanceSheetTab } from "./components/BalanceSheetTab";
+import { CashFlowTab } from "./components/CashFlowTab";
+import { FinancialRatiosTab } from "./components/FinancialRatiosTab";
+import { FormulasDrawer } from "./components/FormulasDrawer";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-type Tab = "is" | "bs" | "cf" | "ratios";
-type SectorTemplate = "industrial" | "bank" | "reit" | "consumer" | "telecom";
-
-// ─── Formula definitions (shown under each ratio) ─────────────────────────────
-const FORMULAS: Record<string, { formula: string; source: string; note?: string }> = {
-  roe: { formula: "صافي الربح ÷ إجمالي حقوق المساهمين × 100", source: "قائمة الدخل + الميزانية العمومية", note: "مؤشر العائد على ملكية المساهمين — كلما ارتفع كان أفضل (مع الحذر من الرافعة المالية العالية)" },
-  gm: { formula: "(إجمالي الربح ÷ الإيرادات) × 100", source: "قائمة الدخل", note: "هامش الربح الإجمالي — يكشف قوة التسعير وكفاءة الإنتاج" },
-  nm: { formula: "(صافي الربح ÷ الإيرادات) × 100", source: "قائمة الدخل", note: "هامش الربح الصافي — النسبة المتبقية للمساهم بعد كل المصاريف" },
-  opm: { formula: "(الربح التشغيلي ÷ الإيرادات) × 100", source: "قائمة الدخل", note: "هامش التشغيل — يقيس ربحية النشاط التشغيلي قبل الفوائد والضرائب" },
-  pe: { formula: "القيمة السوقية ÷ صافي الربح السنوي (TTM)", source: "سعر السوق + قائمة الدخل", note: "مضاعف الأرباح — كلما انخفض دل على تقييم أفضل (مع تحفظ على الشركات الخاسرة)" },
-  pb: { formula: "القيمة السوقية ÷ إجمالي حقوق المساهمين", source: "سعر السوق + الميزانية", note: "مضاعف القيمة الدفترية — P/B < 1 قد يعني تقييماً منخفضاً أو ضعفاً هيكلياً" },
-  peg: { formula: "P/E ÷ معدل نمو صافي الربح السنوي %", source: "قائمة الدخل + سعر السوق", note: "مضاعف النمو (Lynch) — PEG < 1 علامة إيجابية وفق منهجية Lynch" },
-  current: { formula: "الأصول المتداولة ÷ الالتزامات المتداولة", source: "الميزانية العمومية", note: "نسبة التداول — المقبول أعلى من 1.5×" },
-  debt_eq: { formula: "إجمالي الديون ÷ إجمالي حقوق المساهمين", source: "الميزانية العمومية", note: "نسبة الرافعة المالية — كلما ارتفعت ازدادت مخاطر الملاءة" },
-  cfo_nm: { formula: "(CFO ÷ صافي الربح) × 100", source: "قائمة التدفق النقدي + قائمة الدخل", note: "معدل تحويل الأرباح إلى كاش — CFO/NI > 100% علامة صحية" },
-  g_net: { formula: "((صافي ربح Q الأخير ÷ صافي ربح نفس Q السابق) − 1) × 100", source: "البيانات الربعية", note: "نمو صافي الربح سنة على سنة — YoY" },
-  g_rev: { formula: "((إيرادات Q الأخير ÷ إيرادات نفس Q السابق) − 1) × 100", source: "البيانات الربعية", note: "نمو الإيرادات سنة على سنة — YoY" },
-};
-
-// ─── Traffic-light classifier ─────────────────────────────────────────────────
-function classifyRatio(id: string, val: number | null): "green" | "amber" | "red" | "neutral" {
-  if (val == null) return "neutral";
-  switch (id) {
-    case "roe": return val >= 15 ? "green" : val >= 8 ? "amber" : "red";
-    case "gm": return val >= 40 ? "green" : val >= 20 ? "amber" : "red";
-    case "nm": return val >= 15 ? "green" : val >= 5 ? "amber" : "red";
-    case "opm": return val >= 15 ? "green" : val >= 5 ? "amber" : "red";
-    case "pe": return val > 0 && val <= 20 ? "green" : val <= 35 ? "amber" : "red";
-    case "pb": return val > 0 && val <= 2 ? "green" : val <= 4 ? "amber" : "red";
-    case "peg": return val > 0 && val <= 1 ? "green" : val <= 2 ? "amber" : "red";
-    case "current": return val >= 2 ? "green" : val >= 1 ? "amber" : "red";
-    case "debt_eq": return val <= 0.5 ? "green" : val <= 1.5 ? "amber" : "red";
-    case "cfo_nm": return val >= 100 ? "green" : val >= 60 ? "amber" : "red";
-    case "g_net": return val >= 15 ? "green" : val >= 0 ? "amber" : "red";
-    case "g_rev": return val >= 10 ? "green" : val >= 0 ? "amber" : "red";
-    // Working Capital
-    case "dso": return val <= 45 ? "green" : val <= 90 ? "amber" : "red";
-    case "dio": return val <= 60 ? "green" : val <= 120 ? "amber" : "red";
-    case "dpo": return val >= 30 && val <= 75 ? "green" : val < 30 ? "amber" : "red";
-    case "ccc": return val <= 30 ? "green" : val <= 90 ? "amber" : "red";
-    default: return "neutral";
-  }
-}
-
-const LIGHT_CSS: Record<string, string> = {
-  green: "bg-[#F0FDF4] text-[#16A34A] border-[#BBF7D0]",
-  amber: "bg-[#FFFBEB] text-[#D97706] border-[#FDE68A]",
-  red: "bg-[#FEF2F2] text-[#DC2626] border-[#FECACA]",
-  neutral: "bg-[#F8FAFC] text-[#64748B] border-[#E2E8F0]",
-};
-const LIGHT_DOT: Record<string, string> = {
-  green: "bg-[#16A34A]", amber: "bg-[#D97706]", red: "bg-[#DC2626]", neutral: "bg-[#94A3B8]",
-};
-
-// ─── Sector template definitions ─────────────────────────────────────────────
-const SECTOR_TEMPLATES: Record<SectorTemplate, { label: string; ratios: string[]; notes: string[] }> = {
-  industrial: {
-    label: "الشركات الصناعية والبتروكيماويات",
-    ratios: ["gm", "opm", "nm", "roe", "current", "debt_eq", "g_rev", "g_net"],
-    notes: [
-      "الهوامش الثلاثة (إجمالي / تشغيلي / صافي) هي المحور الرئيسي للشركات الصناعية",
-      "نسبة الدين/حقوق الملكية حساسة — الصناعات الثقيلة تقبل رفعاً أعلى من التجزئة",
-      "نمو الإيرادات مؤشر قيادي على توسع الحصة السوقية",
-    ]
-  },
-  consumer: {
-    label: "السلع الاستهلاكية والتجزئة (Consumer / Retail)",
-    ratios: ["gm", "opm", "nm", "roe", "cfo_nm", "g_rev", "current"],
-    notes: [
-      "قطاع التجزئة يتميز بدوران رأس مال سريع وهوامش صافية رقيقة — التركيز على تحويل الكاش (CFO/NI)",
-      "هامش الربح الإجمالي (Gross Margin) يعكس القوة التسعيرية للعلامة التجارية وحماية الهوامش ضد التضخم",
-      "رأس المال العامل وإدارة المخزون والذمم المدينة هي صمام الأمان المالي لشركات التجزئة",
-    ]
-  },
-  telecom: {
-    label: "الاتصالات وتقنية المعلومات (Telecom & Tech)",
-    ratios: ["opm", "nm", "roe", "debt_eq", "cfo_nm", "g_rev", "pe"],
-    notes: [
-      "قطاع الاتصالات يعتمد على البنية التحتية والترخيص — استقرار هوامش التشغيل (EBIT Margin) أهم من الإجمالي",
-      "كثافة الإنفاق الرأسمالي (CapEx) تتطلب متابعة التدفق النقدي الحر والرافعة المالية المستمرة",
-      "معدلات الاشتراكات ونمو الإيرادات العضوية (YoY Revenue) تسبق نتائج الأرباح المحاسبية",
-    ]
-  },
-  bank: {
-    label: "البنوك والمؤسسات المالية",
-    ratios: ["roe", "pb", "nm", "pe"],
-    notes: [
-      "البنوك لا تُقيَّم بهوامش الربح التقليدية — ROE هو المقياس الأول",
-      "P/B < 1 في البنوك غالباً يعكس مخاوف في جودة الأصول أو الرأسمال",
-      "لا تُطبَّق نسبة التداول (Current Ratio) على البنوك — الإطار التنظيمي بازل أهم",
-      "لا تتوفر نسبة Debt/Equity بالمعنى التقليدي للبنوك — تُستبدل بنسبة الرأسمال (CAR)",
-    ]
-  },
-  reit: {
-    label: "الصناديق العقارية (REITs) والمطورون",
-    ratios: ["nm", "pb", "g_rev", "debt_eq"],
-    notes: [
-      "صناديق الريت تُقيَّم أساساً بتوزيعات الأرباح (Dividend Yield) لا P/E",
-      "الرافعة المالية مقبولة في الريت بمستويات أعلى من الصناعات الأخرى",
-      "نمو الإيرادات في الريت يعكس الإشغال والأجار — متابعة القطاعي أهم",
-    ]
-  }
-};
-
-// ─── Analysis mode helpers ────────────────────────────────────────────────────
-type AnalysisMode = "absolute" | "common_size" | "horizontal";
-
-function toCommonSize(arr: number[], baseArr: number[]): (number | null)[] {
-  // Each value as % of the reference base row (Revenue)
-  return arr.map((v, i) => {
-    const b = baseArr[i];
-    if (!b) return null;
-    return +((v / Math.abs(b)) * 100).toFixed(1);
-  });
-}
-
-function toHorizontal(arr: number[]): (number | null)[] {
-  // % change from the earliest (first) non-zero period = base year index
-  const base = arr.find(v => v !== 0) ?? null;
-  if (base === null) return arr.map(() => null);
-  return arr.map(v => +(((v - base) / Math.abs(base)) * 100).toFixed(1));
-}
-
-// ─── Statement Row ────────────────────────────────────────────────────────────
-function StatRow({
-  label, values, periods, unit = "M", isTotal = false, indent = false,
-  source, verdict, onClick, analysisMode, baseValues, ttmValue,
-}: {
-  label: string; values: number[]; periods: string[]; unit?: string;
-  isTotal?: boolean; indent?: boolean; source?: string; verdict?: "green" | "amber" | "red" | "neutral";
-  onClick?: () => void;
-  analysisMode?: AnalysisMode;
-  baseValues?: number[]; // Revenue / TotalAssets / CFO for common-size reference
-  ttmValue?: number | null; // raw TTM value (absolute) — transformed here based on mode
-}) {
-  const [showNote, setShowNote] = useState(false);
-
-  // Transform values according to analysisMode
-  const displayValues: (number | null)[] = useMemo(() => {
-    if (!analysisMode || analysisMode === "absolute") return values;
-    if (analysisMode === "common_size" && baseValues?.length)
-      return toCommonSize(values, baseValues);
-    if (analysisMode === "horizontal")
-      return toHorizontal(values);
-    return values;
-  }, [values, analysisMode, baseValues]);
-
-  // Compute displayed TTM value according to analysisMode
-  const displayTTM: number | null = useMemo(() => {
-    if (ttmValue == null) return null;
-    if (!analysisMode || analysisMode === "absolute") return ttmValue;
-    if (analysisMode === "common_size" && baseValues?.length) {
-      // Use the last base value as denominator (same column as TTM)
-      const lastBase = baseValues[baseValues.length - 1];
-      if (!lastBase) return null;
-      return +((ttmValue / Math.abs(lastBase)) * 100).toFixed(1);
-    }
-    if (analysisMode === "horizontal") {
-      const base = values.find(v => v !== 0) ?? null;
-      if (base === null) return null;
-      return +(((ttmValue - base) / Math.abs(base)) * 100).toFixed(1);
-    }
-    return null;
-  }, [ttmValue, analysisMode, baseValues, values]);
-
-  const displayUnit = analysisMode === "absolute" ? unit : "%";
-  const isAbsolute = !analysisMode || analysisMode === "absolute";
-
-  if (!values || values.every(v => v === 0)) return null;
-
-  // YoY change column — only meaningful in absolute mode
-  const latest = displayValues[displayValues.length - 1] ?? 0;
-  const prev = displayValues[displayValues.length - 2] ?? 0;
-  const chg = isAbsolute && prev !== 0
-    ? ((latest - prev) / Math.abs(prev)) * 100 : null;
-  const isUp = chg !== null && chg >= 0;
-
-  const renderVal = (v: number | null) =>
-    v == null
-      ? <span className="text-[#CBD5E1]">—</span>
-      : <span className={!isAbsolute ? (v > 0 ? "text-[#16A34A]" : v < 0 ? "text-[#DC2626]" : "") : ""}>
-        {!isAbsolute && v > 0 ? "+" : ""}
-        {v.toLocaleString(undefined, { maximumFractionDigits: 1 })}
-        {displayUnit === "%" ? "%" : ""}
-      </span>;
-
-  return (
-    <tr
-      className={`border-b border-[#F1F5F9] hover:bg-[#F8FAFC] group cursor-pointer ${isTotal ? "bg-[#F8FAFC]" : ""}`}
-      onClick={onClick}
-    >
-      {/* Label cell */}
-      <td className={`p-2 text-right text-xs ${isTotal ? "font-black text-[#0F172A]" : indent ? "pl-6 text-[#374151] font-medium" : "font-semibold text-[#0F172A]"}`}>
-        <div className="flex items-center gap-1.5">
-          {verdict && <span className={`w-2 h-2 rounded-full shrink-0 ${LIGHT_DOT[verdict]}`} />}
-          {indent && <span className="w-3 shrink-0" />}
-          <span>{label}</span>
-          {source && (
-            <button
-              onClick={e => { e.stopPropagation(); setShowNote(!showNote); }}
-              className="opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-              <Info size={10} className="text-[#94A3B8]" />
-            </button>
-          )}
-        </div>
-        {showNote && source && (
-          <div className="mt-1 text-[10px] text-[#64748B] bg-[#F1F5F9] px-2 py-1 rounded font-normal">
-            المصدر: {source}
-          </div>
-        )}
-      </td>
-
-      {/* Period value cells */}
-      {displayValues.map((v, i) => (
-        <td key={i} className={`p-2 text-right font-mono text-xs ${isTotal ? "font-black text-[#0F172A]" : "text-[#1E293B]"
-          } ${i === displayValues.length - 1 ? "bg-[#FFFBF5]" : ""}`}>
-          {renderVal(v)}
-        </td>
-      ))}
-
-      {/* TTM cell — always rendered but value depends on mode */}
-      {ttmValue !== undefined && (
-        <td className="p-2 text-right font-mono text-xs bg-[#FFF8EE] text-[#D97706] font-bold">
-          {renderVal(displayTTM)}
-        </td>
-      )}
-
-      {/* YoY change column — hidden in non-absolute modes to avoid clutter */}
-      {isAbsolute && (
-        <td className="p-2 text-right text-[11px] font-mono">
-          {chg != null ? (
-            <span className={`inline-flex items-center gap-0.5 ${isUp ? "text-[#16A34A]" : "text-[#DC2626]"}`}>
-              {isUp ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
-              {Math.abs(chg).toFixed(1)}%
-            </span>
-          ) : <span className="text-[#CBD5E1]">—</span>}
-        </td>
-      )}
-    </tr>
-  );
-}
-
-// ─── Ratio Card ───────────────────────────────────────────────────────────────
-function RatioCard({
-  id, label, value, unit, percentile, template
-}: {
-  id: string; label: string; value: number | null; unit: string;
-  percentile?: number; template: SectorTemplate;
-}) {
-  const [open, setOpen] = useState(false);
-  const light = classifyRatio(id, value);
-  const formula = FORMULAS[id];
-  const tpl = SECTOR_TEMPLATES[template];
-  const inTemplate = tpl.ratios.includes(id);
-
-  return (
-    <div
-      className={`rounded-[6px] border p-4 space-y-2 cursor-pointer transition-all hover:shadow-md ${LIGHT_CSS[light]} ${inTemplate ? "ring-1 ring-[#8C3B32]/30" : ""}`}
-      onClick={() => setOpen(!open)}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            {inTemplate && (
-              <span className="text-[9px] font-bold text-[#8C3B32] bg-[#FFF1EF] border border-[#FECACA] px-1.5 py-0.5 rounded-full">
-                {tpl.label.split(" ")[0]}
-              </span>
-            )}
-            <span className="text-xs font-bold text-[#0F172A] truncate">{label}</span>
-          </div>
-          <div className="flex items-baseline gap-1.5 mt-1">
-            <span className="text-xl font-black font-mono">
-              {value == null ? "—" : value.toLocaleString(undefined, { maximumFractionDigits: 1 })}
-            </span>
-            <span className="text-xs font-mono">{unit}</span>
-          </div>
-        </div>
-        <div className="text-right shrink-0 space-y-1">
-          {light !== "neutral" && (
-            <div className={`text-[10px] font-bold px-2 py-0.5 rounded ${light === "green" ? "bg-[#BBF7D0] text-[#166534]" :
-              light === "amber" ? "bg-[#FDE68A] text-[#92400E]" :
-                "bg-[#FECACA] text-[#991B1B]"
-              }`}>
-              {light === "green" ? "✓ قوي" : light === "amber" ? "◑ متوسط" : "✗ ضعيف"}
-            </div>
-          )}
-          {percentile != null && (
-            <div className="text-[10px] font-mono text-[#64748B]">
-              رتبة {percentile}% بالقطاع
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Expandable formula */}
-      {open && formula && (
-        <div className="border-t border-current/20 pt-2 mt-2 space-y-1.5">
-          <div className="text-[11px]">
-            <span className="font-bold">الصيغة:</span>{" "}
-            <code className="font-mono bg-black/5 px-1 rounded">{formula.formula}</code>
-          </div>
-          <div className="text-[11px]">
-            <span className="font-bold">المصدر:</span> {formula.source}
-          </div>
-          {formula.note && (
-            <div className="text-[11px] text-current/80">{formula.note}</div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Main page ────────────────────────────────────────────────────────────────
-export default function RebhAnalystPage() {
+export default function AnalystDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const symbol = ((params?.symbol as string) || "2222").toUpperCase();
+  const symbol = (params?.symbol as string) || "2222";
 
-  const [data, setData] = useState<any | null>(null);
+  const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-
   const [tab, setTab] = useState<Tab>("is");
-  const [template, setTemplate] = useState<SectorTemplate>("industrial");
-  const [showFormulas, setShowFormulas] = useState(false);
   const [viewMode, setViewMode] = useState<"annual" | "quarterly">("annual");
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>("absolute");
+  const [template, setTemplate] = useState<SectorTemplate>("industrial");
+  const [search, setSearch] = useState("");
+  const [showDrawer, setShowDrawer] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
 
-  // Fetch
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
     async function load() {
-      setLoading(true); setError(null);
+      setLoading(true);
+      setError(null);
       try {
-        const res = await fetch(`${API_BASE_URL}/api/rebh/statements/${symbol}`, { signal: controller.signal });
-        if (!res.ok) throw new Error(`لم يُعثر على قوائم مالية للرمز: ${symbol}`);
+        const res = await fetch(`${API_BASE_URL}/api/rebh/statements/${symbol}`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) throw new Error(`No financial statements found for symbol: ${symbol}`);
         const json = await res.json();
         if (!cancelled) setData(json);
       } catch (e: any) {
@@ -364,7 +58,10 @@ export default function RebhAnalystPage() {
       }
     }
     load();
-    return () => { cancelled = true; controller.abort(); };
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, [symbol]);
 
   const handleNav = (e: React.FormEvent) => {
@@ -382,42 +79,37 @@ export default function RebhAnalystPage() {
     const bsData = data.bs || {};
     const cfData = data.cf || {};
 
-    // Derived: current ratio from BS
     const ca = bsData.current_assets?.at(-1) ?? 0;
     const cl = bsData.current_liabilities?.at(-1) ?? 0;
     const cur = cl > 0 ? +(ca / cl).toFixed(2) : null;
 
-    // Derived: debt/equity
     const sd = bsData.short_debt?.at(-1) ?? 0;
     const ld = bsData.long_debt?.at(-1) ?? 0;
     const eq = bsData.total_equity?.at(-1) ?? 0;
     const de = eq > 0 ? +((sd + ld) / eq).toFixed(2) : null;
 
-    // CFO/NI conversion
     const cfo = cfData.cfo?.at(-1) ?? 0;
     const net = isData.net?.at(-1) ?? 0;
     const cfo_nm = net !== 0 ? +((cfo / net) * 100).toFixed(1) : null;
 
-    // Operating margin
     const op = isData.op?.at(-1) ?? 0;
     const rev = isData.rev?.at(-1) ?? 0;
     const opm = rev > 0 ? +((op / rev) * 100).toFixed(1) : null;
 
-    // Working Capital efficiency (DSO / DIO / DPO)
     const rec = bsData.receivables?.at(-1) ?? 0;
     const inv = bsData.inventory?.at(-1) ?? 0;
     const pay = bsData.payables?.at(-1) ?? 0;
     const rawCogs = isData.cogs?.at(-1) ?? 0;
     const cogs = Math.abs(rawCogs);
 
-    const dso = rev > 0 && rec > 0 ? +(rec / rev * 365).toFixed(1) : null;
-    const dio = cogs > 0 && inv > 0 ? +(inv / cogs * 365).toFixed(1) : null;
-    const dpo = cogs > 0 && pay > 0 ? +(pay / cogs * 365).toFixed(1) : null;
+    const dso = rev > 0 && rec > 0 ? +((rec / rev) * 365).toFixed(1) : null;
+    const dio = cogs > 0 && inv > 0 ? +((inv / cogs) * 365).toFixed(1) : null;
+    const dpo = cogs > 0 && pay > 0 ? +((pay / cogs) * 365).toFixed(1) : null;
 
-    // CCC only valid if all 3 metrics exist (or DSO + DIO - DPO)
-    const ccc = (dso !== null && dio !== null && dpo !== null)
-      ? +(dso + dio - dpo).toFixed(1)
-      : null;
+    const ccc =
+      dso !== null && dio !== null && dpo !== null
+        ? +(dso + dio - dpo).toFixed(1)
+        : null;
 
     return { ...c, cur, de, cfo_nm, opm, dso, dio, dpo, ccc, pct: pc };
   }, [data]);
@@ -430,105 +122,131 @@ export default function RebhAnalystPage() {
       setTemplate("bank");
     } else if (sec.includes("ريت") || sec.includes("reit") || sec.includes("عقار")) {
       setTemplate("reit");
-    } else if (sec.includes("اتصال") || sec.includes("telecom") || sec.includes("تقنية") || sec.includes("tech")) {
+    } else if (
+      sec.includes("اتصال") ||
+      sec.includes("telecom") ||
+      sec.includes("تقنية") ||
+      sec.includes("tech")
+    ) {
       setTemplate("telecom");
-    } else if (sec.includes("تجزئة") || sec.includes("استهلاك") || sec.includes("consumer") || sec.includes("retail") || sec.includes("أغذية") || sec.includes("food")) {
+    } else if (
+      sec.includes("تجزئة") ||
+      sec.includes("استهلاك") ||
+      sec.includes("consumer") ||
+      sec.includes("retail") ||
+      sec.includes("أغذية") ||
+      sec.includes("food")
+    ) {
       setTemplate("consumer");
     } else {
       setTemplate("industrial");
     }
   }, [data]);
 
-  // ─── Loading / Error ────────────────────────────────────────────────────────
-  if (loading) return (
-    <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center">
-      <div className="text-center space-y-3">
-        <div className="w-11 h-11 border-[3px] border-[#8C3B32] border-t-transparent rounded-full animate-spin mx-auto" />
-      </div>
-    </div>
-  );
-
-  if (error || !data) return (
-    <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center p-8">
-      <div className="bg-white border border-[#E5E7EB] rounded-[8px] p-8 max-w-md text-center space-y-4 shadow-sm">
-        <AlertTriangle className="w-10 h-10 text-[#DC2626] mx-auto" />
-        <h2 className="text-base font-bold">تعذر تحميل القوائم — {symbol}</h2>
-        <p className="text-xs text-[#6B7280]">{error}</p>
-        <div className="flex justify-center gap-2">
-          <button onClick={() => { setLoading(true); setError(null); }} className="px-4 py-2 bg-[#F3F4F6] border border-[#D1D5DB] rounded-[4px] text-xs font-semibold">إعادة المحاولة</button>
-          <Link href="/rebh/analyst" className="px-4 py-2 bg-[#8C3B32] text-white rounded-[4px] text-xs font-semibold hover:bg-[#752f28]">رمز آخر</Link>
+  if (loading) {
+    return (
+      <div dir="ltr" className="min-h-screen bg-[#F7F8FA] flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <div className="w-11 h-11 border-[3px] border-[#8C3B32] border-t-transparent rounded-full animate-spin mx-auto" />
         </div>
       </div>
-    </div>
-  );
+    );
+  }
 
-  const name = data.name || symbol;
+  if (error || !data) {
+    return (
+      <div dir="ltr" className="min-h-screen bg-[#F7F8FA] flex items-center justify-center p-8">
+        <div className="bg-white border border-[#E5E7EB] rounded-[8px] p-8 max-w-md text-center space-y-4 shadow-sm">
+          <AlertTriangle className="w-10 h-10 text-[#DC2626] mx-auto" />
+          <h2 className="text-base font-bold">Failed to load statements — {symbol}</h2>
+          <p className="text-xs text-[#6B7280]">{error}</p>
+          <div className="flex justify-center gap-2">
+            <button
+              onClick={() => {
+                setLoading(true);
+                setError(null);
+              }}
+              className="px-4 py-2 bg-[#F3F4F6] border border-[#D1D5DB] rounded-[4px] text-xs font-semibold"
+            >
+              Retry
+            </button>
+            <Link
+              href="/rebh/analyst"
+              className="px-4 py-2 bg-[#8C3B32] text-white rounded-[4px] text-xs font-semibold hover:bg-[#752f28]"
+            >
+              Another Symbol
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const name = data.en || data.name || symbol;
   const nameEn = data.en || "";
-  const sector = data.sec || "—";
-  const isBank = data.is_bank;
+  const sector = data.sec_en || data.sec || "—";
+  const isBank = Boolean(data.is_bank);
   const isData = data.income_statement || {};
-  const bsData = data.bs || {};
-  const cfData = data.cf || {};
+  const bsData = (viewMode === "annual" ? data.bs : data.bs_quarterly || data.bs) || {};
+  const cfData = (viewMode === "annual" ? data.cf : data.cf_quarterly || data.cf) || {};
   const isTTM = isData.ttm || {};
-  const periods: string[] = viewMode === "annual"
-    ? (isData.periods || [])
-    : (data.quarters?.periods || []);
 
-  // Dual verdict
-  const safetyPass = ratios && (ratios.de ?? 0) <= 2 && (ratios.cur ?? 0) >= 1;
-  const qualityPass = ratios && (ratios.roe ?? 0) >= 10 && (ratios.nm ?? 0) >= 5;
+  const safetyPass = ratios ? (ratios.de ?? 0) <= 2 && (ratios.cur ?? 0) >= 1 : null;
+  const qualityPass = ratios ? (ratios.roe ?? 0) >= 10 && (ratios.nm ?? 0) >= 5 : null;
 
-  // ── PDF export (direct jsPDF generator, replaces legacy window.print) ──────
   const handleExportPdf = async () => {
     if (exportingPdf) return;
     try {
       setExportingPdf(true);
       const R = (id: string, label: string, unit: string): AnalystRatioItem => ({
-        id, label, value: ratios?.[id] ?? null, unit,
+        id,
+        label,
+        value: ratios?.[id] ?? null,
+        unit,
       });
       const groups: AnalystPdfData["groups"] = [
         {
-          title: "الربحية (Profitability)",
+          title: "Profitability",
           rows: [
-            R("roe", "العائد على حقوق المساهمين (ROE)", "%"),
-            R("nm", "هامش صافي الربح", "%"),
-            R("gm", "هامش إجمالي الربح", "%"),
-            R("opm", "هامش التشغيل (EBIT)", "%"),
+            R("roe", "Return on Equity (ROE)", "%"),
+            R("nm", "Net Profit Margin", "%"),
+            R("gm", "Gross Profit Margin", "%"),
+            R("opm", "Operating Margin (EBIT)", "%"),
           ],
         },
         {
-          title: "النمو (Growth - YoY)",
+          title: "Growth (YoY)",
           rows: [
-            R("g_net", "نمو صافي الربح (YoY)", "%"),
-            R("g_rev", "نمو الإيرادات (YoY)", "%"),
-            R("peg", "مضاعف النمو (PEG)", "\u00D7"),
+            R("g_net", "Net Income Growth (YoY)", "%"),
+            R("g_rev", "Revenue Growth (YoY)", "%"),
+            R("peg", "PEG Ratio", "\u00D7"),
           ],
         },
         {
-          title: "التقييم (Valuation)",
+          title: "Valuation",
           rows: [
-            R("pe", "مضاعف السعر/الربح (P/E)", "\u00D7"),
-            R("pb", "مضاعف السعر/الدفاتر (P/B)", "\u00D7"),
+            R("pe", "Price / Earnings (P/E)", "\u00D7"),
+            R("pb", "Price / Book (P/B)", "\u00D7"),
           ],
         },
       ];
       if (!isBank) {
         groups.push({
-          title: "السيولة والملاءة (Liquidity / Leverage)",
+          title: "Liquidity / Leverage",
           rows: [
-            R("cur", "نسبة التداول (Current Ratio)", "\u00D7"),
-            R("de", "الدين / حقوق الملكية", "\u00D7"),
-            R("cfo_nm", "تحويل الأرباح إلى كاش (CFO/NI)", "%"),
+            R("cur", "Current Ratio", "\u00D7"),
+            R("de", "Debt / Equity", "\u00D7"),
+            R("cfo_nm", "Earnings-to-Cash Conversion (CFO/NI)", "%"),
           ],
         });
         const wc = [
-          R("dso", "أيام تحصيل الذمم (DSO)", "\u064A\u0648\u0645"),
-          R("dio", "أيام دوران المخزون (DIO)", "\u064A\u0648\u0645"),
-          R("dpo", "أيام سداد الموردين (DPO)", "\u064A\u0648\u0645"),
-          R("ccc", "دورة تحويل النقد (CCC)", "\u064A\u0648\u0645"),
-        ].filter((r) => r.value != null);
+          R("dso", "Days Sales Outstanding (DSO)", "days"),
+          R("dio", "Days Inventory Outstanding (DIO)", "days"),
+          R("dpo", "Days Payables Outstanding (DPO)", "days"),
+          R("ccc", "Cash Conversion Cycle (CCC)", "days"),
+        ].filter(r => r.value != null);
         if (wc.length > 0) {
-          groups.push({ title: "دوران رأس المال العامل (Working Capital Efficiency)", rows: wc });
+          groups.push({ title: "Working Capital Efficiency", rows: wc });
         }
       }
       const peersRaw: any[] = data?.peers?.peers?.roe || [];
@@ -537,629 +255,121 @@ export default function RebhAnalystPage() {
         name,
         nameEn,
         sector,
-        isBank: Boolean(isBank),
+        isBank,
         templateLabel: SECTOR_TEMPLATES[template].label,
         templateNotes: SECTOR_TEMPLATES[template].notes,
         groups,
         safetyPass: safetyPass ?? null,
         qualityPass: qualityPass ?? null,
-        ttm: isTTM && (isTTM.rev != null || isTTM.net != null) ? {
-          rev: isTTM.rev ?? null,
-          gp: isTTM.gp ?? null,
-          net: isTTM.net ?? null,
-          eps: isTTM.eps ?? null,
-        } : null,
-        peers: peersRaw.slice(0, 8).map(([sym, peerName, roe]: any) => ({ sym, name: peerName, roe })),
+        ttm:
+          isTTM && (isTTM.rev != null || isTTM.net != null)
+            ? {
+                rev: isTTM.rev ?? null,
+                gp: isTTM.gp ?? null,
+                net: isTTM.net ?? null,
+                eps: isTTM.eps ?? null,
+              }
+            : null,
+        peers: peersRaw.slice(0, 8).map(([sym, peerName, roe]: any) => ({
+          sym,
+          name: peerName,
+          roe,
+        })),
         peersCount: data?.peers?.n_sec || 0,
       };
       await generateAnalystPdf(payload);
     } catch (err) {
       console.error("Failed to generate analyst PDF:", err);
-      alert("حدث خطأ أثناء إنشاء ملف الـ PDF. يرجى المحاولة مرة أخرى.");
+      alert("An error occurred while generating the PDF. Please try again.");
     } finally {
       setExportingPdf(false);
     }
   };
 
-  const TAB_LIST: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
-    { id: "is", label: "قائمة الدخل", icon: <TrendingUp size={13} /> },
-    { id: "bs", label: "الميزانية العمومية", icon: <Layers size={13} /> },
-    { id: "cf", label: "التدفقات النقدية", icon: <Activity size={13} /> },
-    { id: "ratios", label: "النسب المالية", icon: <BarChart3 size={13} /> },
-  ];
-
   return (
-    <div className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] pb-28">
+    <div dir="ltr" className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] pb-28">
+      {/* Top Header */}
+      <AnalystHeader
+        symbol={symbol}
+        search={search}
+        onSearchChange={setSearch}
+        onSearchSubmit={handleNav}
+        exportingPdf={exportingPdf}
+        onExportPdf={handleExportPdf}
+      />
 
-      {/* ── TOP BAR ──────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-40 bg-white border-b border-[#E5E7EB] px-5 py-2.5 flex items-center justify-between flex-wrap gap-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        <div className="flex items-center gap-3">
-          <Link href="/rebh/analyst">
-            <span className="px-2 py-1 rounded bg-[#8C3B32] text-white font-mono font-black text-xs cursor-pointer hover:bg-[#752f28]">ANALYST</span>
-          </Link>
-          <h1 className="font-bold text-sm text-[#1A1A1A] tracking-tight">
-            Statements · Analyst — <span className="font-mono text-[#8C3B32]">{symbol}</span>
-          </h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <form onSubmit={handleNav} className="flex items-center gap-1.5">
-            <input
-              type="text" inputMode="numeric" maxLength={4}
-              value={search} onChange={e => setSearch(e.target.value.replace(/\D/g, ""))}
-              placeholder="رمز" className="w-24 px-2.5 py-1.5 text-xs border border-[#D1D5DB] rounded-[4px] outline-none focus:border-[#8C3B32] font-mono text-center bg-[#F9FAFB]"
-            />
-            <button type="submit" className="px-2.5 py-1.5 bg-[#F3F4F6] hover:bg-[#E5E7EB] border border-[#D1D5DB] rounded-[4px] text-xs font-semibold">عرض</button>
-          </form>
-          <button onClick={handleExportPdf} disabled={exportingPdf} className="flex items-center gap-1 px-3 py-1.5 bg-[#8C3B32] hover:bg-[#752f28] text-white rounded-[4px] text-xs font-semibold disabled:opacity-60">
-            {exportingPdf ? (<><Loader2 size={13} className="animate-spin" />جاري التصدير...</>) : (<><FileDown size={13} />تصدير (PDF)</>)}
-          </button>
-        </div>
-      </header>
+      {/* Hero Strip & Verdict Cards */}
+      <CompanyHero
+        symbol={symbol}
+        name={name}
+        sector={sector}
+        isBank={isBank}
+        px={data.px}
+        mc={data.mc}
+        safetyPass={safetyPass}
+        qualityPass={qualityPass}
+      />
 
-      {/* ── COMPANY HEADER ───────────────────────────────────────────────── */}
-      <section className="bg-white border-b border-[#E5E7EB] px-6 py-4">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-start justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <span className="px-3 py-1.5 bg-[#F3F4F6] border border-[#E5E7EB] rounded-[4px] text-[#8C3B32] font-mono font-bold text-base shrink-0">{symbol}</span>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-lg font-black text-[#1A1A1A]">{name}</h2>
-                {nameEn && <span className="text-[11px] font-mono text-[#6B7280]">{nameEn}</span>}
-                {isBank && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#EFF6FF] border border-[#BFDBFE] text-[#1D4ED8]">بنك · نموذج مالي خاص</span>
-                )}
-              </div>
-              <p className="text-xs text-[#6B7280] mt-0.5">{sector} · السوق المالي السعودي (تداول)</p>
-              <div className="flex items-center gap-3 mt-1.5 flex-wrap text-xs font-mono">
-                {data.px && <span className="text-[#0F172A] font-bold">السعر: {data.px} SAR</span>}
-                {data.mc && <span className="text-[#64748B]">القيمة السوقية: {(data.mc / 1000).toFixed(1)} مليار</span>}
-              </div>
-            </div>
-          </div>
+      {/* Two-Tier Stable Navigation Controls */}
+      <AnalystNavigation
+        tab={tab}
+        setTab={setTab}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        analysisMode={analysisMode}
+        setAnalysisMode={setAnalysisMode}
+        template={template}
+        setTemplate={setTemplate}
+        onOpenFormulas={() => setShowDrawer(true)}
+      />
 
-          {/* Dual Verdict */}
-          <div className="flex items-stretch gap-3 shrink-0">
-            {[
-              {
-                label: "حكم الملاءة المالية",
-                sub: "نسب السيولة والرافعة",
-                pass: safetyPass,
-                passText: "آمن · ملاءة سليمة",
-                failText: "مخاطرة · راجع الدين والسيولة",
-              },
-              {
-                label: "حكم جودة الأرباح",
-                sub: "هوامش الربح والعائد",
-                pass: qualityPass,
-                passText: "جيد · أرباح منتجة",
-                failText: "ضعيف · هوامش متدنية",
-              }
-            ].map((v, i) => (
-              <div
-                key={i}
-                className={`rounded-[6px] border px-4 py-3 min-w-[160px] ${v.pass ? "bg-[#F0FDF4] border-[#BBF7D0]" : "bg-[#FEF2F2] border-[#FECACA]"}`}
-              >
-                <div className="flex items-center gap-1.5 mb-1">
-                  {v.pass
-                    ? <ShieldCheck size={14} className="text-[#16A34A]" />
-                    : <AlertTriangle size={14} className="text-[#DC2626]" />}
-                  <span className="text-[11px] font-bold text-[#0F172A]">{v.label}</span>
-                </div>
-                <div className={`text-xs font-bold ${v.pass ? "text-[#16A34A]" : "text-[#DC2626]"}`}>
-                  {v.pass ? v.passText : v.failText}
-                </div>
-                <div className="text-[10px] text-[#64748B] mt-0.5">{v.sub}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── TABS + CONTROLS ──────────────────────────────────────────────── */}
-      <div className="bg-white border-b border-[#E5E7EB] px-6">
-        <div className="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-3 py-2">
-          {/* Tab bar */}
-          <nav className="flex items-center gap-1">
-            {TAB_LIST.map(t => (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-[5px] text-xs font-semibold transition-all ${tab === t.id ? "bg-[#8C3B32] text-white shadow-sm" : "text-[#6B7280] hover:bg-[#F3F4F6] hover:text-[#1A1A1A]"
-                  }`}
-              >
-                {t.icon}
-                <span>{t.label}</span>
-              </button>
-            ))}
-          </nav>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Annual / Quarterly toggle (only for IS, BS, CF tabs) */}
-            {tab !== "ratios" && (
-              <div className="flex items-center bg-[#F3F4F6] p-0.5 rounded border border-[#E5E7EB] text-[11px] font-semibold">
-                {(["annual", "quarterly"] as const).map(m => (
-                  <button key={m}
-                    onClick={() => setViewMode(m)}
-                    className={`px-3 py-1 rounded transition-colors ${viewMode === m ? "bg-white text-[#8C3B32] shadow-sm" : "text-[#6B7280]"}`}
-                  >
-                    {m === "annual" ? "سنوي" : "ربعي"}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Analysis mode (IS / BS / CF tabs) */}
-            {(tab === "is" || tab === "bs" || tab === "cf") && viewMode === "annual" && (
-              <div className="flex items-center bg-[#F3F4F6] p-0.5 rounded border border-[#E5E7EB] text-[11px] font-semibold">
-                {([
-                  { id: "absolute", label: "مطلق" },
-                  { id: "common_size", label: tab === "bs" ? "نسبي % (أصول=100)" : tab === "cf" ? "نسبي % (CFO=100)" : "نسبي % (Revenue=100)" },
-                  { id: "horizontal", label: "أفقي % (من السنة الأولى)" },
-                ] as { id: AnalysisMode; label: string }[]).map(m => (
-                  <button key={m.id}
-                    onClick={() => setAnalysisMode(m.id)}
-                    className={`px-2.5 py-1 rounded transition-colors whitespace-nowrap ${analysisMode === m.id ? "bg-white text-[#8C3B32] shadow-sm" : "text-[#6B7280]"
-                      }`}
-                  >
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Sector template (shown on ratios tab) */}
-            {tab === "ratios" && (
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold text-[#374151]">القالب القطاعي:</span>
-                <select
-                  value={template}
-                  onChange={e => setTemplate(e.target.value as SectorTemplate)}
-                  className="px-2 py-1 text-[11px] bg-[#F8FAFC] border border-[#D1D5DB] rounded-[4px] outline-none font-semibold text-[#1A1A1A]"
-                >
-                  {Object.entries(SECTOR_TEMPLATES).map(([k, v]) => (
-                    <option key={k} value={k}>{v.label}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Formula toggle */}
-            <button
-              onClick={() => setShowFormulas(!showFormulas)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] border text-[11px] font-semibold transition-colors ${showFormulas ? "bg-[#8C3B32] text-white border-[#8C3B32]" : "bg-white text-[#374151] border-[#D1D5DB] hover:bg-[#F3F4F6]"
-                }`}
-            >
-              <BookOpen size={12} />
-              <span>الصيغ والمصادر</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
+      {/* Main Statement & Ratios Content */}
       <main className="max-w-7xl mx-auto px-6 py-6 space-y-6">
-
-        {/* ━━ INCOME STATEMENT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {tab === "is" && (
-          <div className="space-y-5">
-            {/* Audit note */}
-            <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-[6px] px-4 py-3 text-xs text-[#92400E] flex items-start gap-2">
-              <Info size={13} className="shrink-0 mt-0.5 text-[#D97706]" />
-              <span>
-                بيانات مستخرجة بشكل آلي من ملفات XBRL المنشورة على موقع تداول · وحدة العرض: مليون ريال سعودي · الأرقام السالبة تُشير إلى مصاريف
-                {data.is_bank && " · البنوك تستخدم بنود دخل مختلفة — العمود الأول يعكس هامش الفائدة الصافي NIM"}
-              </span>
-            </div>
-
-            {/* IS Table */}
-            <div className="bg-white border border-[#E5E7EB] rounded-[6px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0]">
-                      <th className="p-2.5 text-right font-bold text-[#475569] min-w-[180px]">
-                        البند
-                        {analysisMode === "common_size" && <span className="text-[10px] font-mono text-[#8C3B32] mr-1">(نسبة إلى الإيرادات %)</span>}
-                        {analysisMode === "horizontal" && <span className="text-[10px] font-mono text-[#8C3B32] mr-1">(تغير من السنة الأولى %)</span>}
-                      </th>
-                      {(viewMode === "annual" ? isData.periods || [] : data.quarters?.periods || []).map((p: string, i: number) => (
-                        <th key={i} className="p-2.5 text-right font-mono font-bold text-[#475569] whitespace-nowrap min-w-[90px]">{p}</th>
-                      ))}
-                      {/* TTM header: always shown in annual mode */}
-                      {viewMode === "annual" && (
-                        <th className="p-2.5 text-right font-mono font-bold text-[#D97706] whitespace-nowrap bg-[#FFF8EE]">
-                          TTM {analysisMode !== "absolute" && <span className="text-[9px] text-[#D97706]/70">%</span>}
-                        </th>
-                      )}
-                      {/* YoY change column — only in absolute mode */}
-                      {analysisMode === "absolute" && (
-                        <th className="p-2.5 text-right font-bold text-[#475569] w-16">تغيّر</th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#F1F5F9]">
-                    {viewMode === "annual" ? <>
-                      <StatRow label="الإيرادات / المبيعات" values={isData.rev || []} periods={isData.periods || []} source="قائمة الدخل XBRL" verdict={classifyRatio("g_rev", ratios?.g_rev ?? null)} isTotal analysisMode={analysisMode} baseValues={isData.rev || []} ttmValue={isTTM.rev ?? null} onClick={() => router.push(`/rebh/studio/${symbol}?preset=revenue_margin_health`)} />
-                      <StatRow label="تكلفة المبيعات (COGS)" values={isData.cogs || []} periods={isData.periods || []} source="قائمة الدخل" indent analysisMode={analysisMode} baseValues={isData.rev || []} />
-                      <StatRow label="إجمالي الربح" values={isData.gp || []} periods={isData.periods || []} source="الإيرادات − تكلفة المبيعات" verdict="green" isTotal analysisMode={analysisMode} baseValues={isData.rev || []} ttmValue={isTTM.gp ?? null} />
-                      <StatRow label="المصاريف العمومية والإدارية" values={isData.ga || []} periods={isData.periods || []} source="قائمة الدخل XBRL" indent analysisMode={analysisMode} baseValues={isData.rev || []} />
-                      <StatRow label="الربح التشغيلي (EBIT)" values={isData.op || []} periods={isData.periods || []} source="إجمالي الربح − المصاريف" isTotal analysisMode={analysisMode} baseValues={isData.rev || []} onClick={() => router.push(`/rebh/studio/${symbol}?preset=profitability_divergence`)} />
-                      <StatRow label="تكاليف التمويل والفوائد" values={isData.fin_cost || []} periods={isData.periods || []} source="قائمة الدخل XBRL" indent analysisMode={analysisMode} baseValues={isData.rev || []} />
-                      <StatRow label="حصة الشركات التابعة والمشتركة" values={isData.jv || []} periods={isData.periods || []} source="قائمة الدخل XBRL" indent analysisMode={analysisMode} baseValues={isData.rev || []} />
-                      <StatRow label="الدخل (المصروف) الآخر" values={isData.other_inc || []} periods={isData.periods || []} source="قائمة الدخل XBRL" indent analysisMode={analysisMode} baseValues={isData.rev || []} />
-                      <StatRow label="الربح قبل الزكاة والضريبة (PBT)" values={isData.pbt || []} periods={isData.periods || []} source="مشتق — قبل الزكاة" isTotal analysisMode={analysisMode} baseValues={isData.rev || []} />
-                      <StatRow label="مصروف الزكاة والضريبة" values={isData.zakat || []} periods={isData.periods || []} source="قائمة الدخل XBRL" indent analysisMode={analysisMode} baseValues={isData.rev || []} />
-                      <StatRow label="صافي الربح للفترة" values={isData.net || []} periods={isData.periods || []} source="PBT − الزكاة" verdict={classifyRatio("nm", ratios?.nm ?? null)} isTotal analysisMode={analysisMode} baseValues={isData.rev || []} ttmValue={isTTM.net ?? null} onClick={() => router.push(`/rebh/studio/${symbol}?preset=profitability_divergence`)} />
-                      <StatRow label="ربحية السهم (EPS)" values={isData.eps || []} periods={isData.periods || []} source="صافي الربح ÷ عدد الأسهم" unit="SAR" ttmValue={isTTM.eps ?? null} />
-                    </> : <>
-                      <StatRow label="الإيرادات الربعية" values={data.quarters?.rev || []} periods={data.quarters?.periods || []} isTotal />
-                      <StatRow label="إجمالي الربح الربعي" values={data.quarters?.gp || []} periods={data.quarters?.periods || []} />
-                      <StatRow label="الربح التشغيلي الربعي" values={data.quarters?.op || []} periods={data.quarters?.periods || []} />
-                      <StatRow label="صافي الربح الربعي" values={data.quarters?.net || []} periods={data.quarters?.periods || []} isTotal />
-                    </>}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* TTM Summary */}
-            {viewMode === "annual" && isTTM.rev > 0 && (
-              <div className="bg-white border border-[#E5E7EB] rounded-[6px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-                <h4 className="text-xs font-bold text-[#1A1A1A] mb-3 flex items-center gap-2">
-                  <Activity size={13} className="text-[#8C3B32]" />
-                  ملخص الأداء TTM (آخر 12 شهر)
-                </h4>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {[
-                    { label: "الإيرادات TTM", val: isTTM.rev, unit: "M SAR" },
-                    { label: "إجمالي الربح TTM", val: isTTM.gp, unit: "M SAR" },
-                    { label: "صافي الربح TTM", val: isTTM.net, unit: "M SAR" },
-                    { label: "ربحية السهم TTM", val: isTTM.eps, unit: "SAR" },
-                  ].map((s, i) => (
-                    <div key={i} className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-[4px] px-3 py-2">
-                      <span className="block text-[10px] text-[#64748B]">{s.label}</span>
-                      <span className="block font-black font-mono text-sm text-[#0F172A]">
-                        {(s.val ?? 0).toLocaleString(undefined, { maximumFractionDigits: 1 })} {s.unit}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          <IncomeStatementTab
+            symbol={symbol}
+            isData={isData}
+            quartersData={data.quarters}
+            viewMode={viewMode}
+            analysisMode={analysisMode}
+            ratios={ratios}
+            isBank={isBank}
+          />
         )}
 
-        {/* ━━ BALANCE SHEET ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {tab === "bs" && (
-          <div className="space-y-5">
-            <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-[6px] px-4 py-3 text-xs text-[#92400E] flex items-start gap-2">
-              <Info size={13} className="shrink-0 mt-0.5 text-[#D97706]" />
-              <span>
-                الميزانية العمومية المُجمَّعة من XBRL · الوحدة: مليون ريال ·
-                <strong> فحص الهوية: </strong> يُتحقق من أن إجمالي الأصول = إجمالي الالتزامات + حقوق المساهمين
-              </span>
-            </div>
-
-            {/* Assets */}
-            <div className="bg-white border border-[#E5E7EB] rounded-[6px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-              <div className="bg-[#F3F4F6] border-b border-[#E5E7EB] px-4 py-2 text-xs font-bold text-[#374151]">الأصول (Assets)</div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0]">
-                      <th className="p-2.5 text-right font-bold text-[#475569] min-w-[180px]">
-                        البند
-                        {analysisMode === "common_size" && <span className="text-[10px] font-mono text-[#8C3B32] mr-1">(نسبة إلى إجمالي الأصول %)</span>}
-                        {analysisMode === "horizontal" && <span className="text-[10px] font-mono text-[#8C3B32] mr-1">(تغير من السنة الأولى %)</span>}
-                      </th>
-                      {(bsData.periods || []).map((p: string, i: number) => (
-                        <th key={i} className="p-2.5 text-right font-mono font-bold text-[#475569] whitespace-nowrap min-w-[90px]">{p}</th>
-                      ))}
-                      <th className="p-2.5 text-right font-bold text-[#475569] w-16">
-                        {analysisMode === "absolute" ? "تغيّر" : "—"}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <StatRow label="النقد وما في حكمه" values={bsData.cash || []} periods={bsData.periods || []} source="الميزانية XBRL" indent analysisMode={analysisMode} baseValues={bsData.total_assets || []} />
-                    <StatRow label="الذمم المدينة" values={bsData.receivables || []} periods={bsData.periods || []} source="الميزانية XBRL" indent analysisMode={analysisMode} baseValues={bsData.total_assets || []} />
-                    {bsData.inventory && bsData.inventory.some((v: number) => v > 0) && (
-                      <StatRow label="المخزون (Inventory)" values={bsData.inventory || []} periods={bsData.periods || []} source="الميزانية XBRL" indent analysisMode={analysisMode} baseValues={bsData.total_assets || []} />
-                    )}
-                    <StatRow label="إجمالي الأصول المتداولة" values={bsData.current_assets || []} periods={bsData.periods || []} isTotal source="مجموع الأصول المتداولة" analysisMode={analysisMode} baseValues={bsData.total_assets || []} />
-                    <StatRow label="العقارات والآلات والمعدات (PPE)" values={bsData.ppe || []} periods={bsData.periods || []} source="الميزانية XBRL" indent analysisMode={analysisMode} baseValues={bsData.total_assets || []} />
-                    <StatRow label="إجمالي الأصول" values={bsData.total_assets || []} periods={bsData.periods || []} isTotal source="مُحقَّق: يجب أن يساوي (الالتزامات + حقوق الملكية)" verdict="green" analysisMode={analysisMode} baseValues={bsData.total_assets || []} />
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Liabilities + Equity */}
-            <div className="bg-white border border-[#E5E7EB] rounded-[6px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-              <div className="bg-[#F3F4F6] border-b border-[#E5E7EB] px-4 py-2 text-xs font-bold text-[#374151]">الالتزامات وحقوق المساهمين</div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0]">
-                      <th className="p-2.5 text-right font-bold text-[#475569] min-w-[180px]">
-                        البند
-                        {analysisMode === "common_size" && <span className="text-[10px] font-mono text-[#8C3B32] mr-1">(نسبة إلى إجمالي الأصول %)</span>}
-                        {analysisMode === "horizontal" && <span className="text-[10px] font-mono text-[#8C3B32] mr-1">(تغير من السنة الأولى %)</span>}
-                      </th>
-                      {(bsData.periods || []).map((p: string, i: number) => (
-                        <th key={i} className="p-2.5 text-right font-mono font-bold text-[#475569] whitespace-nowrap min-w-[90px]">{p}</th>
-                      ))}
-                      <th className="p-2.5 text-right font-bold text-[#475569] w-16">
-                        {analysisMode === "absolute" ? "تغيّر" : "—"}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <StatRow label="الذمم الدائنة والموردين" values={bsData.payables || []} periods={bsData.periods || []} source="الميزانية XBRL" indent analysisMode={analysisMode} baseValues={bsData.total_assets || []} />
-                    <StatRow label="الديون قصيرة الأجل" values={bsData.short_debt || []} periods={bsData.periods || []} source="الميزانية XBRL" indent analysisMode={analysisMode} baseValues={bsData.total_assets || []} />
-                    <StatRow label="إجمالي الالتزامات المتداولة" values={bsData.current_liabilities || []} periods={bsData.periods || []} isTotal source="مجموع الالتزامات المتداولة" analysisMode={analysisMode} baseValues={bsData.total_assets || []} />
-                    <StatRow label="الديون طويلة الأجل" values={bsData.long_debt || []} periods={bsData.periods || []} source="الميزانية XBRL — قد تشمل الصكوك والمرابحات" indent analysisMode={analysisMode} baseValues={bsData.total_assets || []} />
-                    <StatRow label="إجمالي الالتزامات" values={bsData.total_liabilities || []} periods={bsData.periods || []} isTotal analysisMode={analysisMode} baseValues={bsData.total_assets || []} />
-                    <StatRow label="رأس المال المدفوع" values={bsData.capital || []} periods={bsData.periods || []} source="الميزانية XBRL" indent analysisMode={analysisMode} baseValues={bsData.total_assets || []} />
-                    <StatRow label="الأرباح المُبقاة / (الخسائر المُرحَّلة)" values={bsData.retained_earnings || []} periods={bsData.periods || []} source="الميزانية XBRL" indent analysisMode={analysisMode} baseValues={bsData.total_assets || []} />
-                    <StatRow label="إجمالي حقوق المساهمين" values={bsData.total_equity || []} periods={bsData.periods || []} isTotal source="مُحقَّق: الأصول − الالتزامات" verdict={classifyRatio("roe", ratios?.roe ?? null)} analysisMode={analysisMode} baseValues={bsData.total_assets || []} />
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Identity check */}
-            {bsData.total_assets && bsData.total_liabilities && bsData.total_equity && (() => {
-              const ta = bsData.total_assets.at(-1) ?? 0;
-              const tl = bsData.total_liabilities.at(-1) ?? 0;
-              const te = bsData.total_equity.at(-1) ?? 0;
-              const diff = Math.abs(ta - (tl + te));
-              const ok = diff < 1;
-              return (
-                <div className={`rounded-[6px] border px-4 py-3 text-xs flex items-start gap-2 ${ok ? "bg-[#F0FDF4] border-[#BBF7D0] text-[#166534]" : "bg-[#FEF2F2] border-[#FECACA] text-[#991B1B]"}`}>
-                  {ok ? <CheckCircle2 size={14} className="shrink-0" /> : <XCircle size={14} className="shrink-0" />}
-                  <span>
-                    <strong>فحص الهوية المحاسبية (A = L + E):</strong>{" "}
-                    {ok
-                      ? `مُجتاز ✓ — الأصول (${ta.toLocaleString()} M) = الالتزامات + حقوق الملكية (${(tl + te).toLocaleString(undefined, { maximumFractionDigits: 1 })} M) · الفارق: ${diff.toFixed(2)} M`
-                      : `فشل ✗ — الفارق ${diff.toLocaleString(undefined, { maximumFractionDigits: 1 })} M — قد يكون بسبب أقليات أو تعديلات IFRS — تم وسمه للمراجعة`
-                    }
-                  </span>
-                </div>
-              );
-            })()}
-          </div>
+          <BalanceSheetTab
+            bsData={bsData}
+            viewMode={viewMode}
+            analysisMode={analysisMode}
+            ratios={ratios}
+          />
         )}
 
-        {/* ━━ CASH FLOW ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {tab === "cf" && (
-          <div className="space-y-5">
-            <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-[6px] px-4 py-3 text-xs text-[#92400E] flex items-start gap-2">
-              <Info size={13} className="shrink-0 mt-0.5 text-[#D97706]" />
-              <span>
-                التدفقات النقدية: CFO = النشاط التشغيلي · CFI = الاستثماري · CFF = التمويلي
-                · <strong>فحص:</strong> CFO + CFI + CFF = صافي تغير النقد
-                · FCF = CFO − |CapEx|
-              </span>
-            </div>
-
-            <div className="bg-white border border-[#E5E7EB] rounded-[6px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0]">
-                      <th className="p-2.5 text-right font-bold text-[#475569] min-w-[200px]">
-                        البند
-                        {analysisMode === "common_size" && <span className="text-[10px] font-mono text-[#8C3B32] mr-1">(نسبة إلى CFO %)</span>}
-                        {analysisMode === "horizontal" && <span className="text-[10px] font-mono text-[#8C3B32] mr-1">(تغير من السنة الأولى %)</span>}
-                      </th>
-                      {(cfData.periods || []).map((p: string, i: number) => (
-                        <th key={i} className="p-2.5 text-right font-mono font-bold text-[#475569] whitespace-nowrap min-w-[90px]">{p}</th>
-                      ))}
-                      <th className="p-2.5 text-right font-bold text-[#475569] w-16">
-                        {analysisMode === "absolute" ? "تغيّر" : "—"}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <StatRow label="صافي التدفق التشغيلي (CFO)" values={cfData.cfo || []} periods={cfData.periods || []} isTotal source="قائمة التدفقات XBRL" verdict={classifyRatio("cfo_nm", ratios?.cfo_nm ?? null)} onClick={() => router.push(`/rebh/studio/${symbol}?preset=profitability_divergence`)} analysisMode={analysisMode} baseValues={cfData.cfo || []} />
-                    <StatRow label="التغير في رأس المال العامل" values={cfData.inventory || []} periods={cfData.periods || []} indent source="قائمة التدفقات XBRL" analysisMode={analysisMode} baseValues={cfData.cfo || []} />
-                    <StatRow label="الفوائد المدفوعة" values={cfData.finance_paid || []} periods={cfData.periods || []} indent source="قائمة التدفقات XBRL" analysisMode={analysisMode} baseValues={cfData.cfo || []} />
-                    <StatRow label="النفقات الرأسمالية (CapEx)" values={cfData.capex || []} periods={cfData.periods || []} isTotal source="الأنشطة الاستثمارية XBRL" onClick={() => router.push(`/rebh/studio/${symbol}?preset=fcf_conversion`)} analysisMode={analysisMode} baseValues={cfData.cfo || []} />
-                    <StatRow label="إجمالي الاستثمارات (CFI)" values={cfData.cfi || []} periods={cfData.periods || []} source="قائمة التدفقات XBRL" analysisMode={analysisMode} baseValues={cfData.cfo || []} />
-                    <StatRow label="صافي الاقتراض وإعادة التمويل" values={cfData.borrowings || []} periods={cfData.periods || []} indent source="الأنشطة التمويلية XBRL" analysisMode={analysisMode} baseValues={cfData.cfo || []} />
-                    <StatRow label="إجمالي التمويل (CFF)" values={cfData.cff || []} periods={cfData.periods || []} source="قائمة التدفقات XBRL" analysisMode={analysisMode} baseValues={cfData.cfo || []} />
-                    <StatRow label="التدفق الحر (FCF = CFO − CapEx)" values={cfData.fcf || []} periods={cfData.periods || []} isTotal source="محسوب: CFO − abs(CapEx)" verdict={classifyRatio("cfo_nm", ratios?.cfo_nm ?? null)} onClick={() => router.push(`/rebh/studio/${symbol}?preset=fcf_conversion`)} analysisMode={analysisMode} baseValues={cfData.cfo || []} />
-                    <StatRow label="صافي تغير النقد" values={cfData.net_change || []} periods={cfData.periods || []} isTotal source="CFO + CFI + CFF" analysisMode={analysisMode} baseValues={cfData.cfo || []} />
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* CFO/NI check */}
-            {ratios?.cfo_nm != null && (
-              <div className={`rounded-[6px] border px-4 py-3 text-xs flex items-start gap-2 ${LIGHT_CSS[classifyRatio("cfo_nm", ratios.cfo_nm)]}`}>
-                <Activity size={14} className="shrink-0 mt-0.5" />
-                <span>
-                  <strong>فحص تحويل الأرباح إلى كاش (CFO/NI):</strong>{" "}
-                  CFO/NI = {ratios.cfo_nm.toFixed(1)}%
-                  {ratios.cfo_nm >= 100
-                    ? " ✓ — الأرباح المحاسبية مُترجَمة بالكامل إلى تدفق نقدي حقيقي"
-                    : ratios.cfo_nm >= 60
-                      ? " ◑ — تحويل جزئي — راجع التغيرات في رأس المال العامل"
-                      : " ✗ — فجوة مرتفعة بين الأرباح والكاش — تحقق من الذمم والمخزون"}
-                </span>
-              </div>
-            )}
-          </div>
+          <CashFlowTab
+            symbol={symbol}
+            cfData={cfData}
+            viewMode={viewMode}
+            analysisMode={analysisMode}
+            ratios={ratios}
+          />
         )}
 
-        {/* ━━ RATIOS & ANALYSIS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {tab === "ratios" && ratios && (
-          <div className="space-y-6">
-
-            {/* Sector template notes */}
-            <div className="bg-white border border-[#E5E7EB] rounded-[6px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] space-y-2">
-              <h4 className="text-xs font-bold text-[#0F172A] flex items-center gap-2">
-                <BookOpen size={13} className="text-[#8C3B32]" />
-                ملاحظات القالب — {SECTOR_TEMPLATES[template].label}
-              </h4>
-              <ul className="space-y-1">
-                {SECTOR_TEMPLATES[template].notes.map((n, i) => (
-                  <li key={i} className="flex items-start gap-2 text-xs text-[#374151]">
-                    <ChevronRight size={11} className="shrink-0 mt-0.5 text-[#8C3B32]" />
-                    <span>{n}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Profitability */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-bold text-[#1A1A1A] flex items-center gap-2 border-b border-[#E5E7EB] pb-2">
-                <TrendingUp size={14} className="text-[#8C3B32]" />
-                الربحية (Profitability)
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                <RatioCard id="roe" label="العائد على حقوق المساهمين (ROE)" value={ratios.roe} unit="%" percentile={ratios.pct?.roe} template={template} />
-                <RatioCard id="nm" label="هامش صافي الربح" value={ratios.nm} unit="%" percentile={ratios.pct?.nm} template={template} />
-                <RatioCard id="gm" label="هامش إجمالي الربح" value={ratios.gm} unit="%" percentile={ratios.pct?.gm} template={template} />
-                <RatioCard id="opm" label="هامش التشغيل (EBIT)" value={ratios.opm} unit="%" template={template} />
-              </div>
-            </div>
-
-            {/* Growth */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-bold text-[#1A1A1A] flex items-center gap-2 border-b border-[#E5E7EB] pb-2">
-                <Activity size={14} className="text-[#8C3B32]" />
-                النمو (Growth — YoY)
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                <RatioCard id="g_net" label="نمو صافي الربح (YoY)" value={ratios.g_net} unit="%" percentile={ratios.pct?.g_net} template={template} />
-                <RatioCard id="g_rev" label="نمو الإيرادات (YoY)" value={ratios.g_rev} unit="%" percentile={ratios.pct?.g_rev} template={template} />
-                <RatioCard id="peg" label="مضاعف النمو (PEG)" value={ratios.peg} unit="×" template={template} />
-              </div>
-            </div>
-
-            {/* Valuation */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-bold text-[#1A1A1A] flex items-center gap-2 border-b border-[#E5E7EB] pb-2">
-                <Layers size={14} className="text-[#8C3B32]" />
-                التقييم (Valuation)
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                <RatioCard id="pe" label="مضاعف السعر/الربح (P/E)" value={ratios.pe} unit="×" percentile={ratios.pct?.pe} template={template} />
-                <RatioCard id="pb" label="مضاعف السعر/الدفاتر (P/B)" value={ratios.pb} unit="×" percentile={ratios.pct?.pb} template={template} />
-              </div>
-            </div>
-
-            {/* Safety */}
-            {!isBank && (
-              <div className="space-y-3">
-                <h3 className="text-sm font-bold text-[#1A1A1A] flex items-center gap-2 border-b border-[#E5E7EB] pb-2">
-                  <ShieldCheck size={14} className="text-[#8C3B32]" />
-                  السيولة والملاءة (Liquidity / Leverage)
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  <RatioCard id="current" label="نسبة التداول (Current Ratio)" value={ratios.cur} unit="×" template={template} />
-                  <RatioCard id="debt_eq" label="الدين / حقوق الملكية" value={ratios.de} unit="×" template={template} />
-                  <RatioCard id="cfo_nm" label="تحويل الأرباح إلى كاش (CFO/NI)" value={ratios.cfo_nm} unit="%" template={template} />
-                </div>
-              </div>
-            )}
-
-            {/* Working Capital Efficiency */}
-            {!isBank && (ratios.dso != null || ratios.dio != null || ratios.dpo != null) && (
-              <div className="space-y-3">
-                <h3 className="text-sm font-bold text-[#1A1A1A] flex items-center gap-2 border-b border-[#E5E7EB] pb-2">
-                  <RefreshCw size={14} className="text-[#8C3B32]" />
-                  دوران رأس المال العامل (Working Capital Efficiency)
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {ratios.dso != null && (
-                    <RatioCard id="dso" label="أيام تحصيل الذمم (DSO)" value={ratios.dso} unit="يوم" template={template} />
-                  )}
-                  {ratios.dio != null && (
-                    <RatioCard id="dio" label="أيام دوران المخزون (DIO)" value={ratios.dio} unit="يوم" template={template} />
-                  )}
-                  {ratios.dpo != null && (
-                    <RatioCard id="dpo" label="أيام سداد الموردين (DPO)" value={ratios.dpo} unit="يوم" template={template} />
-                  )}
-                  {ratios.ccc != null && (
-                    <RatioCard id="ccc" label="دورة تحويل النقد (CCC)" value={ratios.ccc} unit="يوم" template={template} />
-                  )}
-                </div>
-                <div className="text-[10.5px] text-[#64748B] bg-[#F8FAFC] border border-[#E2E8F0] rounded-[4px] px-3 py-2 space-y-0.5">
-                  <div><span className="font-bold">ملاحظة:</span> تظهر هذه النسب فقط إذا توفرت بيانات المخزون والذمم الدائنة في XBRL</div>
-                  <div>DSO = (ذمم مدينة ÷ إيرادات) × 365   |   DIO = (مخزون ÷ تكلفة المبيعات) × 365   |   DPO = (ذمم دائنة ÷ تكلفة المبيعات) × 365   |   CCC = DSO + DIO − DPO</div>
-                </div>
-              </div>
-            )}
-
-            {/* Formula reference table */}
-            {showFormulas && (
-              <div className="bg-white border border-[#E5E7EB] rounded-[6px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-                <div className="bg-[#F3F4F6] border-b border-[#E5E7EB] px-4 py-2.5 flex items-center gap-2">
-                  <BookOpen size={13} className="text-[#8C3B32]" />
-                  <span className="text-xs font-bold text-[#374151]">مرجع الصيغ والمصادر الكاملة</span>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs border-collapse">
-                    <thead>
-                      <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0]">
-                        <th className="p-2.5 text-right font-bold text-[#475569]">النسبة</th>
-                        <th className="p-2.5 text-right font-bold text-[#475569]">الصيغة</th>
-                        <th className="p-2.5 text-right font-bold text-[#475569]">المصدر</th>
-                        <th className="p-2.5 text-right font-bold text-[#475569]">ملاحظة</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#F1F5F9]">
-                      {Object.entries(FORMULAS).map(([id, f]) => (
-                        <tr key={id} className="hover:bg-[#F8FAFC]">
-                          <td className="p-2.5 font-mono font-bold text-[#8C3B32]">{id.toUpperCase()}</td>
-                          <td className="p-2.5 font-mono text-[#1E293B]">{f.formula}</td>
-                          <td className="p-2.5 text-[#64748B]">{f.source}</td>
-                          <td className="p-2.5 text-[#64748B] max-w-[220px]">{f.note || "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* Peer comparison strip */}
-            {data.peers?.peers?.roe?.length > 0 && (
-              <div className="bg-white border border-[#E5E7EB] rounded-[6px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] space-y-3">
-                <h4 className="text-xs font-bold text-[#1A1A1A] flex items-center gap-2">
-                  <BarChart3 size={13} className="text-[#8C3B32]" />
-                  مقارنة ROE بمنافسي القطاع
-                  <span className="text-[10px] font-normal text-[#64748B]">({data.peers?.n_sec || 0} شركة في القطاع)</span>
-                </h4>
-                <div className="space-y-1.5">
-                  {data.peers.peers.roe.slice(0, 8).map(([sym, name, roe]: [string, string, number]) => {
-                    const isCurrent = sym === symbol;
-                    const max = Math.max(...data.peers.peers.roe.map((r: any) => r[2]));
-                    const pct = max > 0 ? (roe / max) * 100 : 0;
-                    return (
-                      <div key={sym} className={`flex items-center gap-3 p-2 rounded-[4px] ${isCurrent ? "bg-[#FFF1EF] border border-[#FECACA]" : "hover:bg-[#F8FAFC]"}`}>
-                        <span className={`font-mono text-[11px] font-bold w-12 shrink-0 ${isCurrent ? "text-[#8C3B32]" : "text-[#0F172A]"}`}>{sym}</span>
-                        <span className="text-[11px] text-[#374151] w-32 shrink-0 truncate">{name}</span>
-                        <div className="flex-1 bg-[#F1F5F9] rounded-full h-2 overflow-hidden">
-                          <div className={`h-full rounded-full ${isCurrent ? "bg-[#8C3B32]" : "bg-[#94A3B8]"}`} style={{ width: `${Math.max(2, pct)}%` }} />
-                        </div>
-                        <span className={`font-mono text-[11px] font-bold w-14 text-right ${roe >= 15 ? "text-[#16A34A]" : roe >= 8 ? "text-[#D97706]" : "text-[#DC2626]"}`}>
-                          {roe.toFixed(1)}%
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
+          <FinancialRatiosTab
+            symbol={symbol}
+            template={template}
+            ratios={ratios}
+            isBank={isBank}
+            data={data}
+            showFormulas={false}
+          />
         )}
       </main>
 
+      {/* Slide-over Formulas & Methodology Drawer */}
+      <FormulasDrawer isOpen={showDrawer} onClose={() => setShowDrawer(false)} />
     </div>
   );
 }

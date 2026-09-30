@@ -24,6 +24,9 @@ interface MarketMonitorTabProps {
 const CARD = "bg-white border border-[#E5E7EB] rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.06)]";
 const KPI_LABEL = "text-[10px] text-[#6B7280] uppercase tracking-wide mt-1";
 
+// Optional English sector name the backend may provide (display only).
+type CompanyWithEn = CompanyItem & { en?: string; sec_en?: string };
+
 export default function MarketMonitorTab({ universe }: MarketMonitorTabProps) {
   const [bondAnchor, setBondAnchor] = React.useState<number>(4.75);
 
@@ -74,7 +77,7 @@ export default function MarketMonitorTab({ universe }: MarketMonitorTabProps) {
   const secRows = useMemo(() => {
     const secs: Record<string, CompanyItem[]> = {};
     fresh.forEach(c => {
-      const k = c.sec || "أخرى";
+      const k = (c as CompanyWithEn).sec_en || c.sec || "Other";
       secs[k] = secs[k] || [];
       secs[k].push(c);
     });
@@ -109,32 +112,32 @@ export default function MarketMonitorTab({ universe }: MarketMonitorTabProps) {
 
   // Thresholds 1 / 1.5 / 2:
   // eyRatio = (Bond Yield) / (Earnings Yield)
-  // eyRatio < 1.0: الأسهم تتفوق بوضوح على السندات (منطقة جذب استثماري)
-  // 1.0 <= eyRatio < 1.5: منطقة حياد نسبي متوازنة
-  // 1.5 <= eyRatio < 2.0: السندات تتفوق ومكررات السوق متضخمة نسبياً (منطقة حذر)
-  // eyRatio >= 2.0: قمة دورة حادة والسندات تسحق عائد الأسهم (خطر تراجع تقييمات)
+  // eyRatio < 1.0: equities clearly outperform bonds (attractive zone)
+  // 1.0 <= eyRatio < 1.5: relatively balanced / neutral zone
+  // 1.5 <= eyRatio < 2.0: bonds outperform and market multiples are relatively stretched (caution zone)
+  // eyRatio >= 2.0: sharp cycle peak, bonds crush equity yield (risk of valuation contraction)
   const getEyStatus = (ratio: number) => {
     if (ratio < 1.0) {
       return {
-        label: "الأسهم تتفوق بوضوح على السندات (منطقة جذب) [نسبة < 1.0x]",
+        label: "Equities clearly outperform bonds (attractive zone) [ratio < 1.0x]",
         badge: "bg-[#F0FDF4] text-[#16A34A] border-[#BBF7D0]",
         level: "attractive"
       };
     } else if (ratio < 1.5) {
       return {
-        label: "منطقة حياد وتوازن بين الأسهم والسندات [1.0x - 1.5x]",
+        label: "Neutral zone — balance between equities and bonds [1.0x - 1.5x]",
         badge: "bg-[#EFF6FF] text-[#2563EB] border-[#BFDBFE]",
         level: "neutral"
       };
     } else if (ratio < 2.0) {
       return {
-        label: "السندات تتفوق على عائد الأسهم (منطقة حذر) [1.5x - 2.0x]",
+        label: "Bonds outperform equity yield (caution zone) [1.5x - 2.0x]",
         badge: "bg-[#FFFBEB] text-[#B45309] border-[#FDE68A]",
         level: "caution"
       };
     } else {
       return {
-        label: "قمة دورة تقييمية: عائد السندات ضعف عائد أرباح تاسي (خطر) [≥ 2.0x]",
+        label: "Valuation cycle peak: bond yield is double the TASI earnings yield (danger) [≥ 2.0x]",
         badge: "bg-[#FEF2F2] text-[#DC2626] border-[#FECACA]",
         level: "danger"
       };
@@ -175,16 +178,16 @@ export default function MarketMonitorTab({ universe }: MarketMonitorTabProps) {
       {/* Section Header */}
       <div>
         <div className="flex items-center gap-2 mb-1">
-          <h2 className="text-base font-bold text-[#1A1A1A]">مراقب تقييم السوق الشامل (Market Valuation Monitor)</h2>
+          <h2 className="text-base font-bold text-[#1A1A1A]">Market Valuation Monitor</h2>
           <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#F0FDF4] text-[#16A34A] border border-[#BBF7D0]">
-            ° بيانات حية محسوبة
+            ° Live computed data
           </span>
         </div>
         <p className="text-xs text-[#6B7280]">
-          خريطة توزيع مكررات الأرباح ومؤشرات تاسي وبوابة عائد السندات مقابل الأسهم وعتبات العائد (1 / 1.5 / 2) مع لوحة الاقتصاد الكلي.
+          P/E distribution map, TASI indicators, the bond-yield vs. equity-yield gate with (1 / 1.5 / 2) yield thresholds, and the macroeconomic dashboard.
         </p>
         <p className="text-[11px] text-[#9CA3AF] mt-1">
-          ملاحظة منهجية: يُستثنى من حساب وسيط مكرر الربحية (Median P/E) جميع الشركات التي تكون فيها P/E ≤ 0 (خسائر أو قيمة سالبة) أو P/E &gt; 80 (مكررات شاذة لا تعكس التقييم الحقيقي).
+          Methodology note: the Median P/E calculation excludes all companies with P/E ≤ 0 (losses or negative values) or P/E &gt; 80 (outlier multiples that do not reflect true valuation).
         </p>
       </div>
 
@@ -194,41 +197,41 @@ export default function MarketMonitorTab({ universe }: MarketMonitorTabProps) {
           <div className="text-xl font-black text-[#1A1A1A]">
             {coveredCount} <span className="text-xs font-normal text-[#6B7280]">({coveragePct}%)</span>
           </div>
-          <div className={KPI_LABEL}>شركات مسعرة بقوائم حديثة (تغطية السوق)</div>
+          <div className={KPI_LABEL}>Companies priced on recent financials (market coverage)</div>
         </div>
         <div className={`${CARD} p-3.5`}>
-          <div className="text-xl font-black text-[#1A1A1A]">{totMc ? `${(totMc / 1000).toFixed(0)}B` : "0B"} ر.س</div>
-          <div className={KPI_LABEL}>القيمة السوقية المغطاة</div>
+          <div className="text-xl font-black text-[#1A1A1A]">{totMc ? `${(totMc / 1000).toFixed(0)}B` : "0B"} SAR</div>
+          <div className={KPI_LABEL}>Market capitalization covered</div>
         </div>
         <div className={`${CARD} p-3.5`}>
           {universe.length === 0 ? (
-            <div className="text-sm text-[#9CA3AF] animate-pulse">جاري التحميل...</div>
+            <div className="text-sm text-[#9CA3AF] animate-pulse">Loading...</div>
           ) : medPe != null ? (
             <div className="text-xl font-black text-[#16A34A]">{medPe.toFixed(1)}x</div>
           ) : (
-            <div className="text-sm text-[#DC2626] font-semibold">بيانات غير كافية</div>
+            <div className="text-sm text-[#DC2626] font-semibold">Insufficient data</div>
           )}
-          <div className={KPI_LABEL}>وسيط مكرر الربحية Median P/E</div>
+          <div className={KPI_LABEL}>Median P/E Ratio</div>
         </div>
         <div className={`${CARD} p-3.5`}>
           {universe.length === 0 ? (
-            <div className="text-sm text-[#9CA3AF] animate-pulse">جاري التحميل...</div>
+            <div className="text-sm text-[#9CA3AF] animate-pulse">Loading...</div>
           ) : medPb != null ? (
             <div className="text-xl font-black text-[#1A1A1A]">{medPb.toFixed(2)}x</div>
           ) : (
-            <div className="text-sm text-[#DC2626] font-semibold">بيانات غير كافية</div>
+            <div className="text-sm text-[#DC2626] font-semibold">Insufficient data</div>
           )}
-          <div className={KPI_LABEL}>وسيط القيمة الدفترية Median P/B</div>
+          <div className={KPI_LABEL}>Median P/B Ratio</div>
         </div>
         <div className={`${CARD} p-3.5`}>
           {universe.length === 0 ? (
-            <div className="text-sm text-[#9CA3AF] animate-pulse">جاري التحميل...</div>
+            <div className="text-sm text-[#9CA3AF] animate-pulse">Loading...</div>
           ) : medRoe != null ? (
             <div className="text-xl font-black text-[#16A34A]">{medRoe.toFixed(1)}%</div>
           ) : (
-            <div className="text-sm text-[#DC2626] font-semibold">بيانات غير كافية</div>
+            <div className="text-sm text-[#DC2626] font-semibold">Insufficient data</div>
           )}
-          <div className={KPI_LABEL}>وسيط العائد على الملكية Median ROE</div>
+          <div className={KPI_LABEL}>Median Return on Equity (ROE)</div>
         </div>
       </div>
 
@@ -238,16 +241,16 @@ export default function MarketMonitorTab({ universe }: MarketMonitorTabProps) {
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wide">
-                بوابة السوق: عائد السندات مقابل عائد أرباح تاسي (Market Gate — EY/A Gate)
+                Market Gate: Bond Yield vs. TASI Earnings Yield (EY/A Gate)
               </h3>
               <span className="text-[10px] bg-[#F7F8FA] border border-[#E5E7EB] text-[#6B7280] px-1.5 py-0.5 rounded font-mono">
-                عتبات 1 / 1.5 / 2
+                Thresholds 1 / 1.5 / 2
               </span>
             </div>
-            <span className="text-[11px] text-[#6B7280]">شيت المالك: مقارنة عائد السندات / الصكوك بعائد أرباح الأسهم التقديري</span>
+            <span className="text-[11px] text-[#6B7280]">Owner&apos;s Sheet: comparing bond / sukuk yield against the estimated equity earnings yield</span>
           </div>
           <div className="flex items-center gap-2 text-xs">
-            <span className="text-[#6B7280]">مرساة السندات Bond Anchor %:</span>
+            <span className="text-[#6B7280]">Bond Anchor %:</span>
             <input
               type="number"
               step="0.05"
@@ -260,22 +263,22 @@ export default function MarketMonitorTab({ universe }: MarketMonitorTabProps) {
 
         {medPe == null ? (
           <div className="py-6 text-center text-sm text-[#9CA3AF]">
-            {universe.length === 0 ? "جاري تحميل بيانات السوق..." : "لا تتوفر بيانات كافية لحساب بوابة السوق حالياً."}
+            {universe.length === 0 ? "Loading market data..." : "Insufficient data to compute the market gate at this time."}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
             <div className="p-3 bg-[#F7F8FA] rounded-[4px] border border-[#E5E7EB]">
-              <span className="text-[#6B7280] block mb-1">عائد أرباح السوق الوسيط (Earnings Yield):</span>
+              <span className="text-[#6B7280] block mb-1">Median market Earnings Yield:</span>
               <b className="text-base text-[#1A1A1A]">{ey != null ? (ey * 100).toFixed(2) : "—"}%</b>
-              <span className="text-[10px] text-[#6B7280] block mt-1">1 / وسيط مكرر الربحية ({medPe.toFixed(1)}x)</span>
+              <span className="text-[10px] text-[#6B7280] block mt-1">1 / Median P/E ({medPe.toFixed(1)}x)</span>
             </div>
             <div className="p-3 bg-[#F7F8FA] rounded-[4px] border border-[#E5E7EB]">
-              <span className="text-[#6B7280] block mb-1">نسبة السندات للأرباح (Bond/EY Ratio):</span>
+              <span className="text-[#6B7280] block mb-1">Bond-to-Earnings-Yield Ratio (Bond/EY):</span>
               <b className="text-base text-[#8C3B32] font-black">{eyRatio != null ? eyRatio.toFixed(2) : "—"}x</b>
-              <span className="text-[10px] text-[#6B7280] block mt-1">عائد السندات ÷ عائد الأسهم</span>
+              <span className="text-[10px] text-[#6B7280] block mt-1">Bond yield ÷ equity yield</span>
             </div>
             <div className="p-3 bg-[#F7F8FA] rounded-[4px] border border-[#E5E7EB] flex flex-col justify-center">
-              <span className="text-[#6B7280] block mb-1">التصنيف المنهجي للعتبة:</span>
+              <span className="text-[#6B7280] block mb-1">Methodological threshold classification:</span>
               {eyStatus ? (
                 <span className={`px-2.5 py-1 rounded text-xs font-bold border text-center ${eyStatus.badge}`}>
                   {eyStatus.label}
@@ -290,14 +293,14 @@ export default function MarketMonitorTab({ universe }: MarketMonitorTabProps) {
         {/* Lynch Opportunity Gauge */}
         <div className="pt-3 border-t border-[#E5E7EB] flex flex-wrap items-center justify-between gap-2 text-xs">
           <div>
-            <span className="text-[#8C3B32] font-bold">مؤشر لينش لفرص السوق (LYNCH GAUGE): </span>
+            <span className="text-[#8C3B32] font-bold">LYNCH GAUGE (market opportunity index): </span>
             <span className="text-[#6B7280]">
-              {cheapCount} شركة تجتاز معيار الرخص (P/E &lt; 15 &amp; P/B &lt; 2) من أصل {fresh.length} شركة في العينة =
+              {cheapCount} companies pass the cheapness screen (P/E &lt; 15 &amp; P/B &lt; 2) out of {fresh.length} companies in the sample =
             </span>
-            <b className="text-[#16A34A] mr-1.5">{lynchPct.toFixed(1)}%</b>
+            <b className="text-[#16A34A] ml-1.5">{lynchPct.toFixed(1)}%</b>
           </div>
           <span className={`text-[11px] font-bold ${lynchPct <= 5 ? 'text-[#DC2626]' : lynchPct >= 30 ? 'text-[#16A34A]' : 'text-[#B45309]'}`}>
-            {lynchPct <= 5 ? '≤5% قمة دورة (حذر)' : lynchPct >= 30 ? '≥30% قاع دورة (فرص وفيرة)' : 'منطقة متوسطة معتدلة'}
+            {lynchPct <= 5 ? '≤5% cycle peak (caution)' : lynchPct >= 30 ? '≥30% cycle bottom (abundant opportunities)' : 'Moderate mid-range zone'}
           </span>
         </div>
       </div>
@@ -313,36 +316,36 @@ export default function MarketMonitorTab({ universe }: MarketMonitorTabProps) {
               <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-2.5">
                 <div>
                   <h3 className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wide">
-                    لوحة الاقتصاد الكلي السعودي (Saudi Macro Economy Scorecard)
+                    Saudi Macro Economy Scorecard
                   </h3>
                   <span className="text-[10px] text-[#6B7280]">
-                    المصدر: البنك المركزي السعودي (SAMA) والهيئة العامة للإحصاء · {macroData.status}
+                    Source: Saudi Central Bank (SAMA) and General Authority for Statistics (GaStat) · {macroData.status}
                   </span>
                 </div>
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#F0FDF4] text-[#16A34A] border border-[#BBF7D0]">
-                  نظام الاقتصاد: {sm.macro_regime || "توسعي / صحي"}
+                  Economic regime: {sm.macro_regime || "Expansionary / Healthy"}
                 </span>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center text-xs">
                 <div className="p-2.5 bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px]">
-                  <span className="text-[10px] text-[#6B7280] block">سعر اتفاقيات إعادة الشراء (Repo)</span>
+                  <span className="text-[10px] text-[#6B7280] block">Repo Rate</span>
                   <span className="text-sm font-bold text-[#1A1A1A]">{sm.repo_rate_pct}%</span>
                 </div>
                 <div className="p-2.5 bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px]">
-                  <span className="text-[10px] text-[#6B7280] block">سايبور 3 أشهر (SAIBOR 3M)</span>
+                  <span className="text-[10px] text-[#6B7280] block">SAIBOR 3M</span>
                   <span className="text-sm font-bold text-[#1A1A1A]">{sm.saibor_3m_pct}%</span>
                 </div>
                 <div className="p-2.5 bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px]">
-                  <span className="text-[10px] text-[#6B7280] block">نمو الناتج المحلي (GDP Growth)</span>
+                  <span className="text-[10px] text-[#6B7280] block">GDP Growth</span>
                   <span className="text-sm font-bold text-[#16A34A]">+{sm.gdp_growth_pct}%</span>
                 </div>
                 <div className="p-2.5 bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px]">
-                  <span className="text-[10px] text-[#6B7280] block">معدل التضخم السنوي (CPI)</span>
+                  <span className="text-[10px] text-[#6B7280] block">Annual Inflation (CPI)</span>
                   <span className="text-sm font-bold text-[#1A1A1A]">{sm.inflation_pct}%</span>
                 </div>
                 <div className="p-2.5 bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px]">
-                  <span className="text-[10px] text-[#6B7280] block">مؤشر بوفيت السعودي (Mkt/GDP)</span>
+                  <span className="text-[10px] text-[#6B7280] block">Saudi Buffett Indicator (Mkt/GDP)</span>
                   <span className="text-sm font-bold text-[#8C3B32]">
                     {sm.buffett_indicator_pct ? `${sm.buffett_indicator_pct}%` : sm.liquidity_condition}
                   </span>
@@ -356,32 +359,32 @@ export default function MarketMonitorTab({ universe }: MarketMonitorTabProps) {
                 <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-2.5">
                   <div>
                     <h3 className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wide">
-                      المقارنة مع السوق الأمريكي ومؤشر S&amp;P 500 (Cross-Market Benchmark)
+                      Comparison with the US Market and the S&amp;P 500 (Cross-Market Benchmark)
                     </h3>
                     <span className="text-[10px] text-[#6B7280]">
-                      المصدر: S&amp;P Global ووزارة الخزانة الأمريكية (FRED) · أحدث إغلاق: {sp.trade_date}
+                      Source: S&amp;P Global and the US Treasury (FRED) · Latest close: {sp.trade_date}
                     </span>
                   </div>
                   <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE]">
-                    مكرر تاسي المغطى ({medPe != null ? `${medPe.toFixed(1)}x` : "—"}) مقابل S&amp;P 500 ({sp.pe_ratio.toFixed(1)}x)
+                    Covered TASI P/E ({medPe != null ? `${medPe.toFixed(1)}x` : "—"}) vs. S&amp;P 500 ({sp.pe_ratio.toFixed(1)}x)
                   </span>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-xs">
                   <div className="p-2.5 bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px]">
-                    <span className="text-[10px] text-[#6B7280] block">إغلاق مؤشر S&amp;P 500</span>
+                    <span className="text-[10px] text-[#6B7280] block">S&amp;P 500 Index Close</span>
                     <span className="text-sm font-bold text-[#1A1A1A]">{sp.close ? sp.close.toLocaleString() : "—"}</span>
                   </div>
                   <div className="p-2.5 bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px]">
-                    <span className="text-[10px] text-[#6B7280] block">مكرر ربحية S&amp;P 500 P/E</span>
+                    <span className="text-[10px] text-[#6B7280] block">S&amp;P 500 P/E Ratio</span>
                     <span className="text-sm font-bold text-[#8C3B32]">{sp.pe_ratio.toFixed(2)}x</span>
                   </div>
                   <div className="p-2.5 bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px]">
-                    <span className="text-[10px] text-[#6B7280] block">عائد أرباح S&amp;P 500 EY</span>
+                    <span className="text-[10px] text-[#6B7280] block">S&amp;P 500 Earnings Yield (EY)</span>
                     <span className="text-sm font-bold text-[#16A34A]">{sp.earnings_yield_pct ? `${sp.earnings_yield_pct}%` : "—"}</span>
                   </div>
                   <div className="p-2.5 bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px]">
-                    <span className="text-[10px] text-[#6B7280] block">عائد سندات الخزانة 10Y (فارق 2Y)</span>
+                    <span className="text-[10px] text-[#6B7280] block">10Y Treasury Yield (2Y spread)</span>
                     <span className="text-sm font-bold text-[#1A1A1A]">
                       {yc && yc.year_10 ? `${yc.year_10}%` : "—"} {yc && yc.spread_10y_2y != null ? `(${yc.spread_10y_2y >= 0 ? '+' : ''}${yc.spread_10y_2y}%)` : ""}
                     </span>
@@ -398,13 +401,13 @@ export default function MarketMonitorTab({ universe }: MarketMonitorTabProps) {
         <div className="flex justify-between items-center mb-3">
           <div className="flex items-center gap-2">
             <h3 className="text-xs font-bold text-[#6B7280] uppercase tracking-wide">
-              توزيع مكررات الأرباح في السوق — P/E DISTRIBUTION (0–80×)
+              Market P/E Distribution (0–80×)
             </h3>
             <span className="text-[10px] bg-[#F1F5F9] text-[#475569] font-mono px-2 py-0.5 rounded border border-[#E2E8F0]">
-              وسيط السوق: {medPe != null ? `${medPe.toFixed(1)}x` : "—"}
+              Market median: {medPe != null ? `${medPe.toFixed(1)}x` : "—"}
             </span>
           </div>
-          <span className="text-[10px] text-[#6B7280] font-mono">{pes.length} شركة في العينة الحية</span>
+          <span className="text-[10px] text-[#6B7280] font-mono">{pes.length} companies in the live sample</span>
         </div>
 
         {/* Dynamic Recharts BarChart Histogram */}
@@ -432,14 +435,14 @@ export default function MarketMonitorTab({ universe }: MarketMonitorTabProps) {
                     return (
                       <div className="bg-[#1E293B] text-white text-xs px-3 py-2 rounded shadow-xl font-mono space-y-1">
                         <div className="font-bold text-[#93C5FD] border-b border-[#334155] pb-1">
-                          نطاق المكرر: {d.range}
+                          P/E range: {d.range}
                         </div>
                         <div className="flex justify-between gap-4 text-[11px] pt-0.5">
-                          <span className="text-[#94A3B8]">عدد الشركات:</span>
-                          <span className="font-bold text-white">{d.count} شركة</span>
+                          <span className="text-[#94A3B8]">Number of companies:</span>
+                          <span className="font-bold text-white">{d.count}</span>
                         </div>
                         <div className="flex justify-between gap-4 text-[10px] text-[#CBD5E1]">
-                          <span>النسبة من العينة:</span>
+                          <span>Share of sample:</span>
                           <span className="font-bold text-[#38BDF8]">{pct}%</span>
                         </div>
                       </div>
@@ -474,18 +477,18 @@ export default function MarketMonitorTab({ universe }: MarketMonitorTabProps) {
       {/* Sector Medians Table */}
       <div className={`${CARD} p-5 overflow-hidden`}>
         <h3 className="text-xs font-bold text-[#6B7280] uppercase tracking-wide mb-3">
-          وسائط مؤشرات القطاعات — SECTOR MEDIANS (القطاعات التي تضم شركتين فأكثر)
+          Sector Medians (sectors with two or more companies)
         </h3>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-right border-collapse">
+          <table className="w-full text-xs text-left border-collapse">
             <thead>
               <tr className="text-[#6B7280] bg-[#F3F4F6] border-b border-[#E5E7EB]">
-                <th className="p-2 font-semibold">القطاع</th>
-                <th className="p-2 font-semibold">العدد</th>
-                <th className="p-2 font-semibold">وسيط P/E</th>
-                <th className="p-2 font-semibold">وسيط P/B</th>
-                <th className="p-2 font-semibold">وسيط ROE</th>
-                <th className="p-2 font-semibold">نمو الصافي YoY</th>
+                <th className="p-2 font-semibold">Sector</th>
+                <th className="p-2 font-semibold">Count</th>
+                <th className="p-2 font-semibold">Median P/E</th>
+                <th className="p-2 font-semibold">Median P/B</th>
+                <th className="p-2 font-semibold">Median ROE</th>
+                <th className="p-2 font-semibold">Net Income Growth YoY</th>
               </tr>
             </thead>
             <tbody>
@@ -503,7 +506,7 @@ export default function MarketMonitorTab({ universe }: MarketMonitorTabProps) {
               ))}
               {secRows.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="p-6 text-center text-[#6B7280]">لا توجد قطاعات تضم شركتين فأكثر حالياً.</td>
+                  <td colSpan={6} className="p-6 text-center text-[#6B7280]">No sectors with two or more companies at this time.</td>
                 </tr>
               )}
             </tbody>

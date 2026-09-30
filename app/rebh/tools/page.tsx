@@ -27,6 +27,10 @@ import EarningsCalendarTab from "./components/EarningsCalendarTab";
 // ---------------------------------------------------------------------------
 const CARD = "bg-white border border-[#E5E7EB] rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.06)]";
 
+// Optional English fields that the backend may provide alongside the
+// existing Arabic ones. Used only for display; data keys are untouched.
+type CompanyWithEn = CompanyItem & { en?: string; sec_en?: string };
+
 export default function RebhToolsPage() {
   const [activeTab, setActiveTab] = useState<"fv_lab" | "portfolio_xray" | "alerts" | "calendar" | "market_monitor" | "trade_journal" | "course_labs">("fv_lab");
 
@@ -60,12 +64,12 @@ export default function RebhToolsPage() {
           setUniverse(data);
         }
       } else if (!isStale()) {
-        setUniverseError(`تعذر جلب بيانات السوق (${res.status})`);
+        setUniverseError(`Failed to fetch market data (${res.status})`);
       }
     } catch (err: any) {
       if (err?.name === "AbortError") return;
       console.error("Failed to load market universe:", err);
-      if (!isStale()) setUniverseError("تعذر الاتصال بخادم بيانات السوق المالي");
+      if (!isStale()) setUniverseError("Unable to connect to the financial market data server");
     } finally {
       if (!isStale()) setLoadingUniverse(false);
     }
@@ -109,13 +113,13 @@ export default function RebhToolsPage() {
     if (!rawSym) return;
 
     // Check in local universe first for immediate response
-    const localMatch = universe.find(c => c.sym === rawSym || c.sym === `${rawSym}.SR`);
+    const localMatch = universe.find(c => c.sym === rawSym || c.sym === `${rawSym}.SR`) as CompanyWithEn | undefined;
     if (localMatch && localMatch.pe && localMatch.pe > 0 && localMatch.px) {
       const derivedEps = Math.round((localMatch.px / localMatch.pe) * 100) / 100;
       setBaseEps(derivedEps);
       setFvSymbolMeta({
         sym: localMatch.sym,
-        name: localMatch.n,
+        name: localMatch.en || localMatch.n,
         px: localMatch.px,
         pe: localMatch.pe,
       });
@@ -145,22 +149,22 @@ export default function RebhToolsPage() {
           setBaseEps(roundedEps);
           setFvSymbolMeta({
             sym: data.sym || rawSym,
-            name: data.n || data.name || rawSym,
+            name: data.en || data.n || data.name || rawSym,
             px: data.px,
             pe: data.pe,
           });
         } else {
           setFvSymbolMeta({
             sym: rawSym,
-            name: data.n || rawSym,
-            error: "الشركة خاسرة أو ليس لها أرباح موجبة TTM لحساب ربحية السهم",
+            name: data.en || data.n || rawSym,
+            error: "Company is loss-making or has no positive TTM earnings; EPS cannot be computed",
           });
         }
       } else {
-        setFvSymbolMeta({ sym: rawSym, name: rawSym, error: "لم يتم العثور على بيانات هذا الرمز" });
+        setFvSymbolMeta({ sym: rawSym, name: rawSym, error: "No data found for this symbol" });
       }
     } catch {
-      setFvSymbolMeta({ sym: rawSym, name: rawSym, error: "تعذر الاتصال بالخادم لجلب بيانات السهم" });
+      setFvSymbolMeta({ sym: rawSym, name: rawSym, error: "Unable to reach the server to fetch stock data" });
     } finally {
       setFvLoadingSymbol(false);
     }
@@ -173,10 +177,10 @@ export default function RebhToolsPage() {
 
     const reasons: string[] = [];
     if (r <= gTerm) {
-      reasons.push(`معدل العائد المطلوب (${discountRate}%) يجب أن يكون أكبر قطيعاً من معدل النمو النهائي (${terminalGrowth}%). رياضيّاً، المقام (R − g_term) يصبح صفراً أو سالباً فتؤول القيمة إلى ما لا نهاية.`);
+      reasons.push(`The required rate of return (${discountRate}%) must be strictly greater than the terminal growth rate (${terminalGrowth}%). Mathematically, the denominator (R − g_term) becomes zero or negative, causing the value to diverge to infinity.`);
     }
     if (baseEps <= 0) {
-      reasons.push("ربحية السهم (EPS) صفرية أو سالبة. نموذج التدفقات المخصومة التقليدي لا يمكن تطبيقه على شركات خاسرة.");
+      reasons.push("Earnings per share (EPS) is zero or negative. A traditional discounted cash flow model cannot be applied to loss-making companies.");
     }
     const isGrowthHigh = g > r;
 
@@ -253,11 +257,11 @@ export default function RebhToolsPage() {
     const a = parseFloat(newAmount);
 
     if (!s) {
-      setHoldingError("يرجى إدخال رمز السهم");
+      setHoldingError("Please enter a stock symbol");
       return;
     }
     if (isNaN(a) || a <= 0) {
-      setHoldingError("يرجى إدخال مبلغ استثماري صحيح أكبر من صفر");
+      setHoldingError("Please enter a valid investment amount greater than zero");
       return;
     }
 
@@ -265,7 +269,7 @@ export default function RebhToolsPage() {
     if (universe.length > 0) {
       const exists = universe.some(c => c.sym === s || c.sym === `${s}.SR`);
       if (!exists) {
-        setHoldingError(`الرمز [${s}] غير مدرج في السوق أو لم يتم العثور عليه`);
+        setHoldingError(`Symbol [${s}] is not listed on the market or could not be found`);
         return;
       }
     }
@@ -289,7 +293,7 @@ export default function RebhToolsPage() {
   };
 
   const resetDefaultHoldings = () => {
-    if (confirm("هل تريد استعادة المحفظة النموذجية الافتراضية؟")) {
+    if (confirm("Restore the default sample portfolio?")) {
       setHoldings(DEFAULT_HOLDINGS);
       setHoldingError(null);
     }
@@ -327,7 +331,7 @@ export default function RebhToolsPage() {
     holdings.forEach(h => {
       const co = universe.find(c => c.sym === h.sym || c.sym === `${h.sym}.SR`);
       const weight = h.amount / totalAmount;
-      const sec = co?.sec || "أخرى";
+      const sec = (co as CompanyWithEn | undefined)?.sec_en || co?.sec || "Other";
       sectorWeights[sec] = (sectorWeights[sec] || 0) + weight;
 
       // Stock HHI: sum of squared weights of individual holdings
@@ -386,20 +390,20 @@ export default function RebhToolsPage() {
     val: number;
   }
   const [rules, setRules] = useState<Rule[]>([
-    { metric: "pe", label: "مكرر الأرباح P/E", op: "<", val: 15 },
-    { metric: "roe", label: "العائد على الملكية ROE", op: ">", val: 12 },
+    { metric: "pe", label: "P/E Ratio", op: "<", val: 15 },
+    { metric: "roe", label: "Return on Equity (ROE)", op: ">", val: 12 },
   ]);
   const [selectedMetric, setSelectedMetric] = useState<keyof CompanyItem>("pe");
   const [selectedOp, setSelectedOp] = useState<"<" | ">">("<");
   const [ruleVal, setRuleVal] = useState<string>("");
 
   const METRIC_OPTIONS: { key: keyof CompanyItem; label: string }[] = [
-    { key: "pe", label: "مكرر الأرباح P/E" },
-    { key: "pb", label: "مكرر القيمة الدفترية P/B" },
-    { key: "roe", label: "العائد على حقوق الملكية ROE %" },
-    { key: "f_score", label: "جودة بيوتروسكي F-Score (0-9)" },
-    { key: "g_net", label: "نمو الأرباح السنوي YoY %" },
-    { key: "pncav", label: "مكرر الأصول الصافية P/NCAV (Graham)" },
+    { key: "pe", label: "P/E Ratio" },
+    { key: "pb", label: "P/B Ratio" },
+    { key: "roe", label: "Return on Equity (ROE) %" },
+    { key: "f_score", label: "Piotroski F-Score (0-9)" },
+    { key: "g_net", label: "Net Income Growth YoY %" },
+    { key: "pncav", label: "P/NCAV (Graham Net-Net)" },
   ];
 
   const addRule = () => {
@@ -474,13 +478,15 @@ export default function RebhToolsPage() {
         // is mathematically & regulatory wrong.
         const diffDays = Math.round((filingDeadline.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
 
-        let status = "تم الإفصاح نظامياً ✓";
+        let status = "Disclosed in compliance ✓";
         let statusColor = "bg-[#F0FDF4] text-[#16A34A] border-[#BBF7D0]";
+
+        const cEn = c as CompanyWithEn;
 
         return {
           sym: c.sym,
-          name: c.n,
-          sec: c.sec,
+          name: cEn.en || c.n,
+          sec: cEn.sec_en || c.sec,
           period: actualPeriodStr,
           periodEnd: pEndDate.toISOString().slice(0, 10),
           expectedDate: filingDeadline.toISOString().slice(0, 10),
@@ -494,28 +500,28 @@ export default function RebhToolsPage() {
   }, [universe]);
 
   const TABS = [
-    { id: "fv_lab", label: "مختبر القيمة العادلة (FV Lab)", icon: Sliders },
-    { id: "portfolio_xray", label: "أشعة المحفظة (Portfolio X-Ray)", icon: PieChart },
-    { id: "alerts", label: "فلتر الأسهم المتقدم (Screener)", icon: Bell },
-    { id: "calendar", label: "رزنامة النتائج (Earnings Calendar)", icon: Calendar },
-    { id: "market_monitor", label: "مراقب تقييم السوق (Market Monitor)", icon: BarChart3 },
-    { id: "trade_journal", label: "سجل الصفقات (Trade Journal)", icon: BookOpen },
-    { id: "course_labs", label: "مختبرات الدورة (18 Labs)", icon: Layers },
+    { id: "fv_lab", label: "Fair Value Lab (FV Lab)", icon: Sliders },
+    { id: "portfolio_xray", label: "Portfolio X-Ray", icon: PieChart },
+    { id: "alerts", label: "Advanced Stock Screener", icon: Bell },
+    { id: "calendar", label: "Earnings Calendar", icon: Calendar },
+    { id: "market_monitor", label: "Market Valuation Monitor", icon: BarChart3 },
+    { id: "trade_journal", label: "Trade Journal", icon: BookOpen },
+    { id: "course_labs", label: "Course Labs (18 Labs)", icon: Layers },
   ] as const;
 
   return (
-    <div className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] pb-16">
+    <div dir="ltr" className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] pb-16">
       {/* Top Header */}
       <header className="sticky top-0 z-50 bg-white border-b border-[#E5E7EB] px-6 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-6">
           <Link href="/rebh" className="flex items-center gap-2 text-[#8C3B32] font-black tracking-wide text-base">
             <Cpu className="w-5 h-5 text-[#8C3B32]" />
-            REBH — أدوات ومنصة العمل
+            REBH — Tools & Workspace
           </Link>
-          <span className="text-xs text-[#6B7280] hidden sm:inline">أدوات التقييم، فحص المحفظة، المنبهات، وسجل الصفقات</span>
+          <span className="text-xs text-[#6B7280] hidden sm:inline">Valuation tools, portfolio screening, alerts, and trade journal</span>
         </div>
         <Link href="/rebh/watchlist" className="text-xs font-semibold text-[#8C3B32] hover:underline flex items-center gap-1">
-          قائمة المتابعة
+          Watchlist
           <ArrowUpRight className="w-3.5 h-3.5" />
         </Link>
       </header>

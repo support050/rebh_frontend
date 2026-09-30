@@ -146,7 +146,7 @@ function StudioInner() {
       setLoading(true); setError(null);
       try {
         const res = await fetch(`${API_BASE_URL}/api/rebh/statements/${symbol}`);
-        if (!res.ok) throw new Error(`لم يُعثر على بيانات الرمز: ${symbol}`);
+        if (!res.ok) throw new Error(`No data found for symbol: ${symbol}`);
         const json = await res.json();
         if (!cancelled) {
           setData(json);
@@ -256,6 +256,7 @@ function StudioInner() {
     const get = (key: string, src: Record<string, any[]>) =>
       (src[key] || []).map((v: any) => Number(v) || 0);
 
+    // NOTE: the Arabic literal "بنوك" below is a match against backend sector data (not UI text) — intentionally unchanged.
     const isBank = Boolean(data?.is_bank || String(symbol).startsWith("10") || String(symbol).startsWith("11") || String(data?.sec).includes("بنوك") || String(data?.sec).toLowerCase().includes("bank"));
 
     if (timeframe === "annual") {
@@ -286,24 +287,24 @@ function StudioInner() {
       const div = (data?.valuation_annual?.div || []).map((v: any) => Number(v) || 0);
 
       const list: MetricSeries[] = [
-        { id: "rev", name: isBank ? "دخل العمليات / التمويل" : "الإيرادات", nameEn: isBank ? "Financing Income" : "Revenue", group: "income", unit: "M SAR", color: "#2563EB", data: rev, yoy: toYoY(rev) },
-        { id: "gp", name: isBank ? "صافي دخل التمويل (NII)" : "إجمالي الربح", nameEn: isBank ? "Net Financing Income" : "Gross Profit", group: "income", unit: "M SAR", color: "#16A34A", data: gp, yoy: toYoY(gp) },
-        { id: "op", name: isBank ? "إجمالي دخل العمليات" : "الربح التشغيلي", nameEn: isBank ? "Operating Income" : "EBIT", group: "income", unit: "M SAR", color: "#8C3B32", data: op, yoy: toYoY(op) },
-        { id: "net", name: "صافي الربح", nameEn: "Net Income", group: "income", unit: "M SAR", color: "#DC2626", data: net, yoy: toYoY(net) },
-        { id: "eps", name: "ربحية السهم (EPS)", nameEn: "EPS", group: "income", unit: "SAR", color: "#7C3AED", data: eps, yoy: toYoY(eps) },
-        { id: "cfo", name: "التدفق التشغيلي", nameEn: "CFO", group: "cash", unit: "M SAR", color: "#059669", data: cfo, yoy: toYoY(cfo) },
-        { id: "fcf", name: "التدفق الحر (FCF)", nameEn: "FCF", group: "cash", unit: "M SAR", color: "#0D9488", data: fcf, yoy: toYoY(fcf) },
-        { id: "capex", name: "الإنفاق الرأسمالي", nameEn: "CapEx", group: "cash", unit: "M SAR", color: "#D97706", data: capex, yoy: toYoY(capex) },
-        { id: "nd", name: isBank ? "صافي الالتزامات المالية" : "صافي الدين", nameEn: isBank ? "Net Liabilities" : "Net Debt", group: "balance", unit: "M SAR", color: "#9333EA", data: nd, yoy: toYoY(nd) },
-        { id: "roe", name: "عائد حقوق المساهمين (ROE)", nameEn: "ROE", group: "balance", unit: "%", color: "#0EA5E9", data: roe, yoy: toYoY(roe) },
-        { id: "roic", name: "عائد رأس المال المستثمر (ROIC)", nameEn: "ROIC", group: "balance", unit: "%", color: "#6366F1", data: roic, yoy: toYoY(roic) },
-        { id: "npm", name: "هامش صافي الربح", nameEn: "Net Margin", group: "margin", unit: "%", color: "#A21CAF", data: npm, yoy: toYoY(npm) },
-        { id: "gpm", name: isBank ? "هامش دخل التمويل (NII Margin)" : "هامش إجمالي الربح", nameEn: isBank ? "NII Margin" : "Gross Margin", group: "margin", unit: "%", color: "#10B981", data: gpm, yoy: toYoY(gpm) },
-        { id: "opm", name: "هامش التشغيل", nameEn: "EBIT Margin", group: "margin", unit: "%", color: "#EA580C", data: opm, yoy: toYoY(opm) },
+        { id: "rev", name: isBank ? "Financing Income" : "Revenue", nameEn: isBank ? "Financing Income" : "Revenue", group: "income", unit: "M SAR", color: "#2563EB", data: rev, yoy: toYoY(rev) },
+        { id: "gp", name: isBank ? "Net Financing Income (NII)" : "Gross Profit", nameEn: isBank ? "Net Financing Income" : "Gross Profit", group: "income", unit: "M SAR", color: "#16A34A", data: gp, yoy: toYoY(gp) },
+        { id: "op", name: isBank ? "Total Operating Income" : "Operating Profit (EBIT)", nameEn: isBank ? "Operating Income" : "EBIT", group: "income", unit: "M SAR", color: "#8C3B32", data: op, yoy: toYoY(op) },
+        { id: "net", name: "Net Income", nameEn: "Net Income", group: "income", unit: "M SAR", color: "#DC2626", data: net, yoy: toYoY(net) },
+        { id: "eps", name: "Earnings Per Share (EPS)", nameEn: "EPS", group: "income", unit: "SAR", color: "#7C3AED", data: eps, yoy: toYoY(eps) },
+        { id: "cfo", name: "Operating Cash Flow (CFO)", nameEn: "CFO", group: "cash", unit: "M SAR", color: "#059669", data: cfo, yoy: toYoY(cfo) },
+        { id: "fcf", name: "Free Cash Flow (FCF)", nameEn: "FCF", group: "cash", unit: "M SAR", color: "#0D9488", data: fcf, yoy: toYoY(fcf) },
+        { id: "capex", name: "Capital Expenditure (CapEx)", nameEn: "CapEx", group: "cash", unit: "M SAR", color: "#D97706", data: capex, yoy: toYoY(capex) },
+        { id: "nd", name: isBank ? "Net Financial Liabilities" : "Net Debt", nameEn: isBank ? "Net Liabilities" : "Net Debt", group: "balance", unit: "M SAR", color: "#9333EA", data: nd, yoy: toYoY(nd) },
+        { id: "roe", name: "Return on Equity (ROE)", nameEn: "ROE", group: "balance", unit: "%", color: "#0EA5E9", data: roe, yoy: toYoY(roe) },
+        { id: "roic", name: "Return on Invested Capital (ROIC)", nameEn: "ROIC", group: "balance", unit: "%", color: "#6366F1", data: roic, yoy: toYoY(roic) },
+        { id: "npm", name: "Net Profit Margin", nameEn: "Net Margin", group: "margin", unit: "%", color: "#A21CAF", data: npm, yoy: toYoY(npm) },
+        { id: "gpm", name: isBank ? "NII Margin" : "Gross Profit Margin", nameEn: isBank ? "NII Margin" : "Gross Margin", group: "margin", unit: "%", color: "#10B981", data: gpm, yoy: toYoY(gpm) },
+        { id: "opm", name: "Operating Margin (EBIT)", nameEn: "EBIT Margin", group: "margin", unit: "%", color: "#EA580C", data: opm, yoy: toYoY(opm) },
       ];
-      if (pe.length) list.push({ id: "pe", name: "مضاعف السعر/الربح", nameEn: "P/E", group: "valuation", unit: "×", color: "#F43F5E", data: pe, yoy: toYoY(pe) });
-      if (pb.length) list.push({ id: "pb", name: "مضاعف السعر/الدفاتر", nameEn: "P/B", group: "valuation", unit: "×", color: "#EC4899", data: pb, yoy: toYoY(pb) });
-      if (div.length) list.push({ id: "div", name: "عائد التوزيعات", nameEn: "Div%", group: "valuation", unit: "%", color: "#14B8A6", data: div, yoy: toYoY(div) });
+      if (pe.length) list.push({ id: "pe", name: "P/E Ratio", nameEn: "P/E", group: "valuation", unit: "×", color: "#F43F5E", data: pe, yoy: toYoY(pe) });
+      if (pb.length) list.push({ id: "pb", name: "P/B Ratio", nameEn: "P/B", group: "valuation", unit: "×", color: "#EC4899", data: pb, yoy: toYoY(pb) });
+      if (div.length) list.push({ id: "div", name: "Dividend Yield", nameEn: "Div%", group: "valuation", unit: "%", color: "#14B8A6", data: div, yoy: toYoY(div) });
       return list;
     } else {
       // Quarterly
@@ -315,12 +316,12 @@ function StudioInner() {
       const gpm = rev.map((r, i) => r > 0 ? +((gp[i] / r) * 100).toFixed(1) : 0);
       // True YoY for quarterly: compare Q vs same Q prior year (step=4)
       return [
-        { id: "rev", name: isBank ? "دخل التمويل الربعي" : "الإيرادات الربعية", nameEn: isBank ? "Quarterly Income" : "Quarterly Revenue", group: "income", unit: "M SAR", color: "#2563EB", data: rev, yoy: toYoY(rev, true) },
-        { id: "gp", name: isBank ? "صافي دخل التمويل الربعي" : "إجمالي الربح الربعي", nameEn: isBank ? "Quarterly NII" : "Quarterly GP", group: "income", unit: "M SAR", color: "#16A34A", data: gp, yoy: toYoY(gp, true) },
-        { id: "op", name: isBank ? "دخل العمليات الربعي" : "الربح التشغيلي الربعي", nameEn: isBank ? "Quarterly Operating Income" : "Quarterly EBIT", group: "income", unit: "M SAR", color: "#8C3B32", data: op, yoy: toYoY(op, true) },
-        { id: "net", name: "صافي الربح الربعي (YoY)", nameEn: "Quarterly Net", group: "income", unit: "M SAR", color: "#DC2626", data: net, yoy: toYoY(net, true) },
-        { id: "npm", name: "هامش الربح الربعي (YoY)", nameEn: "Quarterly Margin", group: "margin", unit: "%", color: "#7C3AED", data: npm, yoy: toYoY(npm, true) },
-        { id: "gpm", name: isBank ? "هامش دخل التمويل الربعي" : "هامش إجمالي الربح الربعي", nameEn: isBank ? "Quarterly NII Margin" : "Quarterly GPM", group: "margin", unit: "%", color: "#10B981", data: gpm, yoy: toYoY(gpm, true) },
+        { id: "rev", name: isBank ? "Quarterly Financing Income" : "Quarterly Revenue", nameEn: isBank ? "Quarterly Income" : "Quarterly Revenue", group: "income", unit: "M SAR", color: "#2563EB", data: rev, yoy: toYoY(rev, true) },
+        { id: "gp", name: isBank ? "Quarterly Net Financing Income" : "Quarterly Gross Profit", nameEn: isBank ? "Quarterly NII" : "Quarterly GP", group: "income", unit: "M SAR", color: "#16A34A", data: gp, yoy: toYoY(gp, true) },
+        { id: "op", name: isBank ? "Quarterly Operating Income" : "Quarterly Operating Profit (EBIT)", nameEn: isBank ? "Quarterly Operating Income" : "Quarterly EBIT", group: "income", unit: "M SAR", color: "#8C3B32", data: op, yoy: toYoY(op, true) },
+        { id: "net", name: "Quarterly Net Income (YoY)", nameEn: "Quarterly Net", group: "income", unit: "M SAR", color: "#DC2626", data: net, yoy: toYoY(net, true) },
+        { id: "npm", name: "Quarterly Profit Margin (YoY)", nameEn: "Quarterly Margin", group: "margin", unit: "%", color: "#7C3AED", data: npm, yoy: toYoY(npm, true) },
+        { id: "gpm", name: isBank ? "Quarterly NII Margin" : "Quarterly Gross Margin", nameEn: isBank ? "Quarterly NII Margin" : "Quarterly GPM", group: "margin", unit: "%", color: "#10B981", data: gpm, yoy: toYoY(gpm, true) },
       ];
     }
   }, [data, timeframe, isData, cfData, bsData, qData]);
@@ -391,18 +392,18 @@ function StudioInner() {
 
   // ── Group labels for metric picker ─────────────────────────────────────────
   const GROUPS: Array<{ id: string; label: string; color: string }> = [
-    { id: "income", label: "قائمة الدخل", color: "#2563EB" },
-    { id: "cash", label: "التدفقات النقدية", color: "#059669" },
-    { id: "balance", label: "الميزانية", color: "#0EA5E9" },
-    { id: "margin", label: "الهوامش", color: "#A21CAF" },
-    { id: "valuation", label: "التقييم", color: "#F43F5E" },
+    { id: "income", label: "Income Stmt", color: "#2563EB" },
+    { id: "cash", label: "Cash Flow", color: "#059669" },
+    { id: "balance", label: "Balance Sheet", color: "#0EA5E9" },
+    { id: "margin", label: "Margins", color: "#A21CAF" },
+    { id: "valuation", label: "Valuation", color: "#F43F5E" },
   ];
 
   // ─── Loading / Error ────────────────────────────────────────────────────────
   const [exportingPdf, setExportingPdf] = useState(false);
 
   if (loading) return (
-    <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center p-6">
+    <div dir="ltr" className="min-h-screen bg-[#F7F8FA] flex items-center justify-center p-6">
       <div className="text-center space-y-3 max-w-sm">
         <div className="w-11 h-11 border-[3px] border-[#8C3B32] border-t-transparent rounded-full animate-spin mx-auto" />
       </div>
@@ -410,34 +411,34 @@ function StudioInner() {
   );
 
   if (error || !data) return (
-    <div className="min-h-screen bg-[#F7F8FA] p-8 flex items-center justify-center">
+    <div dir="ltr" className="min-h-screen bg-[#F7F8FA] p-8 flex items-center justify-center">
       <div className="bg-white border border-[#E5E7EB] rounded-[8px] p-8 max-w-md text-center space-y-4 shadow-sm">
         <div className="w-14 h-14 rounded-full bg-[#FEF2F2] border border-[#FECACA] flex items-center justify-center mx-auto text-[#DC2626]">
           <AlertTriangle className="w-7 h-7" />
         </div>
-        <h2 className="text-lg font-bold text-[#1A1A1A]">تعذر فتح الاستوديو — {symbol}</h2>
-        <p className="text-xs text-[#6B7280]">{error || "تأكد من وجود سجل مالي للرمز"}</p>
+        <h2 className="text-lg font-bold text-[#1A1A1A]">Unable to open Studio — {symbol}</h2>
+        <p className="text-xs text-[#6B7280]">{error || "Make sure a financial record exists for this symbol"}</p>
         <div className="flex items-center justify-center gap-3">
           <button
             onClick={() => { setLoading(true); setError(null); }}
             className="px-4 py-2 bg-[#F3F4F6] border border-[#D1D5DB] text-xs font-semibold rounded-[4px]"
           >
-            إعادة المحاولة
+            Retry
           </button>
           <Link
             href="/rebh/studio/2222"
             className="px-4 py-2 bg-[#8C3B32] text-white text-xs font-semibold rounded-[4px] hover:bg-[#752f28]"
           >
-            اختر رمزاً آخر (2222)
+            Choose another symbol (2222)
           </Link>
         </div>
       </div>
     </div>
   );
 
-  const name = data.name || symbol;
-  const nameEn = data.en || "";
-  const sector = data.sec || "—";
+  // Prefer backend English names; `data.sec` itself is untouched (used for the sector-stats fetch above)
+  const name = data.en || data.name || symbol;
+  const sector = data.sec_en || data.sec || "—";
   const primaryVals = primary?.data || [];
   const secondaryVals = secondary?.data || [];
 
@@ -457,11 +458,11 @@ function StudioInner() {
       await buildCanvasPdf({
         node,
         filename: `REBH_Studio_${symbol}_${dateStr}.pdf`,
-        header: { symbol, title: name, subtitle: `استوديو الرسوم البيانية - ${sector}` },
+        header: { symbol, title: name, subtitle: `Chart Studio - ${sector}` },
       });
     } catch (err) {
       console.error("Failed to export studio PDF:", err);
-      alert("حدث خطأ أثناء إنشاء ملف الـ PDF. يرجى المحاولة مرة أخرى.");
+      alert("An error occurred while generating the PDF file. Please try again.");
     } finally {
       setExportingPdf(false);
     }
@@ -469,7 +470,7 @@ function StudioInner() {
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] pb-28">
+    <div dir="ltr" className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] pb-28">
 
       {/* ── TOP BAR ──────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 bg-white border-b border-[#E5E7EB] px-5 py-2.5 flex items-center justify-between flex-wrap gap-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
@@ -493,17 +494,17 @@ function StudioInner() {
               maxLength={4}
               value={searchInput}
               onChange={e => setSearchInput(e.target.value.replace(/\D/g, ""))}
-              placeholder="رمز (4 أرقام)"
-              className="w-28 px-2.5 py-1.5 text-xs border border-[#D1D5DB] rounded-[4px] outline-none focus:border-[#8C3B32] font-mono text-center bg-[#F9FAFB]"
+              placeholder="Symbol (4 digits)"
+              className="w-32 px-2.5 py-1.5 text-xs border border-[#D1D5DB] rounded-[4px] outline-none focus:border-[#8C3B32] font-mono text-center bg-[#F9FAFB]"
             />
-            <button type="submit" className="px-2.5 py-1.5 bg-[#F3F4F6] hover:bg-[#E5E7EB] border border-[#D1D5DB] rounded-[4px] text-xs font-semibold">عرض</button>
+            <button type="submit" className="px-2.5 py-1.5 bg-[#F3F4F6] hover:bg-[#E5E7EB] border border-[#D1D5DB] rounded-[4px] text-xs font-semibold">Go</button>
           </form>
           <button
             onClick={handleExportPdf}
             disabled={exportingPdf}
             className="flex items-center gap-1 px-3 py-1.5 bg-[#8C3B32] hover:bg-[#752f28] text-white rounded-[4px] text-xs font-semibold disabled:opacity-60"
           >
-            {exportingPdf ? (<><Loader2 size={13} className="animate-spin" />جاري التصدير...</>) : (<><FileDown size={13} />تصدير (PDF)</>)}
+            {exportingPdf ? (<><Loader2 size={13} className="animate-spin" />Exporting...</>) : (<><FileDown size={13} />Export (PDF)</>)}
           </button>
         </div>
       </header>
@@ -518,19 +519,18 @@ function StudioInner() {
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-black text-[#1A1A1A]">{name}</h2>
-                {nameEn && <span className="text-[11px] font-mono text-[#6B7280]">{nameEn}</span>}
               </div>
-              <p className="text-xs text-[#6B7280]">{sector} · السوق المالي السعودي (تداول)</p>
+              <p className="text-xs text-[#6B7280]">{sector} · Saudi Exchange (Tadawul)</p>
             </div>
           </div>
 
           {/* Latest metric KPI */}
           {primary && primaryVals.length > 0 && (
             <div className="flex items-center gap-4 text-xs font-mono">
-              <div className="text-right">
-                <span className="block text-[10px] text-[#64748B]">{primary.nameEn} (آخر فترة)</span>
+              <div className="text-left">
+                <span className="block text-[10px] text-[#64748B]">{primary.nameEn} (latest period)</span>
                 <span className="block text-lg font-black text-[#0F172A]">
-                  {latestPrimary.toLocaleString(undefined, { maximumFractionDigits: 1 })} {primary.unit}
+                  {latestPrimary.toLocaleString("en-US", { maximumFractionDigits: 1 })} {primary.unit}
                 </span>
               </div>
               <div className={`flex items-center gap-1 px-2 py-1 rounded-[4px] font-bold text-xs ${isUp ? "bg-[#F0FDF4] text-[#16A34A]" : "bg-[#FEF2F2] text-[#DC2626]"}`}>
@@ -542,7 +542,7 @@ function StudioInner() {
 
           {/* Mode Switcher */}
           <div className="flex items-center bg-[#F3F4F6] p-0.5 rounded-[6px] border border-[#E5E7EB] text-xs font-semibold">
-            {([["fundamental", "التحليل المحاسبي", BarChart3], ["price_action", "حركة السعر", TrendingUp]] as const).map(([m, label, Icon]) => (
+            {([["fundamental", "Fundamental Analysis", BarChart3], ["price_action", "Price Action", TrendingUp]] as const).map(([m, label, Icon]) => (
               <button
                 key={m}
                 onClick={() => setMode(m as ModeType)}
@@ -560,13 +560,13 @@ function StudioInner() {
       <section className="bg-[#F8FAFC] border-b border-[#E5E7EB] px-6 py-2">
         <div className="max-w-[96%] mx-auto flex flex-wrap items-center gap-2">
           <span className="text-[11px] font-bold text-[#475569] flex items-center gap-1 shrink-0">
-            <Sparkles size={12} className="text-[#8C3B32]" />قوالب مدمجة:
+            <Sparkles size={12} className="text-[#8C3B32]" />Built-in templates:
           </span>
           {Object.entries({
             profitability_divergence: "NI vs CFO",
-            revenue_margin_health: "إيراد + هوامش",
+            revenue_margin_health: "Revenue + Margins",
             fcf_conversion: "FCF vs CapEx",
-            price_trend: "مسار السعر",
+            price_trend: "Price Trend",
             balance_strength: "ROE / ROIC",
             valuation_bands: "P/E & P/B",
           }).map(([id, label]) => (
@@ -582,20 +582,20 @@ function StudioInner() {
 
           {/* ── Saved Templates section ── */}
           <span className="text-[#CBD5E1] text-xs">|</span>
-          <span className="text-[11px] font-bold text-[#475569] shrink-0">محفوظاتي:</span>
+          <span className="text-[11px] font-bold text-[#475569] shrink-0">My saved views:</span>
           {savedTemplates.map(tpl => (
             <span key={tpl.id} className="inline-flex items-center gap-1 rounded-[4px] border border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8] text-[11px] font-semibold overflow-hidden">
               <button
                 onClick={() => handleLoadTemplate(tpl)}
                 className="px-2 py-0.5 hover:bg-[#DBEAFE] transition-colors"
-                title={`تحميل: ${tpl.mode} / ${tpl.primaryId}`}
+                title={`Load: ${tpl.mode} / ${tpl.primaryId}`}
               >
                 {tpl.name}
               </button>
               <button
                 onClick={() => handleDeleteTemplate(tpl.id)}
                 className="px-1 py-0.5 hover:bg-[#FECACA] hover:text-[#DC2626] transition-colors text-[#93C5FD]"
-                title="حذف القالب"
+                title="Delete template"
               >
                 ×
               </button>
@@ -610,26 +610,26 @@ function StudioInner() {
                 value={newTemplateName}
                 onChange={e => setNewTemplateName(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter") handleSaveTemplate(); if (e.key === "Escape") setShowTemplatePanel(false); }}
-                placeholder="اسم القالب…"
+                placeholder="Template name…"
                 className="px-2 py-0.5 text-[11px] border border-[#8C3B32] rounded-[4px] outline-none w-28 bg-white"
                 autoFocus
               />
               <button
                 onClick={handleSaveTemplate}
                 className="px-2 py-0.5 bg-[#8C3B32] text-white text-[11px] font-bold rounded-[4px] hover:bg-[#752f28]"
-              >حفظ</button>
+              >Save</button>
               <button
                 onClick={() => setShowTemplatePanel(false)}
                 className="px-2 py-0.5 bg-[#F3F4F6] text-[#6B7280] text-[11px] font-bold rounded-[4px] hover:bg-[#E5E7EB]"
-              >إلغاء</button>
+              >Cancel</button>
             </span>
           ) : (
             <button
               onClick={() => setShowTemplatePanel(true)}
               className="px-2.5 py-0.5 rounded-[4px] border border-dashed border-[#8C3B32] text-[#8C3B32] text-[11px] font-semibold hover:bg-[#FFF1EF] transition-colors"
-              title="حفظ العرض الحالي كقالب محفوظ"
+              title="Save the current view as a template"
             >
-              + حفظ العرض الحالي
+              + Save current view
             </button>
           )}
         </div>
@@ -649,7 +649,7 @@ function StudioInner() {
 
                 {/* Controls row */}
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F1F5F9] pb-3">
-                  <span className="text-xs font-bold text-[#1A1A1A]">اختر البند الأساسي:</span>
+                  <span className="text-xs font-bold text-[#1A1A1A]">Select primary metric:</span>
                   <div className="flex items-center gap-2 flex-wrap">
                     {/* Timeframe */}
                     <div className="flex items-center bg-[#F3F4F6] p-0.5 rounded border border-[#E5E7EB] text-[11px] font-semibold">
@@ -658,7 +658,7 @@ function StudioInner() {
                           onClick={() => { setTimeframe(tf); setPrimaryId("rev"); setSecondaryId(tf === "annual" ? "net" : null); }}
                           className={`px-3 py-1 rounded transition-colors ${timeframe === tf ? "bg-white text-[#8C3B32] shadow-sm" : "text-[#6B7280]"}`}
                         >
-                          {tf === "annual" ? "سنوي" : "ربعي منفصل"}
+                          {tf === "annual" ? "Annual" : "Quarterly (discrete)"}
                         </button>
                       ))}
                     </div>
@@ -669,7 +669,7 @@ function StudioInner() {
                           onClick={() => setChartStyle(s)}
                           className={`px-3 py-1 rounded transition-colors ${chartStyle === s ? "bg-white text-[#8C3B32] shadow-sm" : "text-[#6B7280]"}`}
                         >
-                          {s === "bar" ? "أعمدة" : s === "line" ? "خطي" : "مساحة"}
+                          {s === "bar" ? "Bar" : s === "line" ? "Line" : "Area"}
                         </button>
                       ))}
                     </div>
@@ -688,7 +688,7 @@ function StudioInner() {
                     if (!gMetrics.length) return null;
                     return (
                       <div key={g.id} className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-[10px] font-bold text-[#94A3B8] w-16 shrink-0 text-right">{g.label}</span>
+                        <span className="text-[10px] font-bold text-[#94A3B8] w-20 shrink-0 text-left">{g.label}</span>
                         {gMetrics.map(m => {
                           const isPrimary = primaryId === m.id;
                           const isSec = secondaryId === m.id;
@@ -700,7 +700,7 @@ function StudioInner() {
                                 setPrimaryId(m.id); setActivePreset(null);
                               }}
                               onContextMenu={e => { e.preventDefault(); setSecondaryId(isPrimary ? null : m.id); setActivePreset(null); }}
-                              title="نقر = أساسي · نقر يمين = ثانوي"
+                              title="Click = primary · Right-click = secondary"
                               className={`px-2.5 py-1 rounded-[4px] text-[11px] font-semibold border transition-all flex items-center gap-1.5
                               ${isPrimary ? "bg-[#8C3B32] text-white border-[#8C3B32]"
                                   : isSec ? "bg-[#EFF6FF] text-[#2563EB] border-[#BFDBFE]"
@@ -722,19 +722,19 @@ function StudioInner() {
                 <div className="pdf-exclude pt-2 border-t border-[#F1F5F9] flex items-center justify-between flex-wrap gap-2 text-xs text-[#64748B]">
                   <div className="flex items-center gap-2">
                     <Layers size={13} className="text-[#8C3B32]" />
-                    <span>مقارنة ثانوية (Dual-Wave):</span>
+                    <span>Secondary comparison (Dual-Wave):</span>
                     <select
                       value={secondaryId || ""}
                       onChange={e => setSecondaryId(e.target.value || null)}
                       className="px-2 py-0.5 text-xs bg-[#F8FAFC] border border-[#D1D5DB] rounded-[4px] outline-none text-[#1A1A1A] font-semibold"
                     >
-                      <option value="">(بلا مقارنة)</option>
+                      <option value="">(No comparison)</option>
                       {metrics.filter(m => m.id !== primaryId).map(m => (
                         <option key={m.id} value={m.id}>{m.name} ({m.unit})</option>
                       ))}
                     </select>
                   </div>
-                  <span className="font-mono text-[11px] text-[#9CA3AF]">{periods.length} فترة · XBRL ✓</span>
+                  <span className="font-mono text-[11px] text-[#9CA3AF]">{periods.length} periods · XBRL ✓</span>
                 </div>
               </div>
 
@@ -759,27 +759,27 @@ function StudioInner() {
                   <div className="flex items-center gap-2 flex-wrap">
                     {showHistoricalMedian && (
                       <span className="text-[11px] font-mono text-[#64748B] bg-[#F8FAFC] px-2 py-0.5 rounded border border-[#E2E8F0]">
-                        وسيط الشركة: {selfMedian?.toLocaleString(undefined, { maximumFractionDigits: 1 })} {primary.unit}
+                        Company median: {selfMedian?.toLocaleString("en-US", { maximumFractionDigits: 1 })} {primary.unit}
                       </span>
                     )}
                     {showSectorMedian && currentSectorMedian && (
                       <span className="text-[11px] font-mono text-[#166534] bg-[#F0FDF4] px-2 py-0.5 rounded border border-[#BBF7D0]">
-                        وسيط القطاع ({currentSectorMedian.n} شركة): {currentSectorMedian.value.toLocaleString(undefined, { maximumFractionDigits: 1 })} {currentSectorMedian.unit}
+                        Sector median ({currentSectorMedian.n} companies): {currentSectorMedian.value.toLocaleString("en-US", { maximumFractionDigits: 1 })} {currentSectorMedian.unit}
                       </span>
                     )}
                     <button
                       onClick={() => setShowSectorMedian(!showSectorMedian)}
                       className={`text-[11px] px-2.5 py-0.5 rounded border font-semibold transition-colors ${showSectorMedian ? "bg-[#16A34A] text-white border-[#16A34A]" : "bg-white text-[#374151] border-[#D1D5DB] hover:bg-[#F3F4F6]"}`}
-                      title="عرض خط وسيط القطاع الفعلي المستخرج من شركات القطاع"
+                      title="Show the actual sector median line, computed from the sector's companies"
                     >
-                      وسيط القطاع
+                      Sector Median
                     </button>
                     <button
                       onClick={() => setShowHistoricalMedian(!showHistoricalMedian)}
                       className={`text-[11px] px-2.5 py-0.5 rounded border font-semibold transition-colors ${showHistoricalMedian ? "bg-[#8C3B32] text-white border-[#8C3B32]" : "bg-white text-[#374151] border-[#D1D5DB] hover:bg-[#F3F4F6]"}`}
-                      title="عرض خط الوسيط التاريخي الخاص بالشركة نفسها"
+                      title="Show the company's own historical median line"
                     >
-                      وسيط الشركة
+                      Company Median
                     </button>
                   </div>
                 </div>
@@ -805,7 +805,7 @@ function StudioInner() {
                                   <div className="font-bold text-[#F8FAFC]">{label}</div>
                                   {payload.map((p: any, idx: number) => (
                                     <div key={idx} style={{ color: p.color }}>
-                                      {p.name === primary.id ? primary.name : secondary?.name}: {Number(p.value).toLocaleString(undefined, { maximumFractionDigits: 1 })} {p.name === primary.id ? primary.unit : secondary?.unit}
+                                      {p.name === primary.id ? primary.name : secondary?.name}: {Number(p.value).toLocaleString("en-US", { maximumFractionDigits: 1 })} {p.name === primary.id ? primary.unit : secondary?.unit}
                                     </div>
                                   ))}
                                 </div>
@@ -815,10 +815,10 @@ function StudioInner() {
                           }}
                         />
                         {showHistoricalMedian && selfMedian != null && (
-                          <ReferenceLine yAxisId="left" y={selfMedian} stroke="#D97706" strokeDasharray="4 3" label={{ value: `وسيط الشركة: ${selfMedian}`, fill: "#D97706", fontSize: 10 }} />
+                          <ReferenceLine yAxisId="left" y={selfMedian} stroke="#D97706" strokeDasharray="4 3" label={{ value: `Company median: ${selfMedian}`, fill: "#D97706", fontSize: 10 }} />
                         )}
                         {showSectorMedian && currentSectorMedian != null && (
-                          <ReferenceLine yAxisId="left" y={currentSectorMedian.value} stroke="#16A34A" strokeDasharray="4 2" label={{ value: `وسيط القطاع: ${currentSectorMedian.value}`, fill: "#16A34A", fontSize: 10 }} />
+                          <ReferenceLine yAxisId="left" y={currentSectorMedian.value} stroke="#16A34A" strokeDasharray="4 2" label={{ value: `Sector median: ${currentSectorMedian.value}`, fill: "#16A34A", fontSize: 10 }} />
                         )}
                         {/* ── Estimate Cone on Quarterly Net Profit (±18.5% backtested error) ── */}
                         {timeframe === "quarterly" && primary.id === "net" && (
@@ -829,7 +829,7 @@ function StudioInner() {
                               stroke="#8C3B32"
                               strokeDasharray="4 3"
                               label={{
-                                value: `تقدير الربع القادم ≈ ${Math.round((primaryVals[primaryVals.length - 1] || 0) * 1.04).toLocaleString()} (±18.5%)`,
+                                value: `Next-quarter estimate ≈ ${Math.round((primaryVals[primaryVals.length - 1] || 0) * 1.04).toLocaleString("en-US")} (±18.5%)`,
                                 fill: "#8C3B32",
                                 fontSize: 10,
                                 position: "top"
@@ -860,7 +860,7 @@ function StudioInner() {
                                   <div className="font-bold text-[#F8FAFC]">{label}</div>
                                   {payload.map((p: any, idx: number) => (
                                     <div key={idx} style={{ color: p.color }}>
-                                      {p.name === primary.id ? primary.name : secondary?.name}: {Number(p.value).toLocaleString(undefined, { maximumFractionDigits: 1 })} {p.name === primary.id ? primary.unit : secondary?.unit}
+                                      {p.name === primary.id ? primary.name : secondary?.name}: {Number(p.value).toLocaleString("en-US", { maximumFractionDigits: 1 })} {p.name === primary.id ? primary.unit : secondary?.unit}
                                     </div>
                                   ))}
                                 </div>
@@ -870,10 +870,10 @@ function StudioInner() {
                           }}
                         />
                         {showHistoricalMedian && selfMedian != null && (
-                          <ReferenceLine yAxisId="left" y={selfMedian} stroke="#D97706" strokeDasharray="4 3" label={{ value: `وسيط الشركة: ${selfMedian}`, fill: "#D97706", fontSize: 10 }} />
+                          <ReferenceLine yAxisId="left" y={selfMedian} stroke="#D97706" strokeDasharray="4 3" label={{ value: `Company median: ${selfMedian}`, fill: "#D97706", fontSize: 10 }} />
                         )}
                         {showSectorMedian && currentSectorMedian != null && (
-                          <ReferenceLine yAxisId="left" y={currentSectorMedian.value} stroke="#16A34A" strokeDasharray="4 2" label={{ value: `وسيط القطاع: ${currentSectorMedian.value}`, fill: "#16A34A", fontSize: 10 }} />
+                          <ReferenceLine yAxisId="left" y={currentSectorMedian.value} stroke="#16A34A" strokeDasharray="4 2" label={{ value: `Sector median: ${currentSectorMedian.value}`, fill: "#16A34A", fontSize: 10 }} />
                         )}
                         {/* ── Estimate Cone on Quarterly Net Profit (±18.5% backtested error) ── */}
                         {timeframe === "quarterly" && primary.id === "net" && (
@@ -883,7 +883,7 @@ function StudioInner() {
                             stroke="#8C3B32"
                             strokeDasharray="4 3"
                             label={{
-                              value: `تقدير الربع القادم ≈ ${Math.round((primaryVals[primaryVals.length - 1] || 0) * 1.04).toLocaleString()} (±18.5%)`,
+                              value: `Next-quarter estimate ≈ ${Math.round((primaryVals[primaryVals.length - 1] || 0) * 1.04).toLocaleString("en-US")} (±18.5%)`,
                               fill: "#8C3B32",
                               fontSize: 10,
                               position: "top"
@@ -913,7 +913,7 @@ function StudioInner() {
                                   <div className="font-bold text-[#F8FAFC]">{label}</div>
                                   {payload.map((p: any, idx: number) => (
                                     <div key={idx} style={{ color: p.color }}>
-                                      {p.name === primary.id ? primary.name : secondary?.name}: {Number(p.value).toLocaleString(undefined, { maximumFractionDigits: 1 })} {p.name === primary.id ? primary.unit : secondary?.unit}
+                                      {p.name === primary.id ? primary.name : secondary?.name}: {Number(p.value).toLocaleString("en-US", { maximumFractionDigits: 1 })} {p.name === primary.id ? primary.unit : secondary?.unit}
                                     </div>
                                   ))}
                                 </div>
@@ -923,10 +923,10 @@ function StudioInner() {
                           }}
                         />
                         {showHistoricalMedian && selfMedian != null && (
-                          <ReferenceLine yAxisId="left" y={selfMedian} stroke="#D97706" strokeDasharray="4 3" label={{ value: `وسيط الشركة: ${selfMedian}`, fill: "#D97706", fontSize: 10 }} />
+                          <ReferenceLine yAxisId="left" y={selfMedian} stroke="#D97706" strokeDasharray="4 3" label={{ value: `Company median: ${selfMedian}`, fill: "#D97706", fontSize: 10 }} />
                         )}
                         {showSectorMedian && currentSectorMedian != null && (
-                          <ReferenceLine yAxisId="left" y={currentSectorMedian.value} stroke="#16A34A" strokeDasharray="4 2" label={{ value: `وسيط القطاع: ${currentSectorMedian.value}`, fill: "#16A34A", fontSize: 10 }} />
+                          <ReferenceLine yAxisId="left" y={currentSectorMedian.value} stroke="#16A34A" strokeDasharray="4 2" label={{ value: `Sector median: ${currentSectorMedian.value}`, fill: "#16A34A", fontSize: 10 }} />
                         )}
                         {/* ── Estimate Cone on Quarterly Net Profit (±18.5% backtested error) ── */}
                         {timeframe === "quarterly" && primary.id === "net" && (
@@ -936,7 +936,7 @@ function StudioInner() {
                             stroke="#8C3B32"
                             strokeDasharray="4 3"
                             label={{
-                              value: `تقدير الربع القادم ≈ ${Math.round((primaryVals[primaryVals.length - 1] || 0) * 1.04).toLocaleString()} (±18.5%)`,
+                              value: `Next-quarter estimate ≈ ${Math.round((primaryVals[primaryVals.length - 1] || 0) * 1.04).toLocaleString("en-US")} (±18.5%)`,
                               fill: "#8C3B32",
                               fontSize: 10,
                               position: "top"
@@ -958,7 +958,7 @@ function StudioInner() {
                 <div className="bg-white border border-[#E5E7EB] rounded-[6px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
                   <h4 className="text-xs font-bold text-[#1A1A1A] mb-3 flex items-center gap-2">
                     <Activity size={13} className="text-[#8C3B32]" />
-                    نسبة التغيير YoY لـ {primary.name}
+                    YoY % change for {primary.name}
                   </h4>
                   <div className="flex flex-wrap gap-2">
                     {periods.map((p: string, i: number) => {
@@ -1009,7 +1009,7 @@ function StudioInner() {
               <div className="pdf-exclude flex items-center justify-between flex-wrap gap-3 border-b border-[#E5E7EB] pb-3">
                 <div className="flex items-center gap-2">
                   <TrendingUp size={14} className="text-[#8C3B32]" />
-                  <span className="text-xs font-bold text-[#1A1A1A]">مسار السعر اليومي ({priceHistory.length} يوم)</span>
+                  <span className="text-xs font-bold text-[#1A1A1A]">Daily price action ({priceHistory.length} days)</span>
                 </div>
                 <div className="flex items-center gap-3 text-xs flex-wrap">
                   {/* Chart type toggle */}
@@ -1019,11 +1019,11 @@ function StudioInner() {
                         onClick={() => setPriceChartStyle(s)}
                         className={`px-3 py-1 rounded transition-colors ${priceChartStyle === s ? "bg-white text-[#8C3B32] shadow-sm" : "text-[#6B7280]"}`}
                       >
-                        {s === "line" ? "خطي" : "شموع OHLC"}
+                        {s === "line" ? "Line" : "OHLC Candles"}
                       </button>
                     ))}
                   </div>
-                  {([["showSMA20", showSMA20, setShowSMA20, "SMA-20"], ["showVol", showVolume, setShowVolume, "أحجام"]] as any[]).map(([key, val, setter, label]: any) => (
+                  {([["showSMA20", showSMA20, setShowSMA20, "SMA-20"], ["showVol", showVolume, setShowVolume, "Volume"]] as any[]).map(([key, val, setter, label]: any) => (
                     <label key={key} className="flex items-center gap-1.5 cursor-pointer font-semibold text-[#374151]">
                       <input type="checkbox" checked={val} onChange={e => setter(e.target.checked)} className="rounded" />
                       {label}
@@ -1037,10 +1037,10 @@ function StudioInner() {
                   {/* Price stats */}
                   <div className="flex flex-wrap gap-4 text-xs font-mono">
                     {[
-                      { label: "آخر إغلاق", val: priceHistory[priceHistory.length - 1]?.close?.toFixed(2) },
-                      { label: "أعلى 120 يوم", val: Math.max(...priceHistory.map(p => p.high || p.close)).toFixed(2) },
-                      { label: "أدنى 120 يوم", val: Math.min(...priceHistory.map(p => p.low || p.close)).toFixed(2) },
-                      { label: "متوسط الحجم", val: Math.round(priceHistory.reduce((a, p) => a + (p.volume || 0), 0) / priceHistory.length).toLocaleString() },
+                      { label: "Last Close", val: priceHistory[priceHistory.length - 1]?.close?.toFixed(2) },
+                      { label: "120-Day High", val: Math.max(...priceHistory.map(p => p.high || p.close)).toFixed(2) },
+                      { label: "120-Day Low", val: Math.min(...priceHistory.map(p => p.low || p.close)).toFixed(2) },
+                      { label: "Avg Volume", val: Math.round(priceHistory.reduce((a, p) => a + (p.volume || 0), 0) / priceHistory.length).toLocaleString("en-US") },
                     ].map(s => (
                       <div key={s.label} className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-[4px] px-3 py-1.5">
                         <span className="block text-[10px] text-[#64748B]">{s.label}</span>
@@ -1102,14 +1102,14 @@ function StudioInner() {
                                   <div className="font-bold text-[#F8FAFC] border-b border-[#334155] pb-1 flex justify-between gap-4">
                                     <span>{label}</span>
                                     <span className={d.isBull ? "text-[#4ADE80]" : "text-[#F87171]"}>
-                                      {d.isBull ? "▲ صاعد" : "▼ هابط"}
+                                      {d.isBull ? "▲ Bullish" : "▼ Bearish"}
                                     </span>
                                   </div>
                                   <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px] pt-1">
-                                    <div>افتتاح: <span className="text-white font-bold">{d.open?.toFixed(2)}</span></div>
-                                    <div>إغلاق: <span className="text-[#93C5FD] font-bold">{d.close?.toFixed(2)}</span></div>
-                                    <div>أعلى: <span className="text-[#4ADE80] font-bold">{d.high?.toFixed(2)}</span></div>
-                                    <div>أدنى: <span className="text-[#F87171] font-bold">{d.low?.toFixed(2)}</span></div>
+                                    <div>Open: <span className="text-white font-bold">{d.open?.toFixed(2)}</span></div>
+                                    <div>Close: <span className="text-[#93C5FD] font-bold">{d.close?.toFixed(2)}</span></div>
+                                    <div>High: <span className="text-[#4ADE80] font-bold">{d.high?.toFixed(2)}</span></div>
+                                    <div>Low: <span className="text-[#F87171] font-bold">{d.low?.toFixed(2)}</span></div>
                                   </div>
                                   {d.sma20 != null && showSMA20 && (
                                     <div className="text-[11px] text-[#60A5FA] pt-1 border-t border-[#334155]">
@@ -1118,7 +1118,7 @@ function StudioInner() {
                                   )}
                                   {showVolume && (
                                     <div className="text-[10px] text-[#94A3B8]">
-                                      الحجم: {Number(d.volume).toLocaleString()}
+                                      Volume: {Number(d.volume).toLocaleString("en-US")}
                                     </div>
                                   )}
                                 </div>
@@ -1234,12 +1234,12 @@ function StudioInner() {
                 </>
               ) : (
                 <div className="p-8 text-center text-xs text-[#6B7280]">
-                  لا تتوفر بيانات أسعار تاريخية مسجلة لهذا الرمز.
+                  No historical price data is recorded for this symbol.
                 </div>
               )}
               {/* Product honesty note for Technical Charting */}
               <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-[4px] px-3 py-2 text-[11px] text-[#64748B] flex items-center justify-between">
-                <span>مسار السعر يعرض بيانات التداول اليومية (OHLC + الحجم + SMA-20). أدوات التحليل الفني المتقدمة والمؤشرات الإضافية (60+) قيد التوسعة المرحلية.</span>
+                <span>Price action shows daily trading data (OHLC + volume + SMA-20). Advanced technical analysis tools and additional indicators (60+) are being rolled out in phases.</span>
                 <span className="font-mono text-[10px] text-[#8C3B32] font-semibold">Tadawul Real Data</span>
               </div>
             </div>
@@ -1248,7 +1248,7 @@ function StudioInner() {
 
         {mode === "fundamental" && showHistoricalMedian && (
           <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-[6px] p-4 text-xs text-[#475569]">
-            <strong>مرجع الوسيط التاريخي:</strong> تُعرض القيمة الوسيطة لأداء الشركة ذاتها عبر الفترات المعروضة كخط مرجعي على الرسم — وليست وسيط القطاع.
+            <strong>Historical median reference:</strong> the company&apos;s own median value across the displayed periods is drawn as a reference line on the chart — it is not the sector median.
           </div>
         )}
       </main>

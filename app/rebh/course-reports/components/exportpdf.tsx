@@ -4,6 +4,13 @@
 
 import { createRebhPdf, fmt1, has } from "@/lib/rebh/pdf";
 
+// Column-order switch for ctx.rtlGrid. The shared grid helper's column order
+// could not be verified (its source was not provided). Arrays below are written
+// in natural left-to-right order [first ... last]. If the PDF renders columns
+// mirrored, set this to true.
+const GRID_MIRRORED = false;
+const orient = <T,>(arr: T[]): T[] => (GRID_MIRRORED ? [...arr].reverse() : arr);
+
 export interface CourseReportPorterItem {
   q: string;
   v: number;
@@ -59,7 +66,7 @@ export interface CourseReportPdfData {
 const numOrDash = (v: number | null | undefined, dec = 2) =>
   has(v) && !Number.isNaN(Number(v)) ? Number(v).toFixed(dec) : "—";
 
-const scoreWord = (s: number) => (s > 0 ? "ضمن الحد" : s === 0 ? "محايد" : "خارج الحد");
+const scoreWord = (s: number) => (s > 0 ? "Within limit" : s === 0 ? "Neutral" : "Outside limit");
 
 export async function generateCourseReportPdf(d: CourseReportPdfData): Promise<void> {
   const ctx = await createRebhPdf();
@@ -68,97 +75,99 @@ export async function generateCourseReportPdf(d: CourseReportPdfData): Promise<v
   ctx.drawHeader({
     symbol: d.sym,
     title: d.name,
-    subtitle: `تقرير دورة الخرفشي التعليمي - ${d.sec}`,
+    subtitle: `Khurafshi Course Educational Report - ${d.sec}`,
   });
 
   // ── 1. Snapshot ────────────────────────────────────────────────────────────
-  ctx.heading("1. بطاقة الشركة والفحص الشرعي الكمي", 6);
+  ctx.heading("1. Company Snapshot & Quantitative Sharia Screen", 6);
   ctx.kvTable([
-    ["السعر", numOrDash(d.px)],
-    ["مكرر الأرباح P/E", has(d.pe) ? `${fmt1(d.pe)}×` : "—"],
-    ["مكرر القيمة الدفترية P/B", has(d.pb) ? `${fmt1(d.pb)}×` : "—"],
-    ["العائد على حقوق المساهمين ROE", has(d.roe) ? `${fmt1(d.roe)}%` : "—"],
-    ["التصنيف المنهجي", d.typeLabel],
-    ["الدين إلى الأصول", has(d.deAssets) ? `${fmt1(d.deAssets)}%` : "—"],
-    ["الفحص الشرعي الكمي (أقل من 33%)", d.shariaOk == null ? "غير متاح" : d.shariaOk ? "متوافق كمياً" : "تجاوز السقف"],
+    ["Price", numOrDash(d.px)],
+    ["Price/Earnings (P/E)", has(d.pe) ? `${fmt1(d.pe)}×` : "—"],
+    ["Price/Book Value (P/B)", has(d.pb) ? `${fmt1(d.pb)}×` : "—"],
+    ["Return on Equity (ROE)", has(d.roe) ? `${fmt1(d.roe)}%` : "—"],
+    ["Methodology Classification", d.typeLabel],
+    ["Debt to Assets", has(d.deAssets) ? `${fmt1(d.deAssets)}%` : "—"],
+    ["Quantitative Sharia Screen (below 33%)", d.shariaOk == null ? "N/A" : d.shariaOk ? "Quantitatively compliant" : "Exceeds cap"],
   ]);
 
   // ── 2. Porter five forces ──────────────────────────────────────────────────
-  ctx.heading("2. قواعد مايكل بورتر الخمس (0-1 لكل قوة)", d.porterItems.length + 2);
+  ctx.heading("2. Michael Porter's Five Forces (0–1 per force)", d.porterItems.length + 2);
   ctx.rtlGrid(
-    ["القوة", "التقييم", "السبب"],
+    orient(["Force", "Score", "Rationale"]),
     [
-      ...d.porterItems.map((it) => [it.q, it.v.toFixed(2), it.reason]),
-      ["الإجمالي والتعويض", `${d.porterTotal.toFixed(2)}/5`, `${d.porterComp}% — ${d.porterLabel}`],
+      ...d.porterItems.map((it) => orient([it.q, it.v.toFixed(2), it.reason])),
+      orient(["Total & Premium", `${d.porterTotal.toFixed(2)}/5`, `${d.porterComp}% — ${d.porterLabel}`]),
     ]
   );
 
   // ── 3. Quarterly financials ────────────────────────────────────────────────
   if (d.quarters.rows.length > 0) {
-    ctx.heading("3. القوائم المالية — الأرباع المتحققة (بالمليون ريال)", d.quarters.rows.length + 1);
+    ctx.heading("3. Financial Statements — Realized Quarters (SAR millions)", d.quarters.rows.length + 1);
     ctx.rtlGrid(
-      ["البند", ...d.quarters.periods, "TTM"],
-      d.quarters.rows.map((r) => [
-        r.label,
-        ...r.vals.map((v) => (v != null ? Math.round(v).toLocaleString("en-US") : "—")),
-        r.ttm != null ? Math.round(r.ttm).toLocaleString("en-US") : "—",
-      ])
+      orient(["Line Item", ...d.quarters.periods, "TTM"]),
+      d.quarters.rows.map((r) =>
+        orient([
+          r.label,
+          ...r.vals.map((v) => (v != null ? Math.round(v).toLocaleString("en-US") : "—")),
+          r.ttm != null ? Math.round(r.ttm).toLocaleString("en-US") : "—",
+        ])
+      )
     );
   }
 
   // ── 4. Growth ──────────────────────────────────────────────────────────────
-  ctx.heading("4. النمو (التحديد أولاً بالاستبعاد)", 3);
+  ctx.heading("4. Growth (Determination by Elimination First)", 3);
   const gNet = d.gNet;
   ctx.kvTable([
-    ["البسيط (اللحظة الأخيرة)", gNet != null ? `${gNet >= 0 ? "+" : ""}${fmt1(gNet)}%` : "—"],
-    ["GS النمو العابر المعتمد", `${d.gs}.0%`],
+    ["Simple (latest period)", gNet != null ? `${gNet >= 0 ? "+" : ""}${fmt1(gNet)}%` : "—"],
+    ["Adopted GS (transitional growth)", `${d.gs}.0%`],
   ]);
 
   // ── 5. Safety elements ─────────────────────────────────────────────────────
   if (!d.isBank && d.safetyItems.length > 0) {
-    ctx.heading("5. عناصر السلامة المالية (+1 / 0 / −1)", d.safetyItems.length + 1);
+    ctx.heading("5. Financial Safety Elements (+1 / 0 / −1)", d.safetyItems.length + 1);
     ctx.rtlGrid(
-      ["العنصر", "القيمة", "الحدود", "التقييم"],
+      orient(["Element", "Value", "Thresholds", "Score"]),
       [
-        ...d.safetyItems.map((it) => [it.label, numOrDash(it.v), it.limits, scoreWord(it.score)]),
-        ["الإجمالي والتعويض", `${d.totalSafety}`, "—", `${d.safetyComp}%`],
+        ...d.safetyItems.map((it) => orient([it.label, numOrDash(it.v), it.limits, scoreWord(it.score)])),
+        orient(["Total & Premium", `${d.totalSafety}`, "—", `${d.safetyComp}%`]),
       ]
     );
   }
 
   // ── 6. Build-Up R ──────────────────────────────────────────────────────────
-  ctx.heading("6. العائد المناسب — Build-Up", 5);
+  ctx.heading("6. Required Return — Build-Up", 5);
   ctx.kvTable([
-    ["قواعد بورتر", `الوزن ${(d.buildUp.porterWeight * 100).toFixed(0)}% · التعويض ${d.porterComp}% · الناتج ${(d.buildUp.porterWeight * d.porterComp).toFixed(2)}%`],
-    ["عناصر السلامة", d.isBank ? "لا تُطبق على البنوك" : `الوزن ${(d.buildUp.safetyWeight * 100).toFixed(0)}% · التعويض ${d.safetyComp}% · الناتج ${(d.buildUp.safetyWeight * d.safetyComp).toFixed(2)}%`],
-    ["عائد السند", `${d.buildUp.bondRate}%`],
-    ["R المطلوب", `${d.buildUp.r}% (ضمن نطاق الدورة 4-12)`],
-    ["GL المعتمد و N", `GL=${d.gl}% · N=${d.n}`],
+    ["Porter Forces", `Weight ${(d.buildUp.porterWeight * 100).toFixed(0)}% · Premium ${d.porterComp}% · Contribution ${(d.buildUp.porterWeight * d.porterComp).toFixed(2)}%`],
+    ["Safety Elements", d.isBank ? "Not applicable to banks" : `Weight ${(d.buildUp.safetyWeight * 100).toFixed(0)}% · Premium ${d.safetyComp}% · Contribution ${(d.buildUp.safetyWeight * d.safetyComp).toFixed(2)}%`],
+    ["Bond Yield", `${d.buildUp.bondRate}%`],
+    ["Required R", `${d.buildUp.r}% (within course range 4–12)`],
+    ["Adopted GL & N", `GL=${d.gl}% · N=${d.n}`],
   ]);
 
   // ── 7. Nine-box zones ──────────────────────────────────────────────────────
   if (d.epv) {
-    ctx.heading("7. المربع التسعة — مناطق الأسعار", 5);
+    ctx.heading("7. Nine-Box Matrix — Price Zones", 5);
     ctx.kvTable([
-      ["من EPV (دب)", numOrDash(d.epv.bear)],
-      ["من EPV (أساس)", numOrDash(d.epv.base)],
-      ["من EPV (ثور)", numOrDash(d.epv.bull)],
-      ["السعر الحالي", numOrDash(d.px)],
-      ["المنطقة السعرية", d.zone || "—"],
-      ["المقارنة بـ EPV الأساس", has(d.epv.vs) ? `${d.epv.vs >= 0 ? "+" : ""}${fmt1(d.epv.vs)}%` : "—"],
+      ["From EPV (Bear)", numOrDash(d.epv.bear)],
+      ["From EPV (Base)", numOrDash(d.epv.base)],
+      ["From EPV (Bull)", numOrDash(d.epv.bull)],
+      ["Current Price", numOrDash(d.px)],
+      ["Price Zone", d.zone || "—"],
+      ["vs. EPV Base", has(d.epv.vs) ? `${d.epv.vs >= 0 ? "+" : ""}${fmt1(d.epv.vs)}%` : "—"],
     ]);
   }
 
   // ── 8. Warnings & verdict ──────────────────────────────────────────────────
   if (d.warnings.length > 0) {
-    ctx.heading("8. الأعلام الحمراء وبوابة الشراء", d.warnings.length + 1);
+    ctx.heading("8. Red Flags & Buy Gate", d.warnings.length + 1);
     d.warnings.forEach(([type, msg]) =>
-      ctx.paragraph(`${type === "w" ? "تنبيه" : "سليم"}: ${msg}`, { bullet: true, size: 9.5 })
+      ctx.paragraph(`${type === "w" ? "Warning" : "Sound"}: ${msg}`, { bullet: true, size: 9.5 })
     );
   }
-  ctx.heading("الخلاصة والقرار", 2);
+  ctx.heading("Conclusion & Decision", 2);
   ctx.paragraph(d.verdict, { bold: true });
-  ctx.paragraph("هذا تحليل تعليمي وفق منهجية الدورة وليس توصية استثمارية.", { size: 9 });
+  ctx.paragraph("This is educational analysis per the course methodology and is not an investment recommendation.", { size: 9 });
 
   ctx.drawFooter();
   const dateStr = new Date().toISOString().split("T")[0];

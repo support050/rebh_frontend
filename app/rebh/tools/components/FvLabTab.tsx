@@ -60,27 +60,27 @@ export default function FvLabTab({
     calculatedFv,
 }: FvLabTabProps) {
     return (
-        <div className="py-6 space-y-6">
+        <div dir="ltr" className="py-6 space-y-6">
             <div className={`${CARD} p-6`}>
                 <div className="max-w-2xl mb-6">
-                    <div className="flex items-center gap-2 mb-1">
-                        <h2 className="text-base font-bold text-[#1A1A1A]">حاسبة التدفقات النقدية التقليدية (Conventional Terminal DCF Lab)</h2>
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <h2 className="text-base font-bold text-[#1A1A1A]">Conventional Terminal DCF Lab</h2>
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]">
-                            نموذج تقليدي أكاديمي — ليس منهج الخرافشي الأساسي
+                            Conventional academic model — not the core Khurafshi methodology
                         </span>
                     </div>
                     <p className="text-xs text-[#6B7280]">
-                        تنبيه منهجي: تعتمد دورة الخرافشي أسلوب تقييم العائد المتوقع وتفكيك مضاعفات النمو (Khurafshi Return Engine) وترفض الاعتماد المطلق على القيمة النهائية للتدفقات (Terminal Value). تم توفير هذه الحاسبة لأغراض المقارنة الأكاديمية فقط.
+                        Methodology note: the Khurafshi course relies on an expected-return valuation approach and the decomposition of growth multiples (Khurafshi Return Engine), and rejects absolute reliance on Terminal Value. This calculator is provided for academic comparison only.
                     </p>
                 </div>
 
                 {/* Symbol Quick-Fetch Bar */}
                 <div className={`${SUBCARD} p-4 mb-6 flex flex-wrap items-center justify-between gap-3`}>
                     <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-bold text-[#1A1A1A]">جلب ربحية سهم من السوق:</span>
+                        <span className="text-xs font-bold text-[#1A1A1A]">Fetch a stock&apos;s EPS from the market:</span>
                         <input
                             type="text"
-                            placeholder="رمز السهم (مثال: 2222)"
+                            placeholder="Ticker (e.g. 2222)"
                             value={fvSymbolInput}
                             onChange={(e) => setFvSymbolInput(e.target.value.replace(/\D/g, "").slice(0, 4))}
                             onKeyDown={(e) => {
@@ -89,7 +89,7 @@ export default function FvLabTab({
                                     fetchSymbolEps();
                                 }
                             }}
-                            className={`${INPUT} w-36 font-bold text-center`}
+                            className={`${INPUT} w-40 font-bold text-center`}
                         />
                         <button
                             type="button"
@@ -100,13 +100,13 @@ export default function FvLabTab({
                             {fvLoadingSymbol ? (
                                 <>
                                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                    جاري الجلب...
+                                    Fetching...
                                 </>
                             ) : (
-                                "جلب EPS الفعلي"
+                                "Fetch Actual EPS"
                             )}
                         </button>
-                        <span className="text-[11px] text-[#6B7280]">أو عدّل القيم يدوياً في الأسفل</span>
+                        <span className="text-[11px] text-[#6B7280]">or adjust the values manually below</span>
                     </div>
 
                     {fvSymbolMeta && (
@@ -121,9 +121,9 @@ export default function FvLabTab({
                                     <span className="font-bold text-[#8C3B32]">{fvSymbolMeta.sym}</span>
                                     <span className="text-[#1A1A1A] font-semibold">{fvSymbolMeta.name}</span>
                                     {fvSymbolMeta.px && (
-                                        <span className="text-[#6B7280]">السعر: <b className="text-[#1A1A1A]">{fvSymbolMeta.px} ر.س</b></span>
+                                        <span className="text-[#6B7280]">Price: <b className="text-[#1A1A1A]">{fvSymbolMeta.px} SAR</b></span>
                                     )}
-                                    <span className="text-[#16A34A] font-bold">EPS TTM: {baseEps.toFixed(2)} ر.س ✓</span>
+                                    <span className="text-[#16A34A] font-bold">EPS TTM: {baseEps.toFixed(2)} SAR ✓</span>
                                 </div>
                             )}
                         </div>
@@ -134,8 +134,8 @@ export default function FvLabTab({
                     <div className={`space-y-5 ${SUBCARD} p-5`}>
                         <div>
                             <div className="flex justify-between text-xs mb-1.5">
-                                <span className="text-[#6B7280]">ربحية السهم الأساسية (EPS TTM):</span>
-                                <span className="text-[#8C3B32] font-bold">{baseEps.toFixed(2)} ر.س</span>
+                                <span className="text-[#6B7280]">Base Earnings Per Share (EPS TTM):</span>
+                                <span className="text-[#8C3B32] font-bold">{baseEps.toFixed(2)} SAR</span>
                             </div>
                             <input
                                 type="range" min="0.5" max="25" step="0.25"
@@ -146,7 +146,7 @@ export default function FvLabTab({
 
                         <div>
                             <div className="flex justify-between text-xs mb-1.5">
-                                <span className="text-[#6B7280]">معدل العائد المطلوب (Discount Rate R):</span>
+                                <span className="text-[#6B7280]">Required Return (Discount Rate R):</span>
                                 <span className="text-[#DC2626] font-bold">{discountRate.toFixed(1)}%</span>
                             </div>
                             <input
@@ -159,10 +159,10 @@ export default function FvLabTab({
                         <div>
                             <div className="flex justify-between text-xs mb-1.5">
                                 <div className="flex items-center gap-1.5">
-                                    <span className="text-[#6B7280]">معدل النمو للخمس سنوات (Growth g):</span>
+                                    <span className="text-[#6B7280]">5-Year Growth Rate (Growth g):</span>
                                     {dcfValidation.isGrowthHigh && (
                                         <span className="text-[10px] bg-[#FFFBEB] text-[#B45309] border border-[#FDE68A] px-1.5 py-0.2 rounded font-semibold">
-                                            g &gt; R نمو فائق مؤقت
+                                            g &gt; R temporary super-growth
                                         </span>
                                     )}
                                 </div>
@@ -175,14 +175,14 @@ export default function FvLabTab({
                             />
                             {dcfValidation.isGrowthHigh && (
                                 <p className="text-[10px] text-[#B45309] mt-1 leading-normal">
-                                    تنبيه تحليلي: معدل النمو في المرحلة الأولى ({growthRate}%) أعلى من العائد المطلوب ({discountRate}%). هذا ممكن ومقبول فقط في المدى القصير (5 سنوات) لشركات النمو الفائق، بشرط أن يتباطأ النمو في المرحلة النهائية ليكون أقل من R.
+                                    Analytical note: the first-stage growth rate ({growthRate}%) is above the required return ({discountRate}%). This is acceptable only over the short term (5 years) for hyper-growth companies, provided growth decelerates in the terminal stage to a level below R.
                                 </p>
                             )}
                         </div>
 
                         <div>
                             <div className="flex justify-between text-xs mb-1.5">
-                                <span className="text-[#6B7280]">معدل النمو النهائي الدائم (Terminal Growth g_term):</span>
+                                <span className="text-[#6B7280]">Perpetual Terminal Growth Rate (g_term):</span>
                                 <span className={`${discountRate <= terminalGrowth ? 'text-[#DC2626]' : 'text-[#1A1A1A]'} font-bold`}>
                                     {terminalGrowth.toFixed(1)}%
                                 </span>
@@ -193,27 +193,27 @@ export default function FvLabTab({
                                 className="w-full accent-[#8C3B32]"
                             />
                             <span className="text-[10px] text-[#6B7280] block mt-0.5">
-                                شرط النموذج الرياضي: يجب أن يكون أقل قطيعاً من معدل العائد المطلوب ({discountRate}%).
+                                Model constraint: this must be strictly lower than the required return ({discountRate}%).
                             </span>
                         </div>
                     </div>
 
                     <div className="space-y-4">
                         <div className="bg-[#F3F4F6] border border-[#E5E7EB] rounded-[4px] p-6 text-center space-y-3">
-                            <span className="text-xs uppercase tracking-wide text-[#6B7280] block">القيمة العادلة المحسوبة للسهم</span>
+                            <span className="text-xs uppercase tracking-wide text-[#6B7280] block">Calculated Fair Value per Share</span>
                             <div className="text-5xl font-black text-[#1A1A1A]">
                                 {dcfValidation.isValid && calculatedFv > 0 ? (
                                     <>
                                         {calculatedFv.toFixed(2)}
-                                        <span className="text-base font-normal text-[#6B7280] mr-2">ر.س</span>
+                                        <span className="text-base font-normal text-[#6B7280] ml-2">SAR</span>
                                     </>
                                 ) : (
-                                    <span className="text-2xl text-[#DC2626]">غير صالح رياضياً</span>
+                                    <span className="text-2xl text-[#DC2626]">Mathematically invalid</span>
                                 )}
                             </div>
                             {dcfValidation.isValid ? (
                                 <p className="text-xs text-[#6B7280] max-w-sm mx-auto">
-                                    بناءً على عائد مطلوب {discountRate}% ونمو متوقع {growthRate}% للخمس سنوات ثم {terminalGrowth}% دائم.
+                                    Based on a required return of {discountRate}% and expected growth of {growthRate}% for five years, then {terminalGrowth}% in perpetuity.
                                 </p>
                             ) : null}
                         </div>
@@ -223,15 +223,15 @@ export default function FvLabTab({
                             <div className="bg-[#FEF2F2] border border-[#FECACA] rounded-[4px] p-4 text-xs text-[#991B1B] space-y-2">
                                 <div className="flex items-center gap-1.5 font-bold">
                                     <AlertTriangle className="w-4 h-4 text-[#DC2626] shrink-0" />
-                                    <span>سبب تعذر حساب القيمة العادلة (Math / Financial Constraint):</span>
+                                    <span>Why fair value cannot be computed (Math / Financial Constraint):</span>
                                 </div>
-                                <ul className="list-disc list-inside space-y-1 text-[11px] leading-relaxed pr-2">
+                                <ul className="list-disc list-inside space-y-1 text-[11px] leading-relaxed pl-2">
                                     {dcfValidation.reasons.map((r, i) => (
                                         <li key={i}>{r}</li>
                                     ))}
                                 </ul>
                                 <div className="pt-1.5 border-t border-[#FECACA] text-[10.5px] font-mono text-[#7F1D1D]">
-                                    صيغة جوردون للقيمة النهائية: Terminal Value = [EPS_5 × (1 + g_term)] ÷ (R − g_term)
+                                    Gordon formula for terminal value: Terminal Value = [EPS_5 × (1 + g_term)] ÷ (R − g_term)
                                 </div>
                             </div>
                         )}

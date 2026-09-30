@@ -49,7 +49,7 @@ export function KpiCard({
                     )}
                 </div>
 
-                <div className={`text-2xl font-black font-mono tracking-tight tabular-nums dir-ltr text-right ${valueColor}`}>
+                <div className={`text-2xl font-black font-mono tracking-tight tabular-nums dir-ltr text-left ${valueColor}`}>
                     {value}
                 </div>
 
@@ -147,10 +147,10 @@ export function Field({
 }) {
     return (
         <label className="flex flex-col gap-1 text-[12px] text-[#4B5563]">
-            <span className="font-medium flex items-center justify-between">
+            <span className="font-medium flex items-center justify-between gap-2">
                 <span>
                     {label}
-                    {required && <span className="text-[#DC2626] mr-1">*</span>}
+                    {required && <span className="text-[#DC2626] ml-1">*</span>}
                 </span>
                 {error && <span className="text-[10.5px] text-[#DC2626] font-normal">{error}</span>}
             </span>

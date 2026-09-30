@@ -39,7 +39,7 @@ export default function RebhHealthPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] font-sans pb-16 antialiased">
+    <div dir="ltr" className="min-h-screen bg-[#F7F8FA] text-[#1A1A1A] font-sans pb-16 antialiased">
       {/* Header */}
       <header className="border-b border-[#E5E7EB] bg-white px-6 md:px-10 py-7">
         <div className="max-w-6xl mx-auto flex items-start gap-4">
@@ -48,13 +48,13 @@ export default function RebhHealthPage() {
           </div>
           <div>
             <div className="text-[11px] font-mono font-bold tracking-wider text-[#16A34A] uppercase mb-1">
-              REBH · الرقابة والتدقيق المحاسبي الحي
+              REBH · Live Accounting Oversight &amp; Audit
             </div>
             <h1 className="text-2xl md:text-3xl font-black text-[#1A1A1A] tracking-tight">
-              صحة البيانات <span className="text-[#8C3B32] font-normal">— المنصة تدقق بياناتها علناً</span>
+              Data Health <span className="text-[#8C3B32] font-normal">— The Platform Audits Its Own Data in Public</span>
             </h1>
             <p className="text-xs md:text-sm text-[#6B7280] mt-1 max-w-3xl leading-relaxed">
-              الصفحة التي لا تملكها أي منصة مالية أخرى: نعلن عن كل رقم تحققنا منه، وكل فجوة في البيانات مع سببها والحل البرمجي المخصص لها. لا نخفي نقصاً ولا نزيّف نسبة.
+              The page no other financial platform has: we disclose every figure we have verified, and every data gap with its cause and the engineering fix assigned to it. We hide no shortfall and fudge no ratio.
             </p>
           </div>
         </div>
@@ -65,50 +65,50 @@ export default function RebhHealthPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           <div className="bg-white border border-[#E5E7EB] rounded-[4px] p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
             <div className="flex justify-between items-center text-[#6B7280] text-[11px] font-mono uppercase tracking-wide mb-2">
-              <span>فحص الهوية المحاسبية A = L + E</span>
+              <span>Accounting Identity Check A = L + E</span>
               <ShieldCheck className="w-4 h-4 text-[#16A34A]" />
             </div>
             <div className="text-2xl font-mono font-black text-[#16A34A]">
-              {loading ? <span className="animate-pulse bg-[#F3F4F6] rounded-[4px] w-16 h-7 inline-block" /> : `${stats?.balance_sheets_passed ?? 0} مطابقة`}
+              {loading ? <span className="animate-pulse bg-[#F3F4F6] rounded-[4px] w-16 h-7 inline-block" /> : `${stats?.balance_sheets_passed ?? 0} Reconciled`}
             </div>
-            <div className="text-[11px] text-[#6B7280] mt-1">مطابقة تامة بنسبة {loading ? '—' : `${stats?.identity_pass_pct ?? 0}%`} لكل القوائم المفحوصة</div>
+            <div className="text-[11px] text-[#6B7280] mt-1">Full reconciliation rate of {loading ? '—' : `${stats?.identity_pass_pct ?? 0}%`} across all audited statements</div>
           </div>
 
           <div className="bg-white border border-[#E5E7EB] rounded-[4px] p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
             <div className="flex justify-between items-center text-[#6B7280] text-[11px] font-mono uppercase tracking-wide mb-2">
-              <span>الشركات المقيّمة بنجاح</span>
+              <span>Successfully Valued Companies</span>
               <Scale className="w-4 h-4 text-[#2563EB]" />
             </div>
             <div className="text-2xl font-mono font-black text-[#2563EB]">
-              {loading ? <span className="animate-pulse bg-[#F3F4F6] rounded-[4px] w-12 h-7 inline-block" /> : `${stats?.valued_count ?? 0} شركة`}
+              {loading ? <span className="animate-pulse bg-[#F3F4F6] rounded-[4px] w-12 h-7 inline-block" /> : `${stats?.valued_count ?? 0} Companies`}
             </div>
-            <div className="text-[11px] text-[#6B7280] mt-1">قوائم حديثة ومكتملة تخضع لمصفوفات التقييم</div>
+            <div className="text-[11px] text-[#6B7280] mt-1">Recent, complete statements run through the valuation matrices</div>
           </div>
 
           <div className="bg-white border border-[#E5E7EB] rounded-[4px] p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
             <div className="flex justify-between items-center text-[#6B7280] text-[11px] font-mono uppercase tracking-wide mb-2">
-              <span>في سلة مونجر (Quarantine)</span>
+              <span>In the Too-Hard Pile (Quarantine)</span>
               <AlertTriangle className="w-4 h-4 text-[#B45309]" />
             </div>
             <div className="text-2xl font-mono font-black text-[#B45309]">
-              {loading ? <span className="animate-pulse bg-[#F3F4F6] rounded-[4px] w-12 h-7 inline-block" /> : `${stats?.quarantine_count ?? 0} شركة`}
+              {loading ? <span className="animate-pulse bg-[#F3F4F6] rounded-[4px] w-12 h-7 inline-block" /> : `${stats?.quarantine_count ?? 0} Companies`}
             </div>
             <div className="text-[11px] mt-1">
               <Link href="/rebh/quarantine" className="text-[#8C3B32] underline hover:text-[#6E2E27] font-medium">
-                محظورة من التسعير بأمانة حتى التحديث
+                Barred from pricing until data is updated
               </Link>
             </div>
           </div>
         </div>
 
         {/* The Double-Count Discovery Box */}
-        <div className="bg-white border border-[#E5E7EB] rounded-[4px] p-5 mb-8 shadow-[0_1px_3px_rgba(0,0,0,0.06)] border-r-4 border-r-[#2563EB]">
+        <div className="bg-white border border-[#E5E7EB] rounded-[4px] p-5 mb-8 shadow-[0_1px_3px_rgba(0,0,0,0.06)] border-l-4 border-l-[#2563EB]">
           <div className="flex items-center gap-2 text-[#2563EB] font-bold text-xs uppercase font-mono mb-2">
             <Database className="w-4 h-4" />
-            اكتشاف وحل مشكلة التكرار المحاسبي (Double-Count Discovery)
+            Double-Count Discovery &amp; Resolution
           </div>
           <p className="text-xs md:text-sm text-[#374151] leading-relaxed">
-            عند سحب بعض القوائم القياسية من تداول، تم رصد جمع الأصول غير المتداولة مع الإجمالي بشكل مكرر لدى 165 شركة. بدلاً من عرض أرقام مضللة، قام محرك المنصة باشتقاق صيغة الاسترداد الدقيقة المعتمدة <span className="font-mono text-[#8C3B32] bg-[#F3F4F6] px-2 py-0.5 rounded-[4px] border border-[#E5E7EB]">TA_true = (TA_std + CA) / 2</span> ومطابقتها حتى آخر هللة مع الإفصاحات الرسمية (مثل دار الأركان 40,435 مليون ر.س وإسمنت السعودية 3,203 مليون ر.س).
+            When pulling certain standard statements from Tadawul, non-current assets were found to be added into the total twice for 165 companies. Rather than display misleading figures, the platform engine derived the exact recovery formula <span className="font-mono text-[#8C3B32] bg-[#F3F4F6] px-2 py-0.5 rounded-[4px] border border-[#E5E7EB]">TA_true = (TA_std + CA) / 2</span> and reconciled it to the last halala against official disclosures (e.g., Dar Al Arkan SAR 40,435 million and Saudi Cement SAR 3,203 million).
           </p>
         </div>
 
@@ -116,65 +116,65 @@ export default function RebhHealthPage() {
         <div className="bg-white border border-[#E5E7EB] rounded-[4px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)] mb-8">
           <div className="px-5 py-4 border-b border-[#E5E7EB] bg-[#F3F4F6] flex justify-between items-center">
             <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-[#6B7280]">
-              حالة وجاهزية خطوط استيراد البيانات (Data Importers &amp; Scheduler Readiness)
+              Data Importers &amp; Scheduler Readiness
             </h3>
             <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-[#F0FDF4] text-[#16A34A] border border-[#BBF7D0] rounded">
-              المرحلة 12 — مفعّلة
+              Phase 12 — Active
             </span>
           </div>
           <div className="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="border border-[#E5E7EB] rounded p-3 bg-[#FAFAFA]">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-bold text-[#1A1A1A]">تحديث الأسعار والمؤشرات</span>
-                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#F0FDF4] text-[#16A34A]">سليم</span>
+                <span className="text-xs font-bold text-[#1A1A1A]">Price &amp; Index Updates</span>
+                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#F0FDF4] text-[#16A34A]">Healthy</span>
               </div>
-              <p className="text-[11px] text-[#6B7280]">تحديث السوق اليومي · أسعار تاسي والمؤشر</p>
-              <div className="text-[10px] font-mono text-[#8C3B32] mt-2">مجدول يومياً (أيام التداول 18:30)</div>
+              <p className="text-[11px] text-[#6B7280]">Daily market refresh · TASI and index prices</p>
+              <div className="text-[10px] font-mono text-[#8C3B32] mt-2">Scheduled daily (trading days 18:30)</div>
             </div>
 
             <div className="border border-[#E5E7EB] rounded p-3 bg-[#FAFAFA]">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-bold text-[#1A1A1A]">مستورد الصكوك وأدوات الدين</span>
-                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#F0FDF4] text-[#16A34A]">63 صك</span>
+                <span className="text-xs font-bold text-[#1A1A1A]">Sukuk &amp; Debt Instruments Importer</span>
+                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#F0FDF4] text-[#16A34A]">63 Sukuk</span>
               </div>
-              <p className="text-[11px] text-[#6B7280]">مستورد الصكوك والسندات · العائد حتى الاستحقاق والكوبونات</p>
-              <div className="text-[10px] font-mono text-[#8C3B32] mt-2">مجدول أسبوعياً (الأحد 19:00)</div>
+              <p className="text-[11px] text-[#6B7280]">Sukuk and bond importer · yield to maturity and coupons</p>
+              <div className="text-[10px] font-mono text-[#8C3B32] mt-2">Scheduled weekly (Sunday 19:00)</div>
             </div>
 
             <div className="border border-[#E5E7EB] rounded p-3 bg-[#FAFAFA]">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-bold text-[#1A1A1A]">مستورد الاقتصاد الكلي (SAMA)</span>
-                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#F0FDF4] text-[#16A34A]">6 مؤشرات</span>
+                <span className="text-xs font-bold text-[#1A1A1A]">Macroeconomic Importer (SAMA)</span>
+                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#F0FDF4] text-[#16A34A]">6 Indicators</span>
               </div>
-              <p className="text-[11px] text-[#6B7280]">ساما والهيئة العامة للإحصاء · سايبور / الريبو / الناتج المحلي</p>
-              <div className="text-[10px] font-mono text-[#8C3B32] mt-2">مجدول شهرياً (أول كل شهر 03:00)</div>
+              <p className="text-[11px] text-[#6B7280]">SAMA and the General Authority for Statistics · SAIBOR / Repo / GDP</p>
+              <div className="text-[10px] font-mono text-[#8C3B32] mt-2">Scheduled monthly (1st of each month 03:00)</div>
             </div>
 
             <div className="border border-[#E5E7EB] rounded p-3 bg-[#FAFAFA]">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-bold text-[#1A1A1A]">مدقق بنود البنوك وهوامش NIM</span>
-                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#F0FDF4] text-[#16A34A]">10 بنوك</span>
+                <span className="text-xs font-bold text-[#1A1A1A]">Bank Line-Item &amp; NIM Auditor</span>
+                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#F0FDF4] text-[#16A34A]">10 Banks</span>
               </div>
-              <p className="text-[11px] text-[#6B7280]">محلل بنود البنوك · هامش الفائدة الصافي / المخصصات</p>
-              <div className="text-[10px] font-mono text-[#8C3B32] mt-2">فحص ربع سنوي مؤتمت ومطابق</div>
+              <p className="text-[11px] text-[#6B7280]">Bank line-item parser · Net Interest Margin / provisions</p>
+              <div className="text-[10px] font-mono text-[#8C3B32] mt-2">Automated, reconciled quarterly check</div>
             </div>
 
             <div className="border border-[#E5E7EB] rounded p-3 bg-[#FAFAFA]">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-bold text-[#1A1A1A]">مستودع الإفصاحات الرسمية</span>
-                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#F0FDF4] text-[#16A34A]">21,424 ملف</span>
+                <span className="text-xs font-bold text-[#1A1A1A]">Official Disclosures Repository</span>
+                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#F0FDF4] text-[#16A34A]">21,424 Files</span>
               </div>
-              <p className="text-[11px] text-[#6B7280]">مستودع الإفصاحات والتقارير الرسمية</p>
-              <div className="text-[10px] font-mono text-[#8C3B32] mt-2">مزامنة تداول مستمرة وتخزين آمن</div>
+              <p className="text-[11px] text-[#6B7280]">Repository of official disclosures and reports</p>
+              <div className="text-[10px] font-mono text-[#8C3B32] mt-2">Continuous Tadawul sync and secure storage</div>
             </div>
 
             <div className="border border-[#E5E7EB] rounded p-3 bg-[#FAFAFA]">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-bold text-[#1A1A1A]">لقطات المحرك التاريخية (Vintages)</span>
-                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#F0FDF4] text-[#16A34A]">نشط</span>
+                <span className="text-xs font-bold text-[#1A1A1A]">Historical Engine Snapshots (Vintages)</span>
+                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#F0FDF4] text-[#16A34A]">Active</span>
               </div>
-              <p className="text-[11px] text-[#6B7280]">خدمة لقطات محرك REBH الموحد</p>
-              <div className="text-[10px] font-mono text-[#8C3B32] mt-2">أرشفة يومية لنقاط التقييم المحاسبي</div>
+              <p className="text-[11px] text-[#6B7280]">Unified REBH engine snapshot service</p>
+              <div className="text-[10px] font-mono text-[#8C3B32] mt-2">Daily archiving of accounting valuation points</div>
             </div>
           </div>
         </div>
@@ -183,22 +183,21 @@ export default function RebhHealthPage() {
         <div className="bg-white border border-[#E5E7EB] rounded-[4px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)] mb-8">
           <div className="px-5 py-4 border-b border-[#E5E7EB] bg-[#F3F4F6] flex justify-between items-center">
             <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-[#6B7280]">
-              سجل التدقيق المحاسبي والفجوات المعلنة (Audit Matrix)
+              Accounting Audit Log &amp; Disclosed Gaps (Audit Matrix)
             </h3>
-            <span className="text-[10px] font-mono text-[#9CA3AF]">موثّق حياً عبر API</span>
+            <span className="text-[10px] font-mono text-[#9CA3AF]">Documented live via API</span>
           </div>
 
           <div className="divide-y divide-[#E5E7EB]">
             {loading ? (
-              <div className="p-8 text-center text-[#6B7280] text-sm">جاري تحميل سجل التدقيق...</div>
+              <div className="p-8 text-center text-[#6B7280] text-sm">Loading audit log...</div>
             ) : (stats?.audit_matrix || []).length === 0 ? (
-              <div className="p-8 text-center text-[#6B7280] text-sm">لا توجد بيانات تدقيق متاحة حالياً</div>
+              <div className="p-8 text-center text-[#6B7280] text-sm">No audit data currently available</div>
             ) : (stats?.audit_matrix || []).map((item: any, idx: number) => (
               <div key={idx} className="p-5 hover:bg-[#F7F8FA] transition-colors">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-2">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm text-[#1A1A1A]">{item.metricAr}</span>
-                    <span className="text-xs text-[#9CA3AF] font-mono">({item.metric})</span>
+                    <span className="font-bold text-sm text-[#1A1A1A]">{item.metric || item.metricAr}</span>
                   </div>
                   <span className={`inline-flex items-center gap-1.5 text-xs font-mono font-bold px-2.5 py-1 rounded-full border ${item.stateType === "ok"
                     ? "text-[#16A34A] bg-[#F0FDF4] border-[#BBF7D0]"
@@ -215,7 +214,7 @@ export default function RebhHealthPage() {
 
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="text-[11px] font-mono text-[#8C3B32] bg-[#FBEAE8] border border-[#F0CFC9] rounded-[4px] px-3 py-1.5 inline-block">
-                    <span className="text-[#6B7280] font-bold">الحل المبرمج / الإجراء: </span>
+                    <span className="text-[#6B7280] font-bold">Engineering Fix / Action: </span>
                     {item.fix}
                   </div>
                   {item.stateType !== "ok" && (
@@ -223,7 +222,7 @@ export default function RebhHealthPage() {
                       href="/rebh/quarantine"
                       className="text-[11px] font-bold text-[#8C3B32] hover:underline bg-white border border-[#E5E7EB] hover:border-[#8C3B32] px-2.5 py-1 rounded transition inline-flex items-center gap-1"
                     >
-                      استعراض الشركات المتأثرة في سلة مونجر ←
+                      View affected companies in the Too-Hard Pile →
                     </Link>
                   )}
                 </div>
@@ -235,22 +234,22 @@ export default function RebhHealthPage() {
         {/* Forensic Rules Compliance Banner */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8 text-center text-xs">
           <div className="bg-white border border-[#E5E7EB] p-3 rounded-[4px]">
-            <span className="font-bold text-[#16A34A] block mb-0.5">قاعدة منع تسعير القوائم القديمة</span>
-            <span className="text-[11px] text-[#6B7280]">مطبقة آلياً: استبعاد فوري من أي مضاعف أو تقييم</span>
+            <span className="font-bold text-[#16A34A] block mb-0.5">Stale-Statement Pricing Ban</span>
+            <span className="text-[11px] text-[#6B7280]">Enforced automatically: immediate exclusion from any multiple or valuation</span>
           </div>
           <div className="bg-white border border-[#E5E7EB] p-3 rounded-[4px]">
-            <span className="font-bold text-[#16A34A] block mb-0.5">حظر تضخيم الأرباح &gt; 120%</span>
-            <span className="text-[11px] text-[#6B7280]">عزل الشركات ذات الأرباح غير التشغيلية الشاذة</span>
+            <span className="font-bold text-[#16A34A] block mb-0.5">Earnings Inflation Block &gt; 120%</span>
+            <span className="text-[11px] text-[#6B7280]">Isolates companies with anomalous non-operating earnings</span>
           </div>
           <div className="bg-white border border-[#E5E7EB] p-3 rounded-[4px]">
-            <span className="font-bold text-[#16A34A] block mb-0.5">سقف عائد التدفق الحر ±150%</span>
-            <span className="text-[11px] text-[#6B7280]">حجب القيم الشاذة الناتجة عن تدفقات غير مستدامة</span>
+            <span className="font-bold text-[#16A34A] block mb-0.5">Free Cash Flow Yield Cap ±150%</span>
+            <span className="text-[11px] text-[#6B7280]">Suppresses outliers caused by unsustainable cash flows</span>
           </div>
         </div>
 
         {/* Footer info */}
         <footer className="text-center text-xs text-[#9CA3AF] space-y-1">
-          <p>منصة ربح المالية · تدقيق حسابي مؤتمت · ° محسوب · ⚑ إشارة خطر · 🔌 مصدر ناقص مسمى علناً</p>
+          <p>REBH Financial Platform · Automated Accounting Audit · ° computed · ⚑ risk flag · 🔌 missing source, publicly named</p>
         </footer>
       </main>
     </div>

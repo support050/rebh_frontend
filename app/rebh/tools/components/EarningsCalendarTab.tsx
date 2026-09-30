@@ -46,13 +46,13 @@ export default function EarningsCalendarTab({
     calendarItems,
 }: EarningsCalendarTabProps) {
     return (
-        <div className="py-6 space-y-6">
+        <div dir="ltr" className="py-6 space-y-6">
             <div className={`${CARD} p-6`}>
                 <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
                     <div>
-                        <h2 className="text-base font-bold text-[#1A1A1A] mb-1">رزنامة السوق: التوزيعات وإجراءات الشركات والمهل النظامية</h2>
+                        <h2 className="text-base font-bold text-[#1A1A1A] mb-1">Market Calendar: Dividends, Corporate Actions &amp; Statutory Deadlines</h2>
                         <p className="text-xs text-[#6B7280]">
-                            بيانات إعلانات تداول المباشرة: التوزيعات النقدية، زيادة وتخفيض رأس المال، ومواعيد الاستحقاق، إلى جانب المهل النظامية (CMA 45/90 يوم).
+                            Live Tadawul announcement data: cash dividends, capital increases and reductions, and eligibility dates, alongside statutory filing deadlines (CMA 45/90 days).
                         </p>
                     </div>
                     <div className="flex items-center gap-2 bg-[#F7F8FA] p-1 border border-[#E5E7EB] rounded-[4px]">
@@ -60,13 +60,13 @@ export default function EarningsCalendarTab({
                             onClick={() => setCalendarSubTab("corporate_actions")}
                             className={`px-3 py-1.5 text-xs font-bold rounded-[4px] transition ${calendarSubTab === "corporate_actions" ? "bg-[#8C3B32] text-white" : "text-[#6B7280] hover:text-[#1A1A1A]"}`}
                         >
-                            إجراءات وتوزيعات الشركات ({corporateActions.length})
+                            Corporate Actions &amp; Dividends ({corporateActions.length})
                         </button>
                         <button
                             onClick={() => setCalendarSubTab("cma_deadlines")}
                             className={`px-3 py-1.5 text-xs font-bold rounded-[4px] transition ${calendarSubTab === "cma_deadlines" ? "bg-[#8C3B32] text-white" : "text-[#6B7280] hover:text-[#1A1A1A]"}`}
                         >
-                            مهل إعلانات النتائج (CMA)
+                            Earnings Filing Deadlines (CMA)
                         </button>
                     </div>
                 </div>
@@ -74,34 +74,35 @@ export default function EarningsCalendarTab({
                 {/* Sub-tab 1: Real Corporate Actions from Tadawul */}
                 {calendarSubTab === "corporate_actions" && (
                     <div className={`${SUBCARD} overflow-x-auto`}>
-                        <table className="w-full text-xs text-right border-collapse">
+                        <table className="w-full text-xs text-left border-collapse">
                             <thead>
                                 <tr className="text-[#6B7280] bg-[#F3F4F6] border-b border-[#E5E7EB]">
-                                    <th className="p-3 font-semibold">الرمز والشركة</th>
-                                    <th className="p-3 font-semibold">نوع الإجراء / التوزيع</th>
-                                    <th className="p-3 font-semibold">تاريخ الاستحقاق (Eligibility)</th>
-                                    <th className="p-3 font-semibold">تاريخ الإعلان والتوصية</th>
-                                    <th className="p-3 font-semibold">رأس المال السابق</th>
-                                    <th className="p-3 font-semibold">رأس المال الجديد</th>
-                                    <th className="p-3 font-semibold">التصنيف المحاسبي</th>
+                                    <th className="p-3 font-semibold text-left">Symbol &amp; Company</th>
+                                    <th className="p-3 font-semibold text-left">Action / Distribution Type</th>
+                                    <th className="p-3 font-semibold text-left">Eligibility Date</th>
+                                    <th className="p-3 font-semibold text-left">Announcement / Recommendation Date</th>
+                                    <th className="p-3 font-semibold text-right">Previous Capital</th>
+                                    <th className="p-3 font-semibold text-right">New Capital</th>
+                                    <th className="p-3 font-semibold text-left">Accounting Classification</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {corporateActions.map((act) => (
                                     <tr key={act.id} className="border-t border-[#E5E7EB] hover:bg-[#F3F4F6]">
                                         <td className="p-3 font-bold text-[#1A1A1A]">
-                                            <Link href={`/rebh/${act.symbol}`} className="text-[#8C3B32] hover:underline ml-1.5">{act.symbol}</Link>
+                                            <Link href={`/rebh/${act.symbol}`} className="text-[#8C3B32] hover:underline mr-1.5">{act.symbol}</Link>
                                             <span>{act.company_name}</span>
                                         </td>
                                         <td className="p-3 font-bold text-[#1A1A1A]">
+                                            {/* NOTE: the Arabic literals below ("منحة", "تخفيض") match backend issue_type values, not UI text — intentionally unchanged. */}
                                             <span className={`px-2 py-0.5 rounded-[4px] text-[11px] ${act.issue_type?.includes("Bonus") || act.issue_type?.includes("منحة") ? "bg-[#F0FDF4] text-[#16A34A] border border-[#BBF7D0]" : act.issue_type?.includes("Reduction") || act.issue_type?.includes("تخفيض") ? "bg-[#FFFBEB] text-[#B45309] border border-[#FDE68A]" : "bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE]"}`}>
                                                 {act.issue_type}
                                             </span>
                                         </td>
                                         <td className="p-3 font-bold text-[#8C3B32] font-mono tabular-nums">{act.eligibility_date || "—"}</td>
                                         <td className="p-3 text-[#6B7280] font-mono tabular-nums">{act.announcement_date || "—"}</td>
-                                        <td className="p-3 text-[#6B7280] font-mono tabular-nums">{act.previous_capital ? `${(act.previous_capital / 1_000_000).toLocaleString()}M` : "—"}</td>
-                                        <td className="p-3 text-[#1A1A1A] font-bold font-mono tabular-nums">{act.new_capital ? `${(act.new_capital / 1_000_000).toLocaleString()}M` : "—"}</td>
+                                        <td className="p-3 text-right text-[#6B7280] font-mono tabular-nums">{act.previous_capital ? `${(act.previous_capital / 1_000_000).toLocaleString("en-US")}M` : "—"}</td>
+                                        <td className="p-3 text-right text-[#1A1A1A] font-bold font-mono tabular-nums">{act.new_capital ? `${(act.new_capital / 1_000_000).toLocaleString("en-US")}M` : "—"}</td>
                                         <td className="p-3">
                                             <span className="text-[10px] text-[#6B7280] font-mono px-2 py-0.5 bg-white border border-[#E5E7EB] rounded">
                                                 {act.classification}
@@ -111,7 +112,7 @@ export default function EarningsCalendarTab({
                                 ))}
                                 {corporateActions.length === 0 && (
                                     <tr>
-                                        <td colSpan={7} className="p-6 text-center text-[#6B7280]">جاري جلب سجل إجراءات الشركات من قاعدة البيانات...</td>
+                                        <td colSpan={7} className="p-6 text-center text-[#6B7280]">Fetching the corporate actions record from the database...</td>
                                     </tr>
                                 )}
                             </tbody>
@@ -122,30 +123,30 @@ export default function EarningsCalendarTab({
                 {/* Sub-tab 2: Statutory CMA Deadlines */}
                 {calendarSubTab === "cma_deadlines" && (
                     <div className={`${SUBCARD} overflow-x-auto`}>
-                        <table className="w-full text-xs text-right border-collapse">
+                        <table className="w-full text-xs text-left border-collapse">
                             <thead>
                                 <tr className="text-[#6B7280] bg-[#F3F4F6] border-b border-[#E5E7EB]">
-                                    <th className="p-3 font-semibold">الرمز والشركة</th>
-                                    <th className="p-3 font-semibold">القطاع</th>
-                                    <th className="p-3 font-semibold">الفترة المعلنة</th>
-                                    <th className="p-3 font-semibold">نهاية الفترة الفعلية</th>
-                                    <th className="p-3 font-semibold">الموعد الأقصى النظامي (نهاية + 45/90 يوم)</th>
-                                    <th className="p-3 font-semibold">ربحية السهم السابقة EPS</th>
-                                    <th className="p-3 font-semibold">الحالة والمهلة</th>
+                                    <th className="p-3 font-semibold text-left">Symbol &amp; Company</th>
+                                    <th className="p-3 font-semibold text-left">Sector</th>
+                                    <th className="p-3 font-semibold text-left">Reporting Period</th>
+                                    <th className="p-3 font-semibold text-left">Actual Period End</th>
+                                    <th className="p-3 font-semibold text-left">Statutory Deadline (Period End + 45/90 Days)</th>
+                                    <th className="p-3 font-semibold text-right">Prior EPS</th>
+                                    <th className="p-3 font-semibold text-left">Status &amp; Time Remaining</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {calendarItems.map(item => (
                                     <tr key={item.sym} className="border-t border-[#E5E7EB] hover:bg-[#F3F4F6]">
                                         <td className="p-3 font-bold text-[#1A1A1A]">
-                                            <Link href={`/rebh/${item.sym}`} className="text-[#8C3B32] hover:underline ml-1.5">{item.sym}</Link>
+                                            <Link href={`/rebh/${item.sym}`} className="text-[#8C3B32] hover:underline mr-1.5">{item.sym}</Link>
                                             <span>{item.name}</span>
                                         </td>
                                         <td className="p-3 text-[#6B7280]">{item.sec}</td>
                                         <td className="p-3 text-[#1A1A1A]">{item.period}</td>
                                         <td className="p-3 text-[#6B7280] tabular-nums">{item.periodEnd}</td>
                                         <td className="p-3 font-bold text-[#8C3B32] tabular-nums">{item.expectedDate}</td>
-                                        <td className="p-3 text-[#1A1A1A] tabular-nums">{item.lastEps} ر.س</td>
+                                        <td className="p-3 text-right text-[#1A1A1A] tabular-nums">{item.lastEps} SAR</td>
                                         <td className="p-3">
                                             <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${item.statusColor}`}>
                                                 {item.status}
@@ -155,7 +156,7 @@ export default function EarningsCalendarTab({
                                 ))}
                                 {calendarItems.length === 0 && (
                                     <tr>
-                                        <td colSpan={7} className="p-6 text-center text-[#6B7280]">لا توجد بيانات كافية لعرض الرزنامة حالياً.</td>
+                                        <td colSpan={7} className="p-6 text-center text-[#6B7280]">Insufficient data to display the calendar at this time.</td>
                                     </tr>
                                 )}
                             </tbody>
