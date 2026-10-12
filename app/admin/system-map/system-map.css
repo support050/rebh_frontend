@@ -1,0 +1,695 @@
+/**
+ * Admin — System Map (Runbook). Self-contained scope (.sysmap-root), same pattern
+ * as app/breadth/breadth.css: reuse the site's light/dark tokens from app/globals.css
+ * (`html.dark` set by next-themes ThemeProvider) and only add what the site lacks —
+ * the amber "late" and grey "unknown/untracked" verdicts.
+ *
+ * Layout contract (from the Runbook spec):
+ *   · 1180px centered container
+ *   · 230px sticky sidebar + fluid main column
+ *   · under 860px the two stack and the sidebar becomes a horizontal scroll row
+ *   · every table scrolls horizontally instead of breaking the layout
+ */
+
+.sysmap-root {
+  /* Only these three are new; everything else comes from :root / .dark */
+  --sm-late: #9a6700;
+  --sm-late-bg: #fff8c5;
+  --sm-neutral: var(--text-secondary);
+  --sm-neutral-bg: var(--bg-surface);
+
+  --sm-row-line: var(--border);
+  --sm-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: calc(100vh - 56px);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+html.dark .sysmap-root {
+  --sm-late: #d29922;
+  --sm-late-bg: #2d2310;
+  --sm-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+}
+
+/* ── shell ────────────────────────────────────────────────────────────────── */
+.sm-wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 18px 16px 64px;
+}
+
+.sm-topbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sm-title {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.sm-subtitle {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-top: 3px;
+}
+
+.sm-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sm-updated {
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ── buttons ──────────────────────────────────────────────────────────────── */
+.sm-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.sm-btn:hover:not(:disabled) {
+  background: var(--bg-elevated);
+}
+
+.sm-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.sm-btn-primary {
+  color: #ffffff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.sm-btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+html.dark .sm-btn-primary {
+  color: #0d1117;
+}
+
+.sm-btn-ghost {
+  background: transparent;
+  color: var(--accent);
+  border-color: transparent;
+  padding: 3px 8px;
+}
+
+.sm-btn-ghost:hover:not(:disabled) {
+  background: var(--accent-bg);
+}
+
+/* ── Run now (Phase 5) ───────────────────────────────────────────────────────
+   The only action on this page. It dispatches; the backend decides runnability
+   and writes the job_runs row, so a green button here never claims more. */
+.sm-runcell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.sm-btn-run {
+  padding: 3px 9px;
+  font-size: 11px;
+  color: var(--accent);
+  background: transparent;
+  border-color: var(--accent);
+}
+
+.sm-btn-run:hover:not(:disabled) {
+  background: var(--accent-bg);
+}
+
+.sm-runnote {
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.sm-runnote-ok { color: var(--green); }
+.sm-runnote-bad { color: var(--red); }
+
+/* ── grid ─────────────────────────────────────────────────────────────────── */
+.sm-grid {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.sm-side {
+  position: sticky;
+  top: 70px;
+  max-height: calc(100vh - 90px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-surface);
+  padding: 6px;
+  scrollbar-width: thin;
+}
+
+.sm-side-head {
+  padding: 6px 8px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.sm-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sm-navitem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 100ms ease;
+}
+
+.sm-navitem:hover {
+  background: var(--bg-elevated);
+}
+
+.sm-navitem[aria-selected='true'] {
+  background: var(--accent-bg);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.sm-navlabel {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sm-navmeta {
+  flex: none;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sm-notinnav {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-top: -1px;
+}
+
+/* ── status dots & pills ──────────────────────────────────────────────────── */
+.sm-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.sm-dot[data-s='ok'] { background: var(--green); }
+.sm-dot[data-s='late'] { background: var(--sm-late); }
+.sm-dot[data-s='bad'] { background: var(--red); }
+.sm-dot[data-s='unknown'] { background: var(--text-muted); }
+.sm-dot[data-s='untracked'] { background: var(--text-muted); }
+
+/* Pills always carry text — colour alone is never the only signal. */
+.sm-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.sm-pill[data-s='ok'] { color: var(--green); background: var(--green-bg); border-color: currentColor; }
+.sm-pill[data-s='late'] { color: var(--sm-late); background: var(--sm-late-bg); border-color: currentColor; }
+.sm-pill[data-s='bad'] { color: var(--red); background: var(--red-bg); border-color: currentColor; }
+.sm-pill[data-s='unknown'] { color: var(--sm-neutral); background: var(--sm-neutral-bg); border-color: currentColor; }
+.sm-pill[data-s='untracked'] { color: var(--sm-neutral); background: var(--sm-neutral-bg); border-color: currentColor; }
+
+.sm-pill[data-i='bug'] { color: var(--red); background: var(--red-bg); border-color: currentColor; }
+.sm-pill[data-i='watch'] { color: var(--sm-late); background: var(--sm-late-bg); border-color: currentColor; }
+.sm-pill[data-i='note'] { color: var(--sm-neutral); background: var(--sm-neutral-bg); border-color: currentColor; }
+
+/* ── panels ───────────────────────────────────────────────────────────────── */
+.sm-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sm-panel {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  box-shadow: var(--sm-shadow);
+  overflow: hidden;
+}
+
+.sm-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
+}
+
+.sm-panel-title {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.sm-panel-hint {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.sm-panel-body {
+  padding: 14px;
+}
+
+/* ── system header panel ──────────────────────────────────────────────────── */
+.sm-sysname {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.sm-blurb {
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  margin-top: 6px;
+  max-width: 78ch;
+}
+
+.sm-kv {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 4px 12px;
+  margin-top: 14px;
+  font-size: 12px;
+}
+
+.sm-kv dt {
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  padding-top: 2px;
+}
+
+.sm-kv dd { margin: 0; min-width: 0; }
+
+.sm-layer {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.sm-layer + .sm-layer { margin-top: 6px; }
+
+.sm-tag {
+  display: inline-block;
+  padding: 1px 7px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.sm-mono {
+  font-family: ui-monospace, SFMono-Regular, 'Segoe UI Mono', Menlo, Consolas, monospace;
+  font-size: 11.5px;
+}
+
+.sm-path {
+  font-family: ui-monospace, SFMono-Regular, 'Segoe UI Mono', Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.sm-desc {
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  flex: 1 1 100%;
+  padding-left: 2px;
+}
+
+.sm-pagelist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sm-pagetag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  font-family: ui-monospace, SFMono-Regular, 'Segoe UI Mono', Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.sm-pagetag:hover {
+  border-color: var(--accent);
+}
+
+/* Route templates ([symbol]) are rendered as <span> — they must not look clickable. */
+span.sm-pagetag {
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+}
+
+/* ── data tables ──────────────────────────────────────────────────────────── */
+.sm-tablescroll {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.sm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.sm-table th,
+.sm-table td {
+  padding: 7px 12px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--sm-row-line);
+  white-space: nowrap;
+}
+
+.sm-table .sm-wrapcell { white-space: normal; min-width: 240px; }
+
+.sm-table thead th {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* No zebra stripes — rows are separated by the bottom hairline only. */
+.sm-table tbody tr:last-child td { border-bottom: none; }
+
+.sm-num { font-variant-numeric: tabular-nums; }
+
+.sm-cellname {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sm-subtle { color: var(--text-secondary); }
+
+.sm-expander {
+  appearance: none;
+  padding: 0;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.sm-error {
+  margin: 0;
+  padding: 8px 10px;
+  max-width: 620px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, 'Segoe UI Mono', Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--red);
+  background: var(--red-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+/* ── issues ───────────────────────────────────────────────────────────────── */
+.sm-issues {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sm-issue {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.sm-issue .sm-pill { flex: none; width: 58px; justify-content: center; }
+
+.sm-issuetext {
+  font-size: 12px;
+  color: var(--text-primary);
+  flex: 1 1 auto;
+}
+
+/* ── sql ──────────────────────────────────────────────────────────────────── */
+.sm-sql {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sm-sqlblock {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.sm-sqlhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 10px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.sm-sqlpre {
+  margin: 0;
+  padding: 10px 12px;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, 'Segoe UI Mono', Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  white-space: pre;
+  scrollbar-width: thin;
+}
+
+/* ── states ───────────────────────────────────────────────────────────────── */
+.sm-skeleton {
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--bg-surface) 25%, var(--bg-elevated) 37%, var(--bg-surface) 63%);
+  background-size: 400% 100%;
+  animation: sm-shimmer 1.4s ease-in-out infinite;
+}
+
+.sm-skeleton-row { height: 14px; margin-bottom: 9px; }
+
+@keyframes sm-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+
+.sm-state {
+  padding: 18px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.sm-state strong { color: var(--text-primary); }
+
+.sm-errorbanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border: 1px solid var(--red);
+  border-radius: 8px;
+  background: var(--red-bg);
+  color: var(--red);
+  font-size: 12px;
+}
+
+/* ── legend ───────────────────────────────────────────────────────────────── */
+.sm-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* ── a11y ─────────────────────────────────────────────────────────────────── */
+.sysmap-root :is(button, a, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.sm-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sysmap-root *,
+  .sysmap-root *::before,
+  .sysmap-root *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+
+  .sm-skeleton {
+    background: var(--bg-elevated);
+  }
+}
+
+/* ── stacking ─────────────────────────────────────────────────────────────── */
+@media (max-width: 860px) {
+  .sm-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sm-side {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .sm-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+  }
+
+  .sm-navitem {
+    width: auto;
+    flex: none;
+  }
+
+  .sm-navlabel {
+    white-space: nowrap;
+  }
+
+  .sm-navmeta,
+  .sm-notinnav {
+    display: none;
+  }
+
+  .sm-side-head {
+    padding-bottom: 4px;
+  }
+}

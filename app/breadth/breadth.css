@@ -1,0 +1,623 @@
+/**
+ * TASI Market Breadth — self-contained theme.
+ * Variables are ported verbatim from pro_dashboard_template.html and scoped to
+ * .breadth-root so the canvas engine can resolve colours via getComputedStyle
+ * without leaking into the rest of the app. Dark mode keys off next-themes'
+ * `html.dark` class (see app/providers/ThemeProvider).
+ */
+
+.breadth-root {
+  --bg: #fcfcfb;
+  --surface: #ffffff;
+  --surface2: #f4f4f2;
+  --text: #0b0b0b;
+  --text2: #52514e;
+  --grid: #e6e5e1;
+  --border: #dcdbd6;
+  --blue: #2a78d6;
+  --orange: #eb6834;
+  --aqua: #1baf7a;
+  --yellow: #eda100;
+  --magenta: #e87ba4;
+  --green: #008300;
+  --violet: #4a3aa7;
+  --red: #e34948; 
+  --good: #0ca30c;
+  --warn: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+  --up: #1baf7a;
+  --down: #e34948;
+  --zone-hi: rgba(227, 73, 72, 0.1);
+  --zone-lo: rgba(27, 175, 122, 0.12);
+  --episode: rgba(227, 73, 72, 0.13);
+
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.45 'Segoe UI', Inter, Roboto, Arial, sans-serif;
+}
+
+html.dark .breadth-root,
+.breadth-root[data-theme='dark'] {
+  --bg: #111110;
+  --surface: #1a1a19;
+  --surface2: #232322;
+  --text: #ffffff;
+  --text2: #c3c2b7;
+  --grid: #2c2c2a;
+  --border: #333331;
+  --blue: #3987e5;
+  --orange: #d95926;
+  --aqua: #199e70;
+  --yellow: #c98500;
+  --magenta: #d55181;
+  --green: #008300;
+  --violet: #9085e9;
+  --red: #e66767;
+  --up: #199e70;
+  --down: #e66767;
+  --zone-hi: rgba(230, 103, 103, 0.14);
+  --zone-lo: rgba(25, 158, 112, 0.16);
+  --episode: rgba(230, 103, 103, 0.16);
+}
+
+/* ---- stacked canvas panels ---- */
+.breadth-stack {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+.breadth-panel {
+  position: relative;
+  border-bottom: 1px solid var(--border);
+}
+.breadth-panel:last-child {
+  border-bottom: none;
+}
+.breadth-panel canvas {
+  display: block;
+  width: 100%;
+}
+.breadth-ttl {
+  position: absolute;
+  left: 10px;
+  top: 6px;
+  font-size: 12px;
+  color: var(--text2);
+  pointer-events: none;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.breadth-ttl b {
+  color: var(--text);
+}
+.breadth-ttl .lg i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+/* ---- hover tooltip (singleton appended to <body>) ---- */
+.breadth-tip {
+  position: fixed;
+  z-index: 60;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #dcdbd6);
+  border-radius: 6px;
+  padding: 6px 9px;
+  font-size: 12px;
+  pointer-events: none;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  display: none;
+  min-width: 160px;
+  color: var(--text, #0b0b0b);
+}
+.breadth-tip b {
+  display: block;
+  margin-bottom: 3px;
+}
+.breadth-tip .r {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+.breadth-tip .r span:last-child {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- range toolbar + buttons (ported from .toolbar/.btn) ---- */
+.breadth-toolbar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 6px 0 8px;
+  flex-wrap: wrap;
+}
+.breadth-toolbar .lbl {
+  color: var(--text2);
+  font-size: 12px;
+  margin-right: 4px;
+}
+.breadth-toolbar .hint {
+  color: var(--text2);
+  font-size: 12px;
+  margin-left: 10px;
+}
+.breadth-root .btn {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.breadth-root .btn.active {
+  background: var(--blue);
+  color: #fff;
+  border-color: var(--blue);
+}
+
+.breadth-error {
+  border-left: 4px solid var(--serious);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+/* ===================================================================== tables
+   Ported from pro_dashboard_template.html. Selectors are scoped to
+   .breadth-root so nothing leaks into the rest of the app. Logical
+   (start/end) directions replace the template's hard right/left so the same
+   rules keep the layout working in either direction (module runs LTR). */
+.breadth-root table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+  background: var(--surface);
+}
+.breadth-root th,
+.breadth-root td {
+  border: 1px solid var(--border);
+  padding: 4px 7px;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+.breadth-root th {
+  background: var(--surface2);
+  color: var(--text2);
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.breadth-root td:first-child,
+.breadth-root th:first-child {
+  text-align: start;
+}
+.breadth-root .note {
+  color: var(--text2);
+  font-size: 12px;
+  margin: 4px 0 12px;
+}
+.breadth-root .grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+@media (max-width: 1000px) {
+  .breadth-root .grid2 {
+    grid-template-columns: 1fr;
+  }
+}
+.breadth-root .tblwrap {
+  overflow: auto;
+  max-height: 520px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.breadth-root .pos {
+  color: var(--up);
+}
+.breadth-root .neg {
+  color: var(--down);
+}
+
+/* ---- KPI cards ---- */
+.breadth-root .kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.breadth-root .kpi {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.breadth-root .kpi .l {
+  font-size: 11px;
+  color: var(--text2);
+  letter-spacing: 0.04em;
+}
+.breadth-root .kpi .v {
+  font-size: 22px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+.breadth-root .kpi .v small {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text2);
+}
+.breadth-root .kpi .d {
+  font-size: 12px;
+  color: var(--text2);
+}
+.breadth-root .badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 14px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+}
+.breadth-root .tag {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  margin-inline-start: 4px;
+}
+
+/* ---- cards ---- */
+.breadth-root .card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.breadth-root .card .hd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.breadth-root .card .hd h3 {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text2);
+  letter-spacing: 0.04em;
+}
+.breadth-root .card .hd .sp {
+  flex: 1;
+}
+
+/* ---- table toolbar (filter + CSV) ---- */
+.breadth-root .tblbar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 4px 0 6px;
+  flex-wrap: wrap;
+}
+.breadth-root .tblbar input {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 12px;
+  width: 180px;
+}
+.breadth-root th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+.breadth-root th.sortable:hover {
+  color: var(--text);
+}
+.breadth-root th.sortable.asc::after {
+  content: ' ▲';
+  font-size: 9px;
+}
+.breadth-root th.sortable.desc::after {
+  content: ' ▼';
+  font-size: 9px;
+}
+
+/* ---- symbol link + stage badge ---- */
+.breadth-root .sym {
+  color: var(--blue);
+  cursor: pointer;
+  font-weight: 600;
+}
+.breadth-root .sym:hover {
+  text-decoration: underline;
+}
+.breadth-root .stg-b {
+  display: inline-block;
+  width: 18px;
+  text-align: center;
+  border-radius: 4px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+/* ---- heat table (sector scores) ---- */
+.breadth-root .heat td {
+  text-align: center;
+  padding: 3px 4px;
+}
+.breadth-root .heat td.c {
+  color: #fff;
+}
+.breadth-root tr.secrow {
+  cursor: pointer;
+}
+.breadth-root tr.secrow:hover td,
+.breadth-root tr.secrow:hover th {
+  filter: brightness(1.15);
+}
+.breadth-root tr.secrow td:first-child::before {
+  content: '▸ ';
+  color: var(--text2);
+}
+.breadth-root tr.secrow.open td:first-child::before {
+  content: '▾ ';
+}
+.breadth-root tr.drill td {
+  padding: 0;
+  background: var(--surface2);
+  text-align: start;
+}
+.breadth-root .drill table {
+  font-size: 12px;
+}
+.breadth-root .drill th {
+  position: static;
+  background: var(--surface);
+}
+.breadth-root .drill td {
+  text-align: end;
+  padding: 3px 7px;
+}
+.breadth-root .drill td:first-child,
+.breadth-root .drill td:nth-child(2) {
+  text-align: start;
+}
+
+/* ---- theme tracker bars ---- */
+.breadth-root .theme {
+  display: grid;
+  grid-template-columns: 200px 1fr 70px;
+  gap: 6px 10px;
+  align-items: center;
+  font-size: 12px;
+}
+.breadth-root .theme .bar {
+  position: relative;
+  height: 9px;
+  background: var(--surface2);
+  border-radius: 4px;
+}
+.breadth-root .theme .bar i {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 4px;
+}
+.breadth-root .theme .bar::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 50%;
+  top: -2px;
+  height: 13px;
+  border-inline-start: 1px solid var(--border);
+}
+.breadth-root .theme .v {
+  text-align: end;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.breadth-root .theme .n {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.breadth-root .theme .n:hover {
+  color: var(--blue);
+  text-decoration: underline;
+}
+
+/* ---- industry ranks ---- */
+.breadth-root .ranks td {
+  text-align: center;
+}
+.breadth-root .ranks td:first-child {
+  text-align: start;
+  cursor: pointer;
+}
+.breadth-root .ranks td:first-child:hover {
+  color: var(--blue);
+  text-decoration: underline;
+}
+.breadth-root .ranks .r1,
+.breadth-root .ranks .r2,
+.breadth-root .ranks .r3 {
+  color: var(--up);
+  font-weight: 700;
+}
+.breadth-root .ranks .rl {
+  color: var(--down);
+  font-weight: 700;
+}
+.breadth-root .ranks sup {
+  font-size: 9px;
+  margin-inline-start: 2px;
+}
+.breadth-root .ranks sup.up {
+  color: var(--up);
+}
+.breadth-root .ranks sup.dn {
+  color: var(--down);
+}
+
+/* ---- stockbee monitor grid ---- */
+.breadth-root .sb td.g {
+  background: rgba(27, 175, 122, 0.22);
+}
+.breadth-root .sb td.r {
+  background: rgba(227, 73, 72, 0.22);
+}
+.breadth-root .sb td.k {
+  cursor: pointer;
+}
+.breadth-root .sb td.k:hover {
+  outline: 1px solid var(--blue);
+}
+
+/* ---- stock chart modal ---- */
+.breadth-modal-dim {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 90;
+}
+.breadth-modal {
+  position: fixed;
+  z-index: 91;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(1100px, calc(100vw - 30px));
+  max-height: calc(100vh - 30px);
+  overflow: auto;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+.breadth-modal .hd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.breadth-modal .hd h3 {
+  margin: 0;
+  font-size: 15px;
+}
+.breadth-modal .hd .sp {
+  flex: 1;
+}
+
+/* ---- overview/widget side-by-side grid (template .ovgrid) ---- */
+.breadth-root .ovgrid {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 14px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .breadth-root .ovgrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---- market breadth widget card (template .widget/.wrow/.wbar/.stg/.stgl) ---- */
+.breadth-root .widget {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.breadth-root .widget h3 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.breadth-root .wrow {
+  margin-bottom: 12px;
+}
+.breadth-root .wrow .h {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 600;
+  font-size: 13px;
+}
+.breadth-root .wrow .h .p {
+  font-weight: 700;
+}
+.breadth-root .wbar {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--surface2);
+  margin: 5px 0 4px;
+  overflow: hidden;
+  display: flex;
+}
+.breadth-root .wbar i {
+  display: block;
+  height: 100%;
+}
+.breadth-root .wrow .c {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text2);
+  font-size: 12px;
+}
+.breadth-root .stg {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 6px 0;
+}
+.breadth-root .stg i {
+  display: block;
+  height: 100%;
+}
+.breadth-root .stgl {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text2);
+  text-align: center;
+}
+.breadth-root .stgl b {
+  display: block;
+  color: var(--text);
+  font-size: 12px;
+}
+.breadth-root .stgl .sw {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 3px;
+  vertical-align: middle;
+}
+

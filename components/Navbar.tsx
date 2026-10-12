@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { useAuth } from '../app/providers/AuthProvider'
 import { ChevronDown, ChevronRight, LogOut, UserCircle, Menu, X } from 'lucide-react'
 
@@ -249,6 +250,8 @@ export default function Navbar() {
   const userMenuRef = useRef<HTMLDivElement>(null)
   const dropdownTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const { user, logout } = useAuth()
+  const pathname = usePathname()
+  const isBreadthActive = pathname?.startsWith('/breadth')
 
   // ── Menu data ────────────────────────────────
   const menuItems: MenuMap = {
@@ -381,7 +384,6 @@ export default function Navbar() {
         {
           en: 'US Market', href: '#',
           items: [
-            { en: 'NAAIM Exposure Index', href: '/naaim' },
             { en: 'Weekly Study', href: '/weekly-study' },
           ]
         },
@@ -456,6 +458,7 @@ export default function Navbar() {
             { en: 'The Council (31 Rules)', href: '/rebh/council' },
             { en: 'Council Scorecard (10/10)', href: '/rebh/score' },
             { en: 'Course Reports (10 Companies)', href: '/rebh/course-reports' },
+            { en: 'Data Health', href: '/rebh/health' },
           ],
         },
       ],
@@ -468,6 +471,7 @@ export default function Navbar() {
         { en: 'Company-analyzer', href: '/terminal/company-analyzer' },
         { en: 'sector-templete', href: '/terminal/sector-templates' },
         { en: 'standards-guide', href: '/terminal/standards-guide' },
+        { en: 'forensic-audit', href: '/terminal/forensic-audit' },
       ],
     },
   }
@@ -651,6 +655,22 @@ export default function Navbar() {
               </div>
             </div>
           ))}
+
+          {/* Market Breadth direct link (next to Terminal) */}
+          <Link
+            href="/breadth"
+            className="flex items-center px-3 h-full text-[13.5px] font-medium transition-colors duration-150 whitespace-nowrap no-underline outline-none"
+            style={{
+              color: isBreadthActive ? '#1D4ED8' : undefined,
+              borderBottom: isBreadthActive
+                ? '2px solid #1D4ED8'
+                : '2px solid transparent',
+            }}
+          >
+            <span className={isBreadthActive ? 'font-semibold text-blue-700' : 'text-gray-600 hover:text-gray-900'}>
+              Market Breadth
+            </span>
+          </Link>
         </div>
 
         {/* Right side */}
@@ -787,6 +807,17 @@ export default function Navbar() {
               )}
             </div>
           ))}
+
+          {/* Market Breadth direct link (mobile) */}
+          <Link
+            href="/breadth"
+            onClick={closeAll}
+            className={`block px-3 py-2.5 text-[14px] font-medium rounded-md transition-colors no-underline ${
+              isBreadthActive ? 'text-blue-700 bg-blue-50 font-semibold' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+          >
+            Market Breadth
+          </Link>
 
           {/* Extra links */}
           <div className="pt-3 mt-2 space-y-0.5" style={{ borderTop: '1px solid #F3F4F6' }}>

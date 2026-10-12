@@ -24,6 +24,36 @@ interface MarketMonitorTabProps {
 const CARD = "bg-white border border-[#E5E7EB] rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.06)]";
 const KPI_LABEL = "text-[10px] text-[#6B7280] uppercase tracking-wide mt-1";
 
+/** Honest null-safe formatter for a percentage value. Returns an em dash for
+ *  null/undefined/NaN so the UI never reads `null%` or a fabricated number. */
+function fmtPct(v: number | null | undefined, digits = 2, signed = false): string {
+  if (v == null || Number.isNaN(v)) return "\u2014";
+  const sign = signed && v > 0 ? "+" : "";
+  return `${sign}${v.toFixed(digits)}%`;
+}
+
+/** M SAR level -> human string: 'SAR 2,XXX B' when < 1e6, 'SAR X.XX T' when
+ *  above one trillion M SAR (i.e. value >= 1_000_000 M SAR = 1e6 M SAR = 1 T). */
+function fmtGdpLevel(mSar: number | null | undefined, unit: string | null | undefined): string {
+  if (mSar == null || Number.isNaN(mSar)) return "\u2014";
+  const u = (unit || "M SAR").trim();
+  if (u.toUpperCase() === "M SAR") {
+    if (mSar >= 1_000_000) return `SAR ${(mSar / 1_000_000).toFixed(2)} T`;
+    if (mSar >= 1_000) return `SAR ${(mSar / 1_000).toFixed(1)} B`;
+    return `SAR ${Math.round(mSar).toLocaleString()} M`;
+  }
+  return `${mSar.toLocaleString(undefined, { maximumFractionDigits: 0 })} ${u}`;
+}
+
+/** Small helper for the pill that shows the origin of gdp_growth_pct. */
+function gdpGrowthOriginTag(origin: string | null | undefined): string | null {
+  if (!origin) return null;
+  if (origin === "direct:saudi_gdp_annual") return "level misread \u2014 should not appear";
+  if (origin.startsWith("direct:")) return `source: ${origin.slice(7)}`;
+  if (origin.startsWith("derived:")) return "derived from TTM pair";
+  return origin;
+}
+
 // Optional English sector name the backend may provide (display only).
 type CompanyWithEn = CompanyItem & { en?: string; sec_en?: string };
 
@@ -310,6 +340,12 @@ export default function MarketMonitorTab({ universe }: MarketMonitorTabProps) {
         const sm = macroData.saudi_macro || macroData.result;
         const sp = macroData.sp500_benchmark;
         const yc = macroData.treasury_yield_curve;
+        const degraded: string[] = Array.isArray(macroData.degraded) ? macroData.degraded : [];
+        // Nothing is fabricated here. Every cell shows an em dash when the
+        // backend returned null, and a subtle fallback marker when is_*_fallback
+        // is true (the row exists but the scraper used its own default).
+        const regime = sm.macro_regime ?? null;
+        const fallbackNote = gdpGrowthOriginTag(sm.gdp_growth_origin);
         return (
           <div className="space-y-4">
             <div className={`${CARD} p-5 space-y-3`}>
@@ -319,38 +355,114 @@ export default function MarketMonitorTab({ universe }: MarketMonitorTabProps) {
                     Saudi Macro Economy Scorecard
                   </h3>
                   <span className="text-[10px] text-[#6B7280]">
-                    Source: Saudi Central Bank (SAMA) and General Authority for Statistics (GaStat) · {macroData.status}
+                    Source: {macroData.source || "SAMA / GaStat / KAPSARC"} · {macroData.status || "status unavailable"}
                   </span>
                 </div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#F0FDF4] text-[#16A34A] border border-[#BBF7D0]">
-                  Economic regime: {sm.macro_regime || "Expansionary / Healthy"}
-                </span>
+                {regime ? (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#F0FDF4] text-[#16A34A] border border-[#BBF7D0]">
+                    Economic regime: {regime}
+                  </span>
+                ) : (
+                  <span
+                    className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#F7F8FA] text-[#6B7280] border border-[#E5E7EB]"
+                    title="Backend returned null for macro_regime (no verified GDP growth source yet)"
+                  >
+                    Economic regime: {"\u2014"} pending
+                  </span>
+                )}
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 text-center text-xs">
                 <div className="p-2.5 bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px]">
                   <span className="text-[10px] text-[#6B7280] block">Repo Rate</span>
-                  <span className="text-sm font-bold text-[#1A1A1A]">{sm.repo_rate_pct}%</span>
+                  <span className="text-sm font-bold text-[#1A1A1A]">
+                    {fmtPct(sm.repo_rate_pct)}{sm.is_repo_fallback ? " \u2248" : ""}
+                  </span>
                 </div>
                 <div className="p-2.5 bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px]">
                   <span className="text-[10px] text-[#6B7280] block">SAIBOR 3M</span>
-                  <span className="text-sm font-bold text-[#1A1A1A]">{sm.saibor_3m_pct}%</span>
+                  <span className="text-sm font-bold text-[#1A1A1A]">
+                    {fmtPct(sm.saibor_3m_pct)}{sm.is_saibor_fallback ? " \u2248" : ""}
+                  </span>
                 </div>
                 <div className="p-2.5 bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px]">
-                  <span className="text-[10px] text-[#6B7280] block">GDP Growth</span>
-                  <span className="text-sm font-bold text-[#16A34A]">+{sm.gdp_growth_pct}%</span>
+                  <span className="text-[10px] text-[#6B7280] block">GDP Growth YoY</span>
+                  <span
+                    className={`text-sm font-bold ${sm.gdp_growth_pct == null ? "text-[#9CA3AF]" : sm.gdp_growth_pct >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"}`}
+                    title={sm.gdp_growth_source || "no growth-rate pair in saudi_gdp_annual yet"}
+                  >
+                    {fmtPct(sm.gdp_growth_pct, 2, true)}
+                  </span>
+                  <span className="text-[9px] text-[#9CA3AF] block mt-0.5">
+                    {fallbackNote || (sm.gdp_growth_pct == null ? "awaiting 2 TTM runs" : "")}
+                  </span>
+                </div>
+                <div className="p-2.5 bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px]">
+                  <span className="text-[10px] text-[#6B7280] block">GDP Level (TTM)</span>
+                  <span className="text-sm font-bold text-[#1A1A1A]">
+                    {fmtGdpLevel(sm.gdp_level_m_sar, sm.gdp_level_unit)}
+                  </span>
+                  <span className="text-[9px] text-[#9CA3AF] block mt-0.5">
+                    {sm.gdp_level_period || "\u2014"}
+                  </span>
                 </div>
                 <div className="p-2.5 bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px]">
                   <span className="text-[10px] text-[#6B7280] block">Annual Inflation (CPI)</span>
-                  <span className="text-sm font-bold text-[#1A1A1A]">{sm.inflation_pct}%</span>
+                  <span
+                    className={`text-sm font-bold ${sm.inflation_pct == null ? "text-[#9CA3AF]" : "text-[#8C3B32]"}`}
+                    title={
+                      sm.inflation_pct == null
+                        ? "saudi_inflation_cpi is not written in saudi_economic_indicators AND economic_indicators has no SAUCPALTT01GPM row. Run fred:SAUCPALTT01GPM to ingest from FRED/IMF."
+                        : (sm.inflation_source || "")
+                    }
+                  >
+                    {fmtPct(sm.inflation_pct)}
+                  </span>
+                  <span className="text-[9px] text-[#9CA3AF] block mt-0.5">
+                    {sm.inflation_pct != null
+                      ? (String(sm.inflation_source || "").startsWith("fred:") ? "FRED/IMF SAUCPALTT01GPM" : "SAMA/GaStat")
+                      : "awaiting fred:SAUCPALTT01GPM run"}
+                  </span>
                 </div>
                 <div className="p-2.5 bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px]">
                   <span className="text-[10px] text-[#6B7280] block">Saudi Buffett Indicator (Mkt/GDP)</span>
                   <span className="text-sm font-bold text-[#8C3B32]">
-                    {sm.buffett_indicator_pct ? `${sm.buffett_indicator_pct}%` : sm.liquidity_condition}
+                    {fmtPct(sm.buffett_indicator_pct)}{sm.is_buffett_fallback ? " \u2248" : ""}
                   </span>
                 </div>
               </div>
+
+              {/* liquidity_condition + unemployment are auxiliary readings that
+                  the backend computes from the same tables; shown here so the
+                  admin can cross-check the regime pill without opening SAMA. */}
+              <div className="flex flex-wrap items-center gap-3 text-[10px] text-[#6B7280] pt-2 border-t border-[#E5E7EB]">
+                <span>
+                  Liquidity condition:{" "}
+                  <b className="text-[#1A1A1A]">{sm.liquidity_condition || "\u2014 pending SAIBOR"}</b>
+                </span>
+                <span>
+                  Unemployment:{" "}
+                  <b className="text-[#1A1A1A]">
+                    {fmtPct(sm.unemployment_pct)}{sm.is_unemployment_fallback ? " \u2248" : ""}
+                  </b>
+                </span>
+                <span className="ml-auto text-[#9CA3AF]">
+                  {"\u2248"} = stored fallback (scraper could not confirm the live number)
+                </span>
+              </div>
+
+              {degraded.length > 0 && (
+                <details className="text-[10px] text-[#6B7280]">
+                  <summary className="cursor-pointer select-none">
+                    {degraded.length} degraded signal{degraded.length === 1 ? "" : "s"}{" \u2014 why some numbers show \u2014"}
+                  </summary>
+                  <ul className="mt-1 pl-4 list-disc space-y-0.5 text-[#6B7280]">
+                    {degraded.map((d, i) => (
+                      <li key={i} className="font-mono">{d}</li>
+                    ))}
+                  </ul>
+                </details>
+              )}
             </div>
 
             {/* US Market S&P 500 & Treasury Benchmark Card */}

@@ -5,13 +5,14 @@ import Link from "next/link";
 import {
   Sliders, BarChart3, Layers, Calendar,
   ArrowUpRight, Cpu,
-  PieChart, Bell, BookOpen,
+  PieChart, Bell, BookOpen, Home,
 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api/config";
 import type { CompanyItem } from "./types";
 
 // Modular Sub-Components
 import MarketMonitorTab from "./components/MarketMonitorTab";
+import HouseValuationTab from "./components/HouseValuationTab";
 import TradeJournalTab from "./components/TradeJournalTab";
 import CourseLabsTab from "./components/CourseLabsTab";
 import FvLabTab from "./components/FvLabTab";
@@ -32,7 +33,7 @@ const CARD = "bg-white border border-[#E5E7EB] rounded-[4px] shadow-[0_1px_3px_r
 type CompanyWithEn = CompanyItem & { en?: string; sec_en?: string };
 
 export default function RebhToolsPage() {
-  const [activeTab, setActiveTab] = useState<"fv_lab" | "portfolio_xray" | "alerts" | "calendar" | "market_monitor" | "trade_journal" | "course_labs">("fv_lab");
+  const [activeTab, setActiveTab] = useState<"house_valuation" | "fv_lab" | "portfolio_xray" | "alerts" | "calendar" | "market_monitor" | "trade_journal" | "course_labs">("house_valuation");
 
   // Market universe data
   const [universe, setUniverse] = useState<CompanyItem[]>([]);
@@ -499,14 +500,20 @@ export default function RebhToolsPage() {
       });
   }, [universe]);
 
+  // Tab ids/labels follow the tools_template.html contract:
+  // [watch, method 'House Valuation', dcf 'Fair-Value Lab', px 'Portfolio X-Ray',
+  //  alerts 'Alerts', cal 'Earnings Calendar', mkt 'Market Monitor', quar,
+  //  jrnl 'Trade Journal', labs 'Course Labs'] — watch/quar live as their own
+  // pages (/rebh/watchlist, /rebh/quarantine).
   const TABS = [
-    { id: "fv_lab", label: "Fair Value Lab (FV Lab)", icon: Sliders },
+    { id: "house_valuation", label: "House Valuation", icon: Home },
+    { id: "fv_lab", label: "Fair-Value Lab", icon: Sliders },
     { id: "portfolio_xray", label: "Portfolio X-Ray", icon: PieChart },
-    { id: "alerts", label: "Advanced Stock Screener", icon: Bell },
+    { id: "alerts", label: "Alerts", icon: Bell },
     { id: "calendar", label: "Earnings Calendar", icon: Calendar },
-    { id: "market_monitor", label: "Market Valuation Monitor", icon: BarChart3 },
+    { id: "market_monitor", label: "Market Monitor", icon: BarChart3 },
     { id: "trade_journal", label: "Trade Journal", icon: BookOpen },
-    { id: "course_labs", label: "Course Labs (18 Labs)", icon: Layers },
+    { id: "course_labs", label: "Course Labs", icon: Layers },
   ] as const;
 
   return (
@@ -550,6 +557,11 @@ export default function RebhToolsPage() {
             );
           })}
         </div>
+
+        {/* Tab 0: House Valuation — the owner's methodology, live */}
+        {activeTab === "house_valuation" && (
+          <HouseValuationTab universe={universe} />
+        )}
 
         {/* Tab 1: Fair Value Lab */}
         {activeTab === "fv_lab" && (

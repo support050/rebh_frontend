@@ -84,10 +84,19 @@ export default function CompanyAnalystNotes({ symbol }: CompanyAnalystNotesProps
       if (res.ok) {
         const data = await res.json();
         setUpdatedAt(data.updated_at || new Date().toISOString());
+        setSavedNote(note);
+        setIsEditing(false);
+        setStatusMsg("Note saved successfully ✓");
+      } else if (res.status === 401) {
+        // Permanent save = user store: keep the local copy, tell the truth.
+        setSavedNote(note);
+        setIsEditing(false);
+        setStatusMsg("Saved locally — sign in to persist it to your account");
+      } else {
+        setSavedNote(note);
+        setIsEditing(false);
+        setStatusMsg(`Saved locally (server returned ${res.status})`);
       }
-      setSavedNote(note);
-      setIsEditing(false);
-      setStatusMsg("Note saved successfully ✓");
       setTimeout(() => setStatusMsg(null), 3500);
     } catch (e) {
       console.warn("Saved locally, API sync warning:", e);
