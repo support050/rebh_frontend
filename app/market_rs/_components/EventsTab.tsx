@@ -1,9 +1,12 @@
 'use client';
 
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import { StockData, getCatText } from './types';
 import { FONT_SERIF, FONT_MONO, type PaperTokens } from './paperTheme';
 import { useRsHubTheme } from './RsHubThemeContext';
+import { ExportButton } from './ExportButton';
+import { exportElementAsPng, buildExportFilename, waitForNextPaint } from './exportImage';
 
 interface EventGroupDef {
     title: string;
@@ -92,6 +95,11 @@ export function EventsTab({ stocks }: { stocks: StockData[] }) {
     const eventGroupsDef = useMemo(() => buildEventGroups(PAPER), [PAPER]);
     const [tip, setTip] = useState<TipState>(null);
 
+    // Export: the board (not the header/toolbar) is the capture target.
+    const boardRef = useRef<HTMLDivElement>(null);
+    // While true, per-card scroll limits are lifted so every row lands in the PNG.
+    const [exporting, setExporting] = useState(false);
+
     const showTip = useCallback((label: string, rect: DOMRect) => {
         setTip({
             label,
@@ -114,19 +122,44 @@ export function EventsTab({ stocks }: { stocks: StockData[] }) {
 
     const totalEvents = eventData.reduce((sum, g) => sum + g.items.length, 0);
 
+    const handleExport = useCallback(async () => {
+        const node = boardRef.current;
+        if (!node) return;
+        setTip(null);
+        flushSync(() => setExporting(true));
+        try {
+            await waitForNextPaint();
+            await exportElementAsPng(node, buildExportFilename('rs-events'), { backgroundColor: PAPER.paperLight });
+        } finally {
+            setExporting(false);
+        }
+    }, [PAPER.paperLight]);
+
     return (
         <div
             className="binder-rail rounded-[4px] overflow-hidden"
             style={{ background: PAPER.paperLight, border: `1px solid ${PAPER.cardBorder}`, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
         >
+            {/* Toolbar — info on the left, export (secondary action) on the far right */}
             <div className="flex items-center gap-3 p-4 dashed-divider">
                 <span className="font-extrabold text-sm" style={{ fontFamily: FONT_SERIF, color: PAPER.ink }}>RS Events</span>
                 <span className="text-xs italic" style={{ color: PAPER.inkMuted }}>Everything that changed this week</span>
                 <div className="flex-1" />
                 <span className="text-xs" style={{ color: PAPER.inkMuted, fontFamily: FONT_MONO }}>{totalEvents} events</span>
+                <ExportButton
+                    label="Export Events"
+                    title="Download the RS events board as a PNG"
+                    className="ml-auto"
+                    onExport={handleExport}
+                />
             </div>
 
-            <div id="evBody" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 p-4">
+            <div
+                ref={boardRef}
+                id="evBody"
+                className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 p-4 ${exporting ? 'items-start' : ''}`}
+                style={{ background: PAPER.paperLight }}
+            >
                 {eventData.map(group => (
                     <div key={group.title} className="rounded-[3px] overflow-hidden" style={{ border: `1px solid ${group.border}` }}>
                         <div className="px-3 py-2.5" style={{ background: group.bg, borderBottom: `1px dashed ${group.border}` }}>
@@ -135,7 +168,10 @@ export function EventsTab({ stocks }: { stocks: StockData[] }) {
                                 <span className="emboss text-sm" style={{ color: group.color }}>{group.items.length}</span>
                             </div>
                         </div>
-                        <div className="max-h-[260px] overflow-y-auto scrollbar-ledger min-h-[60px]" style={{ background: PAPER.paperLight }}>
+                        <div
+                            className={`min-h-[60px] ${exporting ? '' : 'max-h-[260px] overflow-y-auto scrollbar-ledger'}`}
+                            style={{ background: PAPER.paperLight }}
+                        >
                             {group.items.length === 0 ? (
                                 <div className="h-[60px] flex items-center justify-center text-xs italic" style={{ color: PAPER.inkMuted }}>
                                     No stocks in this event

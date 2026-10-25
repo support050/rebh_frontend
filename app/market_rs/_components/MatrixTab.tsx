@@ -1,12 +1,15 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { flushSync } from 'react-dom';
 import Link from 'next/link';
 import { StockData, getCatColor, getCatText } from './types';
 import { FONT_SERIF, FONT_MONO } from './paperTheme';
 import { Stamp } from './PaperUI';
 import { useRsHubTheme } from './RsHubThemeContext';
 import { categoryFromRs, getCategoryMovement, rsRose } from './matrixHelpers';
+import { ExportButton } from './ExportButton';
+import { exportElementAsPng, buildExportFilename, waitForNextPaint } from './exportImage';
 
 type Theme = 'strong' | 'improve' | 'neutral' | 'weak';
 
@@ -33,6 +36,10 @@ export function MatrixTab({ stocks }: { stocks: StockData[] }) {
     const THEME_STYLES = useMemo(() => themeStyles(PAPER), [PAPER]);
     const [viewMode, setViewMode] = useState<'cards' | 'quad'>('cards');
     const [selectedStock, setSelectedStock] = useState<StockData | null>(null);
+
+    // Export: only the 2×2 quadrant grid is captured (never the detail panel or toolbar).
+    const quadRef = useRef<HTMLDivElement>(null);
+    const [exporting, setExporting] = useState(false);
 
     useEffect(() => {
         setSelectedStock(null);
@@ -64,11 +71,25 @@ export function MatrixTab({ stocks }: { stocks: StockData[] }) {
         };
     }, [stocks, groups]);
 
+    const handleExportQuadrant = useCallback(async () => {
+        const node = quadRef.current;
+        if (!node) return;
+        // Hide the selection ring / hover affordances for the capture, then restore.
+        flushSync(() => setExporting(true));
+        try {
+            await waitForNextPaint();
+            await exportElementAsPng(node, buildExportFilename('rs-matrix-quadrant'), { backgroundColor: PAPER.paperLight });
+        } finally {
+            setExporting(false);
+        }
+    }, [PAPER.paperLight]);
+
     return (
         <div
             className="binder-rail rounded-[4px] overflow-hidden"
             style={{ background: PAPER.paperLight, border: `1px solid ${PAPER.cardBorder}`, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
         >
+            {/* Toolbar — view toggle on the left, export (secondary action) on the far right */}
             <div className="flex items-center gap-4 p-4 dashed-divider flex-wrap">
                 <div className="flex items-center gap-2">
                     <Stamp active={viewMode === 'cards'} onClick={() => setViewMode('cards')}>Cards</Stamp>
@@ -78,6 +99,14 @@ export function MatrixTab({ stocks }: { stocks: StockData[] }) {
                 <span className="text-xs italic" style={{ color: PAPER.inkMuted }}>
                     {viewMode === 'quad' ? 'Click a stock for details · ↑↓ = category change' : 'From WEAK/NEUTRAL… badges = category moves'}
                 </span>
+                {viewMode === 'quad' && (
+                    <ExportButton
+                        label="Export Quadrant"
+                        title="Download the quadrant view as a PNG"
+                        className="ml-auto"
+                        onExport={handleExportQuadrant}
+                    />
+                )}
             </div>
 
             {viewMode === 'cards' ? (
@@ -98,14 +127,20 @@ export function MatrixTab({ stocks }: { stocks: StockData[] }) {
                 </div>
             ) : (
                 <div className="flex flex-col xl:flex-row gap-3 p-4 min-h-[500px]">
-                    <div className="grid grid-cols-2 gap-2 flex-1 min-w-0">
+                    {/* Printable container: the 2×2 quadrant grid only */}
+                    <div
+                        ref={quadRef}
+                        className="grid grid-cols-2 gap-2 flex-1 min-w-0 p-2"
+                        style={{ background: PAPER.paperLight }}
+                    >
                         <QuadCell
                             paper={PAPER}
                             themeStyles={THEME_STYLES}
                             title={`NEUTRAL · ${stats.NEUTRAL.count} · ${stats.NEUTRAL.pct}%`}
                             list={groups.NEUTRAL}
                             theme="neutral"
-                            selectedSymbol={selectedStock?.s}
+                            selectedSymbol={exporting ? undefined : selectedStock?.s}
+                            exporting={exporting}
                             onSelect={setSelectedStock}
                         />
                         <QuadCell
@@ -114,7 +149,8 @@ export function MatrixTab({ stocks }: { stocks: StockData[] }) {
                             title={`STRONG · ${stats.STRONG.count} · ${stats.STRONG.pct}%`}
                             list={groups.STRONG}
                             theme="strong"
-                            selectedSymbol={selectedStock?.s}
+                            selectedSymbol={exporting ? undefined : selectedStock?.s}
+                            exporting={exporting}
                             onSelect={setSelectedStock}
                         />
                         <QuadCell
@@ -123,7 +159,8 @@ export function MatrixTab({ stocks }: { stocks: StockData[] }) {
                             title={`WEAK · ${stats.WEAK.count} · ${stats.WEAK.pct}%`}
                             list={groups.WEAK.slice(0, 120)}
                             theme="weak"
-                            selectedSymbol={selectedStock?.s}
+                            selectedSymbol={exporting ? undefined : selectedStock?.s}
+                            exporting={exporting}
                             onSelect={setSelectedStock}
                         />
                         <QuadCell
@@ -132,7 +169,8 @@ export function MatrixTab({ stocks }: { stocks: StockData[] }) {
                             title={`IMPROVE · ${stats.IMPROVE.count} · ${stats.IMPROVE.pct}%`}
                             list={groups.IMPROVE}
                             theme="improve"
-                            selectedSymbol={selectedStock?.s}
+                            selectedSymbol={exporting ? undefined : selectedStock?.s}
+                            exporting={exporting}
                             onSelect={setSelectedStock}
                         />
                     </div>
@@ -240,7 +278,7 @@ function MatrixCard({ paper, themeStyles, title, subtitle, range, list, stats, t
 }
 
 function QuadCell({
-    paper, themeStyles, title, list, theme, selectedSymbol, onSelect,
+    paper, themeStyles, title, list, theme, selectedSymbol, exporting = false, onSelect,
 }: {
     paper: ReturnType<typeof useRsHubTheme>['paper'];
     themeStyles: ThemeStyleMap;
@@ -248,6 +286,7 @@ function QuadCell({
     list: StockData[];
     theme: Theme;
     selectedSymbol?: string;
+    exporting?: boolean;
     onSelect: (st: StockData) => void;
 }) {
     const s = themeStyles[theme];
@@ -261,7 +300,7 @@ function QuadCell({
                 {theme.toUpperCase()}
             </div>
             <h3 className="font-extrabold text-xs tracking-wider mb-3 relative z-[1]" style={{ color: s.text, fontFamily: FONT_SERIF }}>{title}</h3>
-            <div className="flex flex-wrap gap-1.5 overflow-y-auto scrollbar-ledger content-start flex-1 relative z-[1]">
+            <div className={`flex flex-wrap gap-1.5 content-start flex-1 relative z-[1] ${exporting ? '' : 'overflow-y-auto scrollbar-ledger'}`}>
                 {list.map(st => {
                     const movement = getCategoryMovement(st);
                     const isSel = selectedSymbol === st.s;
@@ -276,17 +315,17 @@ function QuadCell({
                             key={st.s}
                             type="button"
                             onClick={() => onSelect(st)}
-                            className="emboss rounded-sm px-2 py-1 text-[10.5px] flex items-center gap-1 cursor-pointer transition-all hover:scale-105 hover:shadow-md max-w-[160px]"
+                            // No max-w cap / truncate: long names wrap inside the chip instead of being cut off.
+                            className="emboss rounded-sm px-2 py-1 text-[11px] font-semibold leading-snug text-left inline-flex items-center gap-1 cursor-pointer transition-all hover:scale-105 hover:shadow-md whitespace-nowrap"
                             style={{
-                                background: isSel ? paper.paperLight : paper.paperLight,
+                                background: paper.paperLight,
                                 border: `1px solid ${isSel ? paper.improve : s.border}`,
                                 boxShadow: isSel ? `0 0 0 2px ${paper.improve}33` : '0 1px 2px rgba(0,0,0,0.06)',
                                 color: nameColor,
                                 fontFamily: FONT_SERIF,
-                                fontWeight: 600,
                             }}
                         >
-                            <span className="truncate">{st.c}</span>
+                            <span>{st.c}</span>
                             {movement && (
                                 <span className="text-[11px] font-bold shrink-0">
                                     {movement.direction === 'up' ? '↑' : '↓'}

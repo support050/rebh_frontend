@@ -1101,31 +1101,6 @@ function IndustryGroupsContent() {
     const [showExportMenu, setShowExportMenu] = useState(false);
     const [collapseSignal, setCollapseSignal] = useState(0);
 
-    const [isGeneratingWeeklyRoutine, setIsGeneratingWeeklyRoutine] = useState(false);
-    const handleGenerateWeeklyRoutine = async () => {
-        setIsGeneratingWeeklyRoutine(true);
-        try {
-            const res = await fetch('/api/generate-weekly-report', {
-                method: 'POST',
-            });
-            if (!res.ok) throw new Error('Failed to generate PDF');
-            
-            const blob = await res.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `Weekly_Routine_${new Date().toISOString().split('T')[0]}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            window.URL.revokeObjectURL(url);
-        } catch (err) {
-            console.error(err);
-            alert('Failed to generate PDF');
-        } finally {
-            setIsGeneratingWeeklyRoutine(false);
-        }
-    };
 
     const {
         data, isLoading, error, stats,
@@ -1405,18 +1380,6 @@ function IndustryGroupsContent() {
                         >
                             <Download className="w-4 h-4" />
                             <span>{isGeneratingReport ? 'Generating Report...' : 'Install Report PDF'}</span>
-                        </button>
-                        <button
-                            onClick={handleGenerateWeeklyRoutine}
-                            disabled={isGeneratingWeeklyRoutine}
-                            className="w-full mt-2 px-3 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center space-x-2 transition-all"
-                        >
-                            {isGeneratingWeeklyRoutine ? (
-                                <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                            ) : (
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                            )}
-                            <span>{isGeneratingWeeklyRoutine ? 'Generating PDF...' : 'Weekly Routine'}</span>
                         </button>
                     </div>
 

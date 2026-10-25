@@ -1,7 +1,11 @@
+'use client';
+
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { StockData } from './types';
 import { FONT_SERIF, FONT_MONO, type PaperTokens } from './paperTheme';
 import { useRsHubTheme } from './RsHubThemeContext';
+import { ExportButton } from './ExportButton';
+import { exportElementAsPng, exportSvgAsPng, buildExportFilename, type CropBox } from './exportImage';
 
 type RotShow = 'sec8' | 'secAll' | 'stk90' | 'stk20' | 'watch';
 type LabelDensity = 'hide' | 'S' | 'M' | 'L';
@@ -22,6 +26,7 @@ function mapTokens(paper: PaperTokens) {
 
 const TIME_LABELS = ['1Y', '6M', '3M', '4W', '1W', 'NOW'];
 const NOW_IDX = 5;
+const PANEL_RANK_LIMIT = 8;
 
 function Chip({ active, onClick, children, title }: { active: boolean; onClick: () => void; children: React.ReactNode; title?: string }) {
     return (
@@ -102,14 +107,22 @@ export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; w
     // Reveal animation (Play button sweeps the trail in from 0% -> 100%)
     const [revealRatio, setRevealRatio] = useState(1);
     const [isPlaying, setIsPlaying] = useState(false);
-    const playRef = useRef<any>(null);
+    const playRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    // Export targets
+    const svgRef = useRef<SVGSVGElement>(null);
+    const panelRef = useRef<HTMLDivElement>(null);
 
     const [hoverName, setHoverName] = useState<string | null>(null);
     const [pinnedName, setPinnedName] = useState<string | null>(null);
     const activeName = hoverName ?? pinnedName;
 
+    const clearPlayTimer = () => {
+        if (playRef.current !== null) { clearInterval(playRef.current); playRef.current = null; }
+    };
+
     const stopPlayback = () => {
-        if (isPlaying) { setIsPlaying(false); if (playRef.current) clearInterval(playRef.current); }
+        if (isPlaying) { setIsPlaying(false); clearPlayTimer(); }
     };
 
     const play = () => {
@@ -117,15 +130,15 @@ export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; w
         setRevealRatio(0);
         setIsPlaying(true);
         let r = 0;
-        if (playRef.current) clearInterval(playRef.current);
+        clearPlayTimer();
         playRef.current = setInterval(() => {
             r += 0.03;
-            if (r >= 1) { r = 1; setIsPlaying(false); clearInterval(playRef.current); }
+            if (r >= 1) { r = 1; setIsPlaying(false); clearPlayTimer(); }
             setRevealRatio(r);
         }, 30);
     };
 
-    useEffect(() => () => { if (playRef.current) clearInterval(playRef.current); }, []);
+    useEffect(() => () => clearPlayTimer(), []);
 
     const setPeriodPreset = (idx: number) => {
         stopPlayback(); setRevealRatio(1); setPinnedName(null);
@@ -149,7 +162,7 @@ export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; w
                 const path = buildPath(idx => stepValue(s, idx));
                 const last = path[path.length - 1];
                 return { name: s.s, label: s.c || s.s, path, rs: last.rs, mom: last.mom };
-            });
+            }).filter(e => !!e.name);
         }
 
         const groupKey = (s: StockData) => s[level] || s.grp || 'Unclassified';
@@ -170,8 +183,8 @@ export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; w
             list.sort((a, b) => b.rs - a.rs);
             list = list.slice(0, 8);
         }
-        return list;
-    }, [stocks, show, level, fromIdx, watchlist]).filter(e => !!e.name);
+        return list.filter(e => !!e.name);
+    }, [stocks, show, level, fromIdx, watchlist]);
 
     // Smoothed paths used for drawing (velocity axis only)
     const smoothedEntries = useMemo(() => entries.map(e => ({ ...e, spath: smoothPath(e.path) })), [entries]);
@@ -193,6 +206,16 @@ export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; w
 
     const quadX = sx(Math.min(Math.max(quadCenter, xMin), xMax));
     const quadY = sy(0);
+
+    // ── Export crop: quadrants + grid + axis labels, with ~12px breathing room ──
+    const plotLeft = pad.l, plotRight = sx(xMax), plotTop = pad.t, plotBottom = sy(yMin);
+    const XTICK_Y = plotBottom + 14; // x-axis tick labels sit right under the plot
+    const exportCropBox: CropBox = {
+        x: plotLeft - 34,                 // y-axis tick labels (right-aligned, ~16px wide) + margin
+        y: plotTop - 12,
+        width: (plotRight + 14) - (plotLeft - 34),
+        height: (XTICK_Y + 17 + 12) - (plotTop - 12),
+    };
 
     const getQuad = (rs: number, mom: number) => {
         if (rs >= quadCenter && mom >= 0) return 'Leading';
@@ -217,9 +240,29 @@ export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; w
     const togglePin = (name: string) => setPinnedName(prev => prev === name ? null : name);
     const showLevelPicker = show === 'sec8' || show === 'secAll';
 
+    // ── Export handlers ──
+    const handleExportChart = async () => {
+        if (!svgRef.current) return;
+        await exportSvgAsPng(
+            svgRef.current,
+            buildExportFilename('rs-rotation-chart'),
+            exportCropBox,
+            { backgroundColor: PAPER.paperLight },
+        );
+    };
+
+    const handleExportPanel = async () => {
+        if (!panelRef.current) return;
+        await exportElementAsPng(
+            panelRef.current,
+            buildExportFilename('rs-rotation-panel'),
+            { backgroundColor: PAPER.paperLight },
+        );
+    };
+
     return (
         <div className="binder-rail rounded-[4px] overflow-hidden" style={{ background: PAPER.paperLight, border: `1px solid ${T.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-            {/* Toolbar */}
+            {/* Toolbar — filters on the left, export (secondary action) on the far right */}
             <div className="flex items-center gap-2.5 p-3.5 md:px-[18px] flex-wrap" style={{ borderBottom: `1px solid ${T.border}` }}>
                 <div id="rotShow">
                     <UniSelect value={show} mutedColor={T.muted} onChange={v => { stopPlayback(); setRevealRatio(1); setPinnedName(null); setShow(v as RotShow); }}>
@@ -275,12 +318,19 @@ export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; w
 
                 <div className="flex-1 hidden md:block" />
                 <span className="text-[11.5px] hidden lg:inline italic" style={{ color: T.accentText }}>X = RS today · Y = RS velocity (Δ per 4W)</span>
+
+                <ExportButton
+                    label="Export Chart"
+                    title="Download the rotation chart as a PNG"
+                    className="ml-auto"
+                    onExport={handleExportChart}
+                />
             </div>
 
             {/* Chart Area */}
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px]">
                 <div className="p-2" style={{ borderRight: '1px solid ' + T.border }}>
-                    <svg id="rotSvg" viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 'min(62vh, 540px)' }}>
+                    <svg ref={svgRef} id="rotSvg" viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 'min(62vh, 540px)' }}>
                         <defs>
                             <filter id="rotShadow" x="-50%" y="-50%" width="200%" height="200%">
                                 <feDropShadow dx="0" dy="1.2" stdDeviation="1.6" floodColor={PAPER.ink} floodOpacity="0.32" />
@@ -297,7 +347,7 @@ export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; w
                         {[0, 20, 40, 60, 80, 100].filter(v => v >= xMin && v <= xMax).map(v => (
                             <g key={`gx${v}`}>
                                 <line x1={sx(v)} y1={pad.t} x2={sx(v)} y2={sy(yMin)} stroke={T.border} strokeWidth="1" />
-                                <text x={sx(v)} y={H - 12} textAnchor="middle" fill={T.muted} fontFamily={FONT_MONO} style={{ fontSize: '9.5px' }}>{v}</text>
+                                <text x={sx(v)} y={XTICK_Y} textAnchor="middle" fill={T.muted} fontFamily={FONT_MONO} style={{ fontSize: '9.5px' }}>{v}</text>
                             </g>
                         ))}
                         {Array.from({ length: 9 }, (_, i) => Math.round(yMin + ((yMax - yMin) / 8) * i)).map(v => (
@@ -392,76 +442,92 @@ export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; w
                     </svg>
                 </div>
 
-                {/* Side panel */}
-                <div className="p-4 overflow-y-auto max-h-[560px] scrollbar-ledger">
-                    <h4 className="text-xs font-bold mb-2" style={{ color: T.ink, fontFamily: FONT_SERIF }}>How to read it</h4>
-                    <div className="flex flex-col gap-1.5 mb-4">
-                        {[
-                            { label: 'Leading', desc: 'strong & accelerating', color: T.strong, bg: T.strongBg },
-                            { label: 'Improving', desc: 'rising from below', color: T.improve, bg: T.improveBg },
-                            { label: 'Weakening', desc: 'strong but fading', color: T.neutral, bg: T.neutralBg },
-                            { label: 'Lagging', desc: 'weak & falling', color: T.weak, bg: T.weakBg },
-                        ].map(item => (
-                            <div key={item.label} className="flex items-center gap-2 text-[11.5px]" style={{ fontFamily: FONT_SERIF }}>
-                                <span className="w-[11px] h-[11px] rounded-[3px]" style={{ background: item.bg, border: `1px solid ${item.color}` }} />
-                                <b>{item.label}</b>
-                                <span style={{ color: T.muted }}>— {item.desc}</span>
-                            </div>
-                        ))}
+                {/* Side column */}
+                <div className="flex flex-col min-w-0">
+                    {/* Export Panel — OUTSIDE the printable container */}
+                    <div className="flex justify-end px-4 pt-3">
+                        <ExportButton
+                            label="Export Panel"
+                            title="Download the legend and top 8 rankings as a PNG"
+                            onExport={handleExportPanel}
+                        />
                     </div>
 
-                    <div className="mt-1">
-                        <h4 className="text-xs font-bold mb-1.5" style={{ color: T.ink, fontFamily: FONT_SERIF }}>Rankings</h4>
-                        <div>
-                            {rankedEntries.slice(0, 15).map((e, index) => {
-                                const quad = getQuad(e.rs, e.mom);
-                                const isActive = activeName === e.name;
-                                return (
-                                    <div
-                                        key={e.name}
-                                        className="flex items-center gap-1.5 text-[11.5px] py-1.5 cursor-pointer dashed-divider"
-                                        style={{ background: isActive ? PAPER.paper : 'transparent' }}
-                                        onMouseEnter={() => setHoverName(e.name)}
-                                        onMouseLeave={() => setHoverName(null)}
-                                        onClick={() => togglePin(e.name)}
-                                    >
-                                        <span className="w-4 text-[9.5px]" style={{ color: T.muted, fontFamily: FONT_MONO }}>{index + 1}</span>
-                                        <span className="w-2 h-2 rounded-full" style={{ background: quadColor(quad) }} />
-                                        <span className="truncate flex-1 font-semibold" style={{ color: PAPER.ink, fontFamily: FONT_SERIF }}>{e.name}</span>
-                                        <b className="emboss">{e.rs}</b>
+                    <div className="p-2 overflow-y-auto max-h-[560px] scrollbar-ledger">
+                        {/* Printable container: legend + top 8 rankings ONLY */}
+                        <div ref={panelRef} className="p-3" style={{ background: PAPER.paperLight }}>
+                            <h4 className="text-xs font-bold mb-2" style={{ color: T.ink, fontFamily: FONT_SERIF }}>How to read it</h4>
+                            <div className="flex flex-col gap-1.5 mb-4">
+                                {[
+                                    { label: 'Leading', desc: 'strong & accelerating', color: T.strong, bg: T.strongBg },
+                                    { label: 'Improving', desc: 'rising from below', color: T.improve, bg: T.improveBg },
+                                    { label: 'Weakening', desc: 'strong but fading', color: T.neutral, bg: T.neutralBg },
+                                    { label: 'Lagging', desc: 'weak & falling', color: T.weak, bg: T.weakBg },
+                                ].map(item => (
+                                    <div key={item.label} className="flex items-start gap-2 text-[11.5px]" style={{ fontFamily: FONT_SERIF }}>
+                                        <span className="w-[11px] h-[11px] rounded-[3px] shrink-0 mt-[2px]" style={{ background: item.bg, border: `1px solid ${item.color}` }} />
+                                        <b className="shrink-0">{item.label}</b>
+                                        <span className="whitespace-nowrap" style={{ color: T.muted }}>— {item.desc}</span>
                                     </div>
-                                );
-                            })}
+                                ))}
+                            </div>
+
+                            <div className="mt-1">
+                                <h4 className="text-xs font-bold mb-1.5" style={{ color: T.ink, fontFamily: FONT_SERIF }}>Rankings</h4>
+                                <div>
+                                    {rankedEntries.slice(0, PANEL_RANK_LIMIT).map((e, index) => {
+                                        const quad = getQuad(e.rs, e.mom);
+                                        const isActive = activeName === e.name;
+                                        return (
+                                            <div
+                                                key={e.name}
+                                                className="flex items-center gap-1.5 text-[11.5px] py-1.5 cursor-pointer dashed-divider"
+                                                style={{ background: isActive ? PAPER.paper : 'transparent' }}
+                                                onMouseEnter={() => setHoverName(e.name)}
+                                                onMouseLeave={() => setHoverName(null)}
+                                                onClick={() => togglePin(e.name)}
+                                            >
+                                                <span className="w-4 text-[9.5px]" style={{ color: T.muted, fontFamily: FONT_MONO }}>{index + 1}</span>
+                                                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: quadColor(quad) }} />
+                                                <span className="truncate flex-1 font-semibold" style={{ color: PAPER.ink, fontFamily: FONT_SERIF }}>{e.name}</span>
+                                                <b className="emboss">{e.rs}</b>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Detail card — interactive preview, deliberately OUTSIDE the export ref */}
+                        <div className="px-3 pb-3">
+                            {activeEntry && activeQuad ? (
+                                <div className="rounded-[3px] p-3 mt-1" style={{ border: `1px solid ${T.border}`, background: PAPER.paper }}>
+                                    <div className="flex items-start justify-between">
+                                        <div className="emboss text-sm">{activeEntry.name}</div>
+                                        {pinnedName === activeEntry.name && !hoverName && (
+                                            <button onClick={() => setPinnedName(null)} className="text-[10px]" style={{ color: T.muted }}>✕</button>
+                                        )}
+                                    </div>
+                                    <span
+                                        className="text-[10px] font-extrabold rounded-sm px-1.5 py-0.5 inline-block mt-1 mb-1.5"
+                                        style={{ background: quadBg(activeQuad), color: quadColor(activeQuad), fontFamily: FONT_SERIF }}
+                                    >
+                                        {activeQuad.toUpperCase()}
+                                    </span>
+                                    <div className="text-[11px] leading-relaxed" style={{ color: PAPER.ink }}>
+                                        RS: <b>{activeEntry.rs}</b> · velocity: <b>{activeEntry.mom >= 0 ? '+' : ''}{activeEntry.mom}</b>/4W
+                                    </div>
+                                    <div className="text-[10.5px] mt-1" style={{ color: T.muted, fontFamily: FONT_MONO }}>
+                                        Journey ({TIME_LABELS[fromIdx]}→now): {activeEntry.path.map(p => p.rs).join(' → ')}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-center py-5 text-[11px] rounded-[3px] mt-1 italic" style={{ color: T.muted, border: `1px dashed ${T.border}` }}>
+                                    Hover or click a point
+                                </div>
+                            )}
                         </div>
                     </div>
-
-                    {/* Detail card — persists while pinned, previews on hover */}
-                    {activeEntry && activeQuad ? (
-                        <div className="rounded-[3px] p-3 mt-3" style={{ border: `1px solid ${T.border}`, background: PAPER.paper }}>
-                            <div className="flex items-start justify-between">
-                                <div className="emboss text-sm">{activeEntry.name}</div>
-                                {pinnedName === activeEntry.name && !hoverName && (
-                                    <button onClick={() => setPinnedName(null)} className="text-[10px]" style={{ color: T.muted }}>✕</button>
-                                )}
-                            </div>
-                            <span
-                                className="text-[10px] font-extrabold rounded-sm px-1.5 py-0.5 inline-block mt-1 mb-1.5"
-                                style={{ background: quadBg(activeQuad), color: quadColor(activeQuad), fontFamily: FONT_SERIF }}
-                            >
-                                {activeQuad.toUpperCase()}
-                            </span>
-                            <div className="text-[11px] leading-relaxed" style={{ color: PAPER.ink }}>
-                                RS: <b>{activeEntry.rs}</b> · velocity: <b>{activeEntry.mom >= 0 ? '+' : ''}{activeEntry.mom}</b>/4W
-                            </div>
-                            <div className="text-[10.5px] mt-1" style={{ color: T.muted, fontFamily: FONT_MONO }}>
-                                Journey ({TIME_LABELS[fromIdx]}→now): {activeEntry.path.map(p => p.rs).join(' → ')}
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="text-center py-5 text-[11px] rounded-[3px] mt-3 italic" style={{ color: T.muted, border: `1px dashed ${T.border}` }}>
-                            Hover or click a point
-                        </div>
-                    )}
                 </div>
             </div>
 
