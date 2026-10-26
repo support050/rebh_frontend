@@ -22,7 +22,8 @@ module.exports = {
         }
       },
       fontFamily: {
-        arabic: ['Noto Sans Arabic', 'sans-serif'],
+        sans: ['var(--font-inter)', 'var(--font-tajawal)', 'sans-serif'],
+        arabic: ['var(--font-noto-arabic)', 'var(--font-tajawal)', 'sans-serif'],
       }
     },
   },

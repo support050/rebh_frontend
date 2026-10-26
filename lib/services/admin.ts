@@ -318,6 +318,23 @@ export const SystemMapService = {
         );
         return response.data;
     },
+
+    /** Schedule tab — every job with cadence/role/storage/commands + live run signal. */
+    async getSchedule(): Promise<ScheduleResponse> {
+        const response = await apiClient.get<ScheduleResponse>(
+            '/api/admin/system-map/schedule',
+        );
+        return response.data;
+    },
+
+    /** Gap scanner — read-only freshness + missing-day findings. */
+    async scanIntegrity(windowDays = 90): Promise<IntegrityScan> {
+        const response = await apiClient.get<IntegrityScan>(
+            '/api/admin/system-map/integrity/scan',
+            { params: { window_days: windowDays } },
+        );
+        return response.data;
+    },
 }
 
 /** POST /jobs/{name}/run body. */
@@ -337,4 +354,73 @@ export interface JobStatusResponse {
   in_flight_this_process: boolean;
   started_this_process: string | null;
   last_run: MapLastRun | null;
+}
+
+// ── Schedule tab + gap scanner (GET /api/admin/system-map/schedule|/integrity/scan) ──
+
+/** One operator CLI command shown on a Schedule card. */
+export interface ScheduleCommand {
+  label: string;
+  cli: string;
+  kind: 'incremental' | 'full' | 'backfill';
+}
+
+export type ScheduleCadence = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'manual';
+export type ScheduleRole = 'ingestion' | 'computation';
+export type ScheduleStorage = 'cumulative' | 'snapshot';
+
+/** One job row of the Schedule tab. */
+export interface ScheduleJob {
+  job_name: string;
+  file: string;
+  cadence: ScheduleCadence;
+  role: ScheduleRole;
+  storage: ScheduleStorage;
+  commands: ScheduleCommand[];
+  writes: string[];
+  expected_schedule: string;
+  trigger: string;
+  tracked: boolean;
+  note: string;
+  systems: string[];
+  /** True only when job_runner has a callable — the sole gate for Run Now. */
+  runnable: boolean;
+  /** Set when the run must go through another endpoint (daily_market_update). */
+  delegated_to: string | null;
+  run_reason: string | null;
+  last_run: MapLastRun | null;
+}
+
+export interface ScheduleResponse {
+  jobs: ScheduleJob[];
+  cadences: ScheduleCadence[];
+  roles: ScheduleRole[];
+  storages: ScheduleStorage[];
+  ledger_missing: boolean;
+  generated_at: string | null;
+  registry_file: string;
+}
+
+/** One gap-scanner finding. */
+export interface IntegrityFinding {
+  table: string;
+  date_column: string;
+  cadence: string;
+  responsible_job: string;
+  responsible_file: string;
+  fix_commands: ScheduleCommand[];
+  latest: string | null;
+  lag_trading_days: number | null;
+  distinct_days: number | null;
+  missing_days: number | null;
+  status: 'ok' | 'late' | 'gap' | 'missing' | 'unknown';
+  message: string;
+}
+
+export interface IntegrityScan {
+  generated_at: string;
+  window_days: number;
+  findings: IntegrityFinding[];
+  gaps: number;
+  registry_file: string;
 }

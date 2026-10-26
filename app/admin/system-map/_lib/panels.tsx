@@ -26,9 +26,12 @@ import {
 } from './format';
 import { CopyButton, StatusPill } from './ui';
 
-/** Run Now polling: 5s apart, capped at 3 minutes so a tab cannot poll forever. */
+/** Run Now polling: 5s apart, capped at 15 minutes so a tab cannot poll forever.
+ *  engine_vintages alone needs ~6-7 min for the full 236-company universe —
+ *  the old 3-min cap gave up mid-run and showed "Still running" beside a
+ *  job that later reported OK (2026-10-13). */
 const RUN_POLL_MS = 5000;
-const RUN_POLL_TICKS = 36;
+const RUN_POLL_TICKS = 180;
 
 /* ════════════════════════════════════════════════════════════════════════════
    1 · System header — what this is, who built it, which pages read it

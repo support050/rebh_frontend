@@ -161,22 +161,10 @@ export interface VolumeGainer {
   prev_week_vol?: number;
 }
 
-export interface WeeklyMarketReport {
-  week_label: string;
-  index_performance: IndexPerformance;
-  trend_analysis: TrendAnalysis;
-  volume: Volume;
-  sector_analytics: SectorData[];
-  trend_breadth: TrendBreadth;
-  new_highs_lows: NewHighsLows;
-  stock_performance: StockPerformance;
-  top_market_cap: StockAnalytics[];
-  top_ranked: StockAnalytics[];
-  bottom_ranked: StockAnalytics[];
-  breakouts: Breakouts;
-  breakout_stocks: BreakoutStock[];
-  volume_gainers: VolumeGainer[];
-}
+// 2026-10-25: the WeeklyMarketReport interface was deleted together with the
+// weekly report itself (backend/scripts/generate_weekly_report.py, the
+// weekly_market_reports table and the Puppeteer PDF route). No page imported it.
+// The remaining types above are still used by the market-reports pages.
 
 // ──── CONSTANTS & COLORS ────────────────────────────────
 export const COLORS = {

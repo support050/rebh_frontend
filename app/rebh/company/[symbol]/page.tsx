@@ -455,7 +455,7 @@ export default function RebhCompanyOfficialPage() {
           predictabilityStars={company.predictability_stars}
         />
 
-        {/* 2.5 Capital Structure (Seeking Alpha Model) */}
+        {/* 2.5 Capital Structure (REBH engine, computed from filed statements) */}
         <CapitalStructureCard
           capitalStructure={company.capital_structure}
           currency={currency}

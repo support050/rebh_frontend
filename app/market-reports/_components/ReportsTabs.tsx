@@ -13,7 +13,6 @@ export default function ReportsTabs() {
     { name: 'Share Buybacks', href: '/market-reports/share-buybacks' },
     { name: 'SBL Positions', href: '/market-reports/sbl-positions' },
     { name: 'Historical Reports', href: '/market-reports/historical-reports' },
-    // { name: 'Weekly Market Update', href: '/market-reports/weekly-update' },
   ];
 
   return (

@@ -77,7 +77,14 @@ const textBadge = (cls: string) => (v: unknown): { label: string; cls: string } 
   return { label: String(v), cls };
 };
 
-// ── Column definitions ─────────────────────────────────────────────────────────
+// Column definitions
+// ──────────────────────────────────────────────────────────────────────────────
+// Financial-concept audit (2026-10-20): the two pattern groups used to be headed
+// "Buy Signals" / "Sell Signals". Every column under them is a measured price /
+// volume pattern (21-day MA position, undercut, follow-through…), so the groups
+// are named for what is detected — a technical pattern — never a buy or sell
+// instruction. Column keys and backend fields are untouched.
+// ──────────────────────────────────────────────────────────────────────────────
 const COLS: ColDef[] = [
   { key: "open", label: "Open", group: "Price", sortable: true, fmt: n, align: "right" },
   { key: "high", label: "High", group: "Price", sortable: true, fmt: n, align: "right" },
@@ -94,26 +101,29 @@ const COLS: ColDef[] = [
   { key: "sma_150", label: "SMA 150", group: "Moving Averages", sortable: true, fmt: (v) => n(v, 0), align: "right" },
   { key: "sma_200", label: "SMA 200", group: "Moving Averages", sortable: true, fmt: (v) => n(v, 0), align: "right" },
   { key: "market_pulse", label: "Market Pulse", group: "Status", sortable: false },
-  { key: "buy_switch", label: "Buy Switch", group: "Status", sortable: false, badge: textBadge("badge-bull-sm") },
+  // Name kept from the source market-pulse model's "Buy Switch" column
+  // (=IF(FTD,"ON","")); the parenthetical says what actually gates it, so the
+  // header reads as a model flag rather than an instruction.
+  { key: "buy_switch", label: "Buy Switch (FTD gate)", group: "Status", sortable: false, badge: textBadge("badge-bull-sm") },
   { key: "rd", label: "RD", group: "Status", sortable: false, badge: textBadge("badge-purple-sm") },
   { key: "rd_count", label: "RD-Count", group: "Status", sortable: true, fmt: (v) => (v == null ? "—" : String(v)), align: "right" },
   { key: "ftd", label: "FTD", group: "FTD", sortable: false, badge: textBadge("badge-blue-sm") },
   { key: "ftd_low", label: "FTD Low", group: "FTD", sortable: true, fmt: n, align: "right" },
   { key: "rd_low", label: "RD Low", group: "FTD", sortable: true, fmt: n, align: "right" },
-  { key: "ftd_undercut", label: "FTD Undercut", group: "Sell Signals", sortable: false, badge: textBadge("badge-sell-sm") },
-  { key: "failed_rally_attempt", label: "Failed Rally Attempt", group: "Sell Signals", sortable: false, badge: textBadge("badge-sell-sm") },
-  { key: "day_undercut_21", label: "21 Day Undercut", group: "Sell Signals", sortable: false, badge: textBadge("badge-sell-sm") },
-  { key: "overdue_break_below_21ma", label: "Overdue Break Below 21-Day MA", group: "Sell Signals", sortable: false, badge: textBadge("badge-sell-sm") },
-  { key: "trending_below_21ma", label: "Trending Below 21-Day MA", group: "Sell Signals", sortable: false, badge: textBadge("badge-sell-sm") },
-  { key: "living_below_21ma", label: "Living Below 21-Day MA", group: "Sell Signals", sortable: false, badge: textBadge("badge-sell-sm") },
-  { key: "break_below_50ma", label: "Break Below 50-Day MA", group: "Sell Signals", sortable: false, badge: textBadge("badge-sell-sm") },
-  { key: "s11", label: "S11", group: "Sell Signals", sortable: false, badge: textBadge("badge-sell-sm") },
-  { key: "ftd_1", label: "FTD", group: "Buy Signals", sortable: false, badge: textBadge("badge-buy-sm") },
-  { key: "additional_ftd", label: "Additional FTD", group: "Buy Signals", sortable: false, badge: textBadge("badge-buy-sm") },
-  { key: "low_above_21ma", label: "Low Above 21-day MA", group: "Buy Signals", sortable: false, badge: textBadge("badge-buy-sm") },
-  { key: "trending_above_21ma", label: "Trending Above 21-Day MA", group: "Buy Signals", sortable: false, badge: textBadge("badge-buy-sm") },
-  { key: "living_above_21ma", label: "Living Above 21-Day MA", group: "Buy Signals", sortable: false, badge: textBadge("badge-buy-sm") },
-  { key: "low_above_50ma", label: "Low Above 50-day MA", group: "Buy Signals", sortable: false, badge: textBadge("badge-buy-sm") },
+  { key: "ftd_undercut", label: "FTD Undercut", group: "Weakness Patterns", sortable: false, badge: textBadge("badge-sell-sm") },
+  { key: "failed_rally_attempt", label: "Failed Rally Attempt", group: "Weakness Patterns", sortable: false, badge: textBadge("badge-sell-sm") },
+  { key: "day_undercut_21", label: "21 Day Undercut", group: "Weakness Patterns", sortable: false, badge: textBadge("badge-sell-sm") },
+  { key: "overdue_break_below_21ma", label: "Overdue Break Below 21-Day MA", group: "Weakness Patterns", sortable: false, badge: textBadge("badge-sell-sm") },
+  { key: "trending_below_21ma", label: "Trending Below 21-Day MA", group: "Weakness Patterns", sortable: false, badge: textBadge("badge-sell-sm") },
+  { key: "living_below_21ma", label: "Living Below 21-Day MA", group: "Weakness Patterns", sortable: false, badge: textBadge("badge-sell-sm") },
+  { key: "break_below_50ma", label: "Break Below 50-Day MA", group: "Weakness Patterns", sortable: false, badge: textBadge("badge-sell-sm") },
+  { key: "s11", label: "S11", group: "Weakness Patterns", sortable: false, badge: textBadge("badge-sell-sm") },
+  { key: "ftd_1", label: "FTD", group: "Strength Patterns", sortable: false, badge: textBadge("badge-buy-sm") },
+  { key: "additional_ftd", label: "Additional FTD", group: "Strength Patterns", sortable: false, badge: textBadge("badge-buy-sm") },
+  { key: "low_above_21ma", label: "Low Above 21-day MA", group: "Strength Patterns", sortable: false, badge: textBadge("badge-buy-sm") },
+  { key: "trending_above_21ma", label: "Trending Above 21-Day MA", group: "Strength Patterns", sortable: false, badge: textBadge("badge-buy-sm") },
+  { key: "living_above_21ma", label: "Living Above 21-Day MA", group: "Strength Patterns", sortable: false, badge: textBadge("badge-buy-sm") },
+  { key: "low_above_50ma", label: "Low Above 50-day MA", group: "Strength Patterns", sortable: false, badge: textBadge("badge-buy-sm") },
   { key: "dd_sd", label: "DD/SD", group: "Distribution", sortable: false, badge: outlookBadge },
   { key: "distribution_days", label: "Distribution days", group: "Distribution", sortable: true, fmt: (v) => n(v, 0), align: "right" },
   { key: "cluster", label: "Cluster", group: "Distribution", sortable: true, fmt: (v) => n(v, 0), align: "right" },
@@ -139,7 +149,7 @@ const COLS: ColDef[] = [
 const GROUP_COLORS: Record<string, string> = {
   Price: "#1B3F6E", Volume: "#1B3F6E", Change: "#1B3F6E",
   "Moving Averages": "#214F3A", Status: "#4A2C6A",
-  FTD: "#1B3F6E", "Sell Signals": "#6B1E1E", "Buy Signals": "#1A4D2E",
+  FTD: "#1B3F6E", "Weakness Patterns": "#6B1E1E", "Strength Patterns": "#1A4D2E",
   Distribution: "#4A3A0D", Time: "#2C3E50",
   Volatility: "#1B3F6E", Velocity: "#214F3A",
 };

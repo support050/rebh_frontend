@@ -1,15 +1,9 @@
 /** @type {import('next').NextConfig} */
 
-const isDev = process.env.NODE_ENV !== 'production';
-
-// Next.js dev server requires 'unsafe-eval' for HMR/source-maps.
-// In production this is stripped to harden XSS protection.
-const scriptSrc = isDev
-  ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com"
-  : "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com";
-
-const cspValue = `default-src 'self'; ${scriptSrc}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; font-src 'self' data: https://fonts.gstatic.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`;
-
+// CSP lives ONLY in middleware.ts (single authoritative source). The Next.js
+// middleware runs after these headers and overwrites any CSP set here, so having
+// it in two places previously let the stricter middleware copy win and silently
+// block Google Fonts. Only the non-CSP security headers remain below.
 const nextConfig = {
   trailingSlash: true,
   poweredByHeader: false,
@@ -50,10 +44,6 @@ const nextConfig = {
       {
         source: "/(.*)",
         headers: [
-          {
-            key: "Content-Security-Policy",
-            value: cspValue,
-          },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },

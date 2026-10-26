@@ -76,15 +76,20 @@ function withSecurityHeaders(response: NextResponse): NextResponse {
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-  // CSP kept compatible with Next.js (inline scripts/styles may be required)
+  // CSP kept compatible with Next.js (inline scripts/styles may be required).
+  // This is the SINGLE authoritative CSP: middleware sets it after next.config,
+  // so it must carry every allowance the app needs or the stricter copy here wins
+  // and silently blocks a resource. Google Fonts (Inter / Noto Sans Arabic /
+  // Tajawal) are pulled from styles.googleapis.com + font files on gstatic.com.
   response.headers.set(
     'Content-Security-Policy',
     [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-      "style-src 'self' 'unsafe-inline'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: blob: https:",
-      "font-src 'self' data:",
+      "font-src 'self' data: https://fonts.gstatic.com",
       "connect-src 'self' https: wss:",
       "frame-ancestors 'none'",
       "base-uri 'self'",

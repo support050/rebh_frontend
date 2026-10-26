@@ -300,6 +300,31 @@ export default function YRIEarningsOutlookPage() {
               </button>
             </div>
           </div>
+
+          {/* Source disclosure (financial-concept audit, 2026-10-20): these figures are
+              NOT computed by the REBH engine and NOT Saudi Exchange data. Labels such as
+              "Yardeni Research" and "Analysts' Consensus" belong to the US-market
+              publication these static figures/tables were taken from, and rows flagged
+              "e" are that publication's forward estimates, not reported results. */}
+          <div className="mt-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-900">
+            <p className="font-bold">Third-party US-market research — reproduced, not computed here.</p>
+            <p className="mt-1">
+              Every figure on this page (and its table) comes from a published U.S. equity
+              earnings-outlook report covering the <strong>S&amp;P 500</strong>; the images and JSON
+              under <code>/yri-earnings/</code> are served as received. Column labels
+              &ldquo;Yardeni Research&rdquo; and &ldquo;Analysts&apos; Consensus&rdquo; are that
+              source&apos;s own terms for its forward estimates and the consensus it cites. Rows
+              marked <span className="font-mono">a</span> are actuals; rows marked
+              <span className="font-mono"> e</span> are estimates belonging to the source, not
+              reported results. Nothing here is Tadawul / Saudi Exchange data, nothing is produced by
+              the REBH engine, and no buy/sell/hold recommendation is implied.
+            </p>
+            <p dir="rtl" className="mt-1">
+              هذه الرسوم منشور خارجي عن سوق الأسهم الأمريكية (S&amp;P 500) ويُعرض كما ورد؛ وهو ليس
+              بيانات «تداول» ولا من حسابات محرك رابح، والصفوف المعلَمة (e) تقديرية لدى المصدر وليست
+              نتائج معلنة، ولا تُعدّ هذه الصفحة توصية بالشراء أو البيع.
+            </p>
+          </div>
         </div>
       </div>
 

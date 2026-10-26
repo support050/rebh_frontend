@@ -51,7 +51,6 @@ const menuItems: SidebarItem[] = [
       { en: 'Share Buybacks', href: '/market-reports/share-buybacks' },
       { en: 'SBL Positions', href: '/market-reports/sbl-positions' },
       { en: 'Historical Reports', href: '/market-reports/historical-reports' },
-      // { en: 'Weekly Market Update', href: '/market-reports/weekly-update' },
     ],
   },
   {

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { triggerScraperAction } from './actions';
-import { PipelineService, SystemMapService, PipelineStatus, PipelineMapEntry } from '@/lib/services/admin';
+import { PipelineService, SystemMapService, PipelineStatus, PipelineMapEntry, ScheduleJob, ScheduleCommand, IntegrityScan, IntegrityFinding } from '@/lib/services/admin';
 
 type Status = 'idle' | 'running' | 'success' | 'error';
 
@@ -68,9 +68,164 @@ const PIPELINES = [
 // render fallback; the authoritative version is derived from the backend
 // registry (GET /api/admin/system-map/pipelines) inside AdminDashboard below.
 
+// ── Schedule tab: cadence themes + the two reusable panels ──────────────────
+type CadenceKey = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'manual';
+const CADENCE_ORDER: CadenceKey[] = ['daily', 'weekly', 'monthly', 'quarterly', 'manual'];
+const CADENCE_THEME: Record<CadenceKey, { label: string; icon: string; desc: string; headerBg: string; headerBorder: string; headerText: string; tagCls: string }> = {
+    daily: { label: 'Daily', icon: '📅', desc: 'Run every business day', headerBg: 'bg-emerald-50', headerBorder: 'border-emerald-100', headerText: 'text-emerald-700', tagCls: 'bg-emerald-100 text-emerald-700' },
+    weekly: { label: 'Weekly', icon: '📆', desc: 'Run on a specific day each week', headerBg: 'bg-amber-50', headerBorder: 'border-amber-100', headerText: 'text-amber-700', tagCls: 'bg-amber-100 text-amber-700' },
+    monthly: { label: 'Monthly', icon: '🗓️', desc: 'Run once a month on release day', headerBg: 'bg-blue-50', headerBorder: 'border-blue-100', headerText: 'text-blue-700', tagCls: 'bg-blue-100 text-blue-700' },
+    quarterly: { label: 'Quarterly', icon: '📉', desc: 'Run once a quarter (GDP / LFS)', headerBg: 'bg-indigo-50', headerBorder: 'border-indigo-100', headerText: 'text-indigo-700', tagCls: 'bg-indigo-100 text-indigo-700' },
+    manual: { label: 'On-demand / Backfill', icon: '🔧', desc: 'Run by hand when a gap appears', headerBg: 'bg-slate-100', headerBorder: 'border-slate-200', headerText: 'text-slate-700', tagCls: 'bg-slate-200 text-slate-700' },
+};
+const ROLE_LABEL: Record<string, string> = { ingestion: 'Ingestion · pulls from an external source', computation: 'Computation · derives from local tables' };
+
+function StorageBadge({ storage }: { storage: string }) {
+    const cumulative = storage === 'cumulative';
+    return (
+        <span
+            title={cumulative ? 'Appends new periods and keeps full history' : 'Overwrites — keeps only the latest snapshot'}
+            className={`text-[9px] px-1.5 py-0.5 rounded-md font-semibold uppercase tracking-wide shrink-0 ${cumulative ? 'bg-teal-100 text-teal-700' : 'bg-slate-200 text-slate-500'}`}
+        >
+            {cumulative ? 'Cumulative · append' : 'Snapshot · overwrite'}
+        </span>
+    );
+}
+
+function LastRunChip({ job }: { job: ScheduleJob }) {
+    const lr = job.last_run;
+    if (!lr) return <span className="text-[10px] text-slate-400">never recorded</span>;
+    const cls = lr.status === 'failed' ? 'bg-red-50 text-red-600 border-red-200'
+        : lr.status === 'running' ? 'bg-amber-50 text-amber-600 border-amber-200'
+            : 'bg-emerald-50 text-emerald-600 border-emerald-200';
+    const label = lr.status === 'failed' ? '❌ failed' : lr.status === 'running' ? '⏳ running' : '✅ ok';
+    return (
+        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${cls}`}>
+            {label}{lr.age_hours != null ? ` · ${Math.round(lr.age_hours)}h ago` : ''}{lr.rows_written != null ? ` · ${lr.rows_written} rows` : ''}
+        </span>
+    );
+}
+
+function CommandRow({ cmd, jobKey, copied, onCopy }: { cmd: ScheduleCommand; jobKey: string; copied: string | null; onCopy: (k: string, cli: string) => void }) {
+    const id = `${jobKey}::${cmd.kind}::${cmd.label}`;
+    return (
+        <div className="flex items-start gap-2">
+            <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">{cmd.label}</p>
+                <code className="block text-[10px] font-mono text-slate-500 bg-slate-100 rounded px-1.5 py-1 truncate" title={cmd.cli}>{cmd.cli}</code>
+            </div>
+            <button
+                onClick={() => onCopy(id, cmd.cli)}
+                className={`shrink-0 text-[10px] font-semibold px-2 py-1 rounded-md border transition ${copied === id ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-400'}`}
+            >
+                {copied === id ? '✓ Copied' : '⧉ Copy'}
+            </button>
+        </div>
+    );
+}
+
+function ScriptCard({ job, runState, copied, onCopy, onRun }: { job: ScheduleJob; runState: Status; copied: string | null; onCopy: (k: string, cli: string) => void; onRun: (job: ScheduleJob) => void }) {
+    return (
+        <div className="bg-slate-50 border border-slate-100 hover:border-slate-300 hover:shadow-md rounded-xl p-4 flex flex-col gap-2 transition-all duration-200">
+            <div className="flex items-start gap-2">
+                <h3 className="font-semibold text-sm text-slate-800 leading-tight">{job.job_name}</h3>
+                <span className="ml-auto"><StorageBadge storage={job.storage} /></span>
+            </div>
+            <p className="text-[11px] text-slate-400">
+                <code className="font-mono text-slate-400">{job.file.split('/').slice(-1)[0]}</code>
+                {' · '}
+                <span className="text-slate-400">{job.expected_schedule}</span>
+            </p>
+            {job.writes.length > 0 && (
+                <p className="text-[10px] text-slate-400">→ writes: <span className="font-mono">{job.writes.join(', ')}</span></p>
+            )}
+            {job.commands.length > 0 && (
+                <div className="space-y-1.5 pt-1 border-t border-slate-100">
+                    {job.commands.map((c, i) => (
+                        <CommandRow key={i} cmd={c} jobKey={job.job_name} copied={copied} onCopy={onCopy} />
+                    ))}
+                </div>
+            )}
+            <div className="mt-auto flex items-center justify-between gap-2 pt-1">
+                <LastRunChip job={job} />
+                {job.delegated_to ? (
+                    <span className="text-[10px] text-slate-400 italic">use “Daily Market Update” tab</span>
+                ) : job.runnable ? (
+                    <button
+                        onClick={() => onRun(job)}
+                        disabled={runState === 'running'}
+                        className="text-[11px] font-semibold px-3 py-1 rounded-lg bg-slate-900 text-white hover:bg-slate-700 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                        {runState === 'running' ? '⏳ Running…' : runState === 'success' ? '✅ Done' : runState === 'error' ? '❌ Failed' : '▶ Run Now'}
+                    </button>
+                ) : (
+                    <span className="text-[10px] text-slate-400" title="No server-side callable — copy the command and run it in a terminal">⌨ terminal only</span>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function FindingCard({ f, copied, onCopy }: { f: IntegrityFinding; copied: string | null; onCopy: (k: string, cli: string) => void }) {
+    const tone = f.status === 'ok'
+        ? { box: 'border-emerald-200 bg-emerald-50', tag: 'bg-emerald-100 text-emerald-700', icon: '✅' }
+        : f.status === 'gap'
+            ? { box: 'border-red-300 bg-red-50', tag: 'bg-red-100 text-red-700', icon: '🕳️' }
+            : f.status === 'missing'
+                ? { box: 'border-red-300 bg-red-50', tag: 'bg-red-100 text-red-700', icon: '⛔' }
+                : f.status === 'late'
+                    ? { box: 'border-amber-300 bg-amber-50', tag: 'bg-amber-100 text-amber-700', icon: '⏳' }
+                    : { box: 'border-slate-200 bg-slate-50', tag: 'bg-slate-200 text-slate-600', icon: '❔' };
+    // A finding's fix job is treated as terminal-only here unless the registry
+    // marked it runnable — the scan endpoint does not carry that flag, so we
+    // surface the copyable command and let Run Now live on the Schedule cards.
+    return (
+        <div className={`rounded-xl border ${tone.box} p-4 flex flex-col gap-2`}>
+            <div className="flex items-center gap-2">
+                <span className="text-lg">{tone.icon}</span>
+                <h4 className="font-semibold text-sm text-slate-800">{f.table}<span className="text-slate-400 font-normal"> · {f.date_column}</span></h4>
+                <span className={`ml-auto text-[9px] px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wide ${tone.tag}`}>{f.status}</span>
+            </div>
+            <p className="text-[11px] text-slate-600">{f.message}</p>
+            <p className="text-[10px] text-slate-500">
+                latest <span className="font-mono">{f.latest ?? '—'}</span>
+                {f.lag_trading_days != null && <> · lag <span className="font-mono">{f.lag_trading_days}d</span></>}
+                {f.missing_days != null && <> · missing <span className="font-mono">≈{f.missing_days}</span></>}
+            </p>
+            {f.status !== 'ok' && (
+                <>
+                    <p className="text-[10px] text-slate-500">cause: <span className="font-medium">{f.responsible_job}</span> not run{f.responsible_file ? ` (${f.responsible_file.split('/').slice(-1)[0]})` : ''}</p>
+                    {f.fix_commands.length > 0 ? (
+                        <div className="space-y-1.5">
+                            {f.fix_commands.map((c, i) => (
+                                <CommandRow key={i} cmd={c} jobKey={`fix:${f.table}`} copied={copied} onCopy={onCopy} />
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-[10px] text-slate-400 italic">no CLI registered — use the matching card’s Run Now in the Schedule list</p>
+                    )}
+                </>
+            )}
+        </div>
+    );
+}
+
 export default function AdminDashboard() {
     const [statuses, setStatuses] = useState<Record<string, Status>>({});
     const [tab, setTab] = useState<'schedule' | 'pipeline' | 'market'>('schedule');
+
+    // ── Schedule tab — registry-driven (GET /api/admin/system-map/schedule) ──
+    // `sched` is the single source of truth for the runbook; the hardcoded
+    // SCHEDULE array below only renders when the registry call fails offline.
+    const [sched, setSched] = useState<ScheduleJob[] | null>(null);
+    const [schedErr, setSchedErr] = useState<string | null>(null);
+    const [schedLoaded, setSchedLoaded] = useState(false);
+    const [runStates, setRunStates] = useState<Record<string, Status>>({});
+    const [confirmJob, setConfirmJob] = useState<ScheduleJob | null>(null);
+    const [copied, setCopied] = useState<string | null>(null);
+    const [scan, setScan] = useState<IntegrityScan | null>(null);
+    const [scanBusy, setScanBusy] = useState(false);
+    const [scanErr, setScanErr] = useState<string | null>(null);
 
     // ── Pipeline map — registry-derived, hardcoded PIPELINES as fallback ──
     const [pipelineMap, setPipelineMap] = useState<PipelineMapEntry[]>(PIPELINES);
@@ -85,6 +240,20 @@ export default function AdminDashboard() {
             .catch(() => { /* keep fallback */ });
         return () => { cancelled = true; };
     }, [tab]);
+
+    // ── Load the registry-driven schedule the first time the tab is opened ──
+    useEffect(() => {
+        if (tab !== 'schedule' || schedLoaded) return;
+        let cancelled = false;
+        SystemMapService.getSchedule()
+            .then(res => { if (!cancelled) { setSched(res.jobs); setSchedLoaded(true); } })
+            .catch(err => {
+                if (cancelled) return;
+                setSchedErr(err?.response?.data?.detail || err?.message || 'Could not reach the registry.');
+                setSchedLoaded(true);
+            });
+        return () => { cancelled = true; };
+    }, [tab, schedLoaded]);
 
     // ── Daily Market Update (server-side trigger) ──
     const [pipe, setPipe] = useState<PipelineStatus | null>(null);
@@ -165,6 +334,85 @@ export default function AdminDashboard() {
                     : 'bg-slate-300';
         return <span className={`inline-block w-2 h-2 rounded-full ${cls} shrink-0 mt-0.5`} />;
     };
+
+    // ── Schedule tab handlers (registry-driven runbook) ──
+    const loadSchedule = () => {
+        SystemMapService.getSchedule()
+            .then(res => setSched(res.jobs))
+            .catch(() => { /* keep the last good list on a refresh failure */ });
+    };
+
+    const copyCmd = async (key: string, cli: string) => {
+        try {
+            await navigator.clipboard.writeText(cli);
+            setCopied(key);
+            setTimeout(() => setCopied(c => (c === key ? null : c)), 1600);
+        } catch {
+            alert('Copy failed — select the command text manually.');
+        }
+    };
+
+    // Poll the same job_runs row the worker thread writes; stop once it leaves
+    // 'running', then reload the schedule so the Last-run chip refreshes.
+    const pollJob = async (name: string) => {
+        const deadline = Date.now() + 180000;      // 3-min ceiling
+        while (Date.now() < deadline) {
+            await new Promise(r => setTimeout(r, 3000));
+            try {
+                const st = await SystemMapService.jobStatus(name);
+                const lr = st.last_run;
+                if (lr && lr.status !== 'running') {
+                    setRunStates(s => ({ ...s, [name]: lr.status === 'failed' ? 'error' : 'success' }));
+                    loadSchedule();
+                    return;
+                }
+            } catch { /* transient — keep polling until the deadline */ }
+        }
+        setRunStates(s => (s[name] === 'running' ? { ...s, [name]: 'idle' } : s));
+        loadSchedule();
+    };
+
+    const requestRun = (job: ScheduleJob) => setConfirmJob(job);
+
+    const confirmRun = async () => {
+        const job = confirmJob;
+        if (!job) return;
+        setConfirmJob(null);
+        setRunStates(s => ({ ...s, [job.job_name]: 'running' }));
+        try {
+            await SystemMapService.runJob(job.job_name);
+            pollJob(job.job_name);
+        } catch (e: any) {
+            setRunStates(s => ({ ...s, [job.job_name]: 'error' }));
+            const detail = e?.response?.data?.detail;
+            alert(`\u274c ${typeof detail === 'string' ? detail : detail?.message || e?.message || 'Run failed'}`);
+        }
+    };
+
+    const runScan = async () => {
+        setScanBusy(true);
+        setScanErr(null);
+        try {
+            setScan(await SystemMapService.scanIntegrity(90));
+        } catch (e: any) {
+            setScanErr(e?.response?.data?.detail || e?.message || 'Scan failed');
+        } finally {
+            setScanBusy(false);
+        }
+    };
+
+    // Cadence-first grouping, split ingestion vs computation inside each band.
+    const grouped = CADENCE_ORDER
+        .map(cad => {
+            const jobs = (sched ?? []).filter(j => j.cadence === cad);
+            return {
+                cad: cad as CadenceKey,
+                ingestion: jobs.filter(j => j.role === 'ingestion'),
+                computation: jobs.filter(j => j.role === 'computation'),
+                count: jobs.length,
+            };
+        })
+        .filter(g => g.count > 0);
 
     const sections = [
         {
@@ -279,6 +527,100 @@ export default function AdminDashboard() {
                     {/* ── Schedule Tab ── */}
                     {tab === 'schedule' && (
                         <div className="space-y-6">
+
+                            {/* Integrity & gap scanner (read-only) */}
+                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
+                                    <span className="text-xl">🩺</span>
+                                    <div>
+                                        <h2 className="text-base font-bold text-slate-800">Check Data Integrity &amp; Scan Gaps</h2>
+                                        <p className="text-xs text-slate-400">Read-only freshness scan over the vital tables — names the missing job and its exact fix command</p>
+                                    </div>
+                                    <button
+                                        onClick={runScan}
+                                        disabled={scanBusy}
+                                        className="ml-auto px-4 py-2 bg-slate-900 hover:bg-slate-700 text-white rounded-lg text-sm font-semibold transition shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        {scanBusy ? '⏳ Scanning…' : '🔎 Scan now'}
+                                    </button>
+                                </div>
+                                <div className="p-5">
+                                    {scanErr && <p className="text-xs text-red-600 mb-3">❌ {scanErr}</p>}
+                                    {!scan && !scanErr && !scanBusy && (
+                                        <p className="text-xs text-slate-400">Press <b>Scan now</b> to check the vital tables (prices · industry groups · macro · eurodollar · treasury) for missing days.</p>
+                                    )}
+                                    {scan && (
+                                        <div className="space-y-3">
+                                            <p className="text-[11px] text-slate-400">
+                                                {scan.gaps === 0
+                                                    ? <span className="text-emerald-600 font-semibold">✅ No gaps — every vital table looks fresh.</span>
+                                                    : <span className="text-amber-600 font-semibold">⚠ {scan.gaps} table(s) need attention.</span>}
+                                                {' '}· window {scan.window_days}d · {new Date(scan.generated_at).toLocaleString()}
+                                            </p>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                {scan.findings.map(f => (
+                                                    <FindingCard key={f.table} f={f} copied={copied} onCopy={copyCmd} />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Registry-driven runbook (source of truth) */}
+                            {sched ? (
+                                <div className="space-y-6">
+                                    {grouped.map(g => {
+                                        const theme = CADENCE_THEME[g.cad];
+                                        return (
+                                            <div key={g.cad} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                                <div className={`px-6 py-4 border-b ${theme.headerBorder} ${theme.headerBg} flex items-center gap-3`}>
+                                                    <span className="text-xl">{theme.icon}</span>
+                                                    <div>
+                                                        <h2 className={`text-base font-bold ${theme.headerText}`}>{theme.label}</h2>
+                                                        <p className="text-xs text-slate-400">{theme.desc}</p>
+                                                    </div>
+                                                    <span className={`ml-auto text-xs font-semibold px-2.5 py-1 rounded-full ${theme.tagCls}`}>
+                                                        {g.count} script{g.count > 1 ? 's' : ''}
+                                                    </span>
+                                                </div>
+                                                <div className="p-5 space-y-5">
+                                                    {g.ingestion.length > 0 && (
+                                                        <div>
+                                                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">⬇ {ROLE_LABEL.ingestion}</p>
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                                                                {g.ingestion.map(job => (
+                                                                    <ScriptCard key={job.job_name} job={job} runState={runStates[job.job_name] || 'idle'} copied={copied} onCopy={copyCmd} onRun={requestRun} />
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {g.computation.length > 0 && (
+                                                        <div>
+                                                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">🧮 {ROLE_LABEL.computation}</p>
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                                                                {g.computation.map(job => (
+                                                                    <ScriptCard key={job.job_name} job={job} runState={runStates[job.job_name] || 'idle'} copied={copied} onCopy={copyCmd} onRun={requestRun} />
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : schedErr ? (
+                                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-amber-700">
+                                    ⚠️ {schedErr} — showing the offline schedule list below.
+                                </div>
+                            ) : (
+                                <p className="text-xs text-slate-400">Loading schedule…</p>
+                            )}
+
+                            {/* Offline fallback — the historical hand-maintained list */}
+                            {sched === null && schedErr && (
+                            <div className="space-y-6">
                             {sections.map(sec => (
                                 <div key={sec.key} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                                     {/* Section header */}
@@ -352,6 +694,8 @@ export default function AdminDashboard() {
                                     </div>
                                 </div>
                             ))}
+                            </div>
+                            )}
                         </div>
                     )}
 
@@ -621,6 +965,49 @@ export default function AdminDashboard() {
                         </ul>
                     </div>
                 </div>
+
+                {/* ── Run Now confirmation modal ── */}
+                {confirmJob && (
+                    <div
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-4"
+                        onClick={() => setConfirmJob(null)}
+                    >
+                        <div
+                            className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full p-6"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div className="flex items-center gap-2 mb-3">
+                                <span className="text-xl">▶</span>
+                                <h3 className="text-base font-bold text-slate-800">Run “{confirmJob.job_name}”?</h3>
+                            </div>
+                            <p className="text-xs text-slate-500 mb-1">
+                                <code className="font-mono">{confirmJob.file.split('/').slice(-1)[0]}</code>
+                                {' · '}<span className="capitalize">{confirmJob.cadence}</span> cadence ·
+                                {' '}{confirmJob.storage === 'cumulative' ? 'appends history' : 'overwrites snapshot'}
+                            </p>
+                            {confirmJob.writes.length > 0 && (
+                                <p className="text-[11px] text-slate-400 mb-3">→ writes: <span className="font-mono">{confirmJob.writes.join(', ')}</span></p>
+                            )}
+                            <p className="text-[11px] text-slate-400 mb-4">
+                                This starts the job on the server. It logs to <code className="font-mono">job_runs</code> and the card will show its live status.
+                            </p>
+                            <div className="flex justify-end gap-2">
+                                <button
+                                    onClick={() => setConfirmJob(null)}
+                                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-semibold transition"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={confirmRun}
+                                    className="px-4 py-2 bg-slate-900 hover:bg-slate-700 text-white rounded-lg text-sm font-semibold transition shadow-sm"
+                                >
+                                    ▶ Confirm & Run
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </ProtectedRoute>
     );

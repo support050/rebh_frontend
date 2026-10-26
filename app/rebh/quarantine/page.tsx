@@ -45,6 +45,7 @@ type QuarantineReasonKind =
     | "no-filings"
     | "empty-statement"
     | "stale"
+    | "scale"
     | "corruption"
     | "other";
 
@@ -118,6 +119,13 @@ const REASON_META: Record<
         border: "#D1D5DB",
         chip: "Stale Data",
     },
+    scale: {
+        icon: AlertTriangle,
+        color: "#EA580C",
+        bg: "#FFF7ED",
+        border: "#FED7AA",
+        chip: "Units / Scale 🔌",
+    },
     corruption: {
         icon: ShieldAlert,
         color: "#DC2626",
@@ -141,6 +149,7 @@ const FILTERS: { key: QuarantineReasonKind | "all"; label: string }[] = [
     { key: "no-filings", label: "No Filings" },
     { key: "empty-statement", label: "Empty Income Statement" },
     { key: "stale", label: "Stale Data" },
+    { key: "scale", label: "Units / Scale" },
     { key: "corruption", label: "Data Corruption" },
     { key: "other", label: "Alerts & Notes" },
 ];
@@ -153,7 +162,14 @@ export default function QuarantinePage() {
     const [universe, setUniverse] = useState<CompanyUniverseItem[] | null>(
         null
     );
-    const [loading, setLoading] = useState(true);
+    const [pending, setPending] = useState(true);
+    const [mounted, setMounted] = useState(false);
+    // Mounted-safe display flag. The server never runs effects, so it renders the
+    // loading state; the client's first (pre-mount) render must resolve to the
+    // SAME value or hydration sees a divergent `disabled` on the Refresh button
+    // (the 2026-10-13 /rebh/quarantine mismatch). After mount, real fetch status
+    // (pending) drives it.
+    const loading = !mounted || pending;
     const [error, setError] = useState<string | null>(null);
     const [query, setQuery] = useState("");
     const [activeFilter, setActiveFilter] = useState<
@@ -173,7 +189,7 @@ export default function QuarantinePage() {
         loadAbortRef.current = controller;
         const reqId = ++loadReqIdRef.current;
         const isStale = () => reqId !== loadReqIdRef.current || controller.signal.aborted;
-        setLoading(true);
+        setPending(true);
         setError(null);
         try {
             const [uniRes, quarRes] = await Promise.all([
@@ -193,11 +209,12 @@ export default function QuarantinePage() {
             if ((e as any)?.name === "AbortError") return;
             if (!isStale()) setError(e instanceof Error ? e.message : "Failed to load quarantine data");
         } finally {
-            if (!isStale()) setLoading(false);
+            if (!isStale()) setPending(false);
         }
     }
 
     useEffect(() => {
+        setMounted(true);
         load();
         return () => {
             loadAbortRef.current?.abort();
@@ -274,6 +291,7 @@ export default function QuarantinePage() {
             "no-filings": 0,
             "empty-statement": 0,
             stale: 0,
+            scale: 0,
             corruption: 0,
             other: 0,
         };

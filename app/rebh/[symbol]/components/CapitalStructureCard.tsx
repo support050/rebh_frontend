@@ -37,7 +37,10 @@ export default function CapitalStructureCard({
           Capital Structure &amp; Enterprise Value (EV)
         </h3>
         <span className="text-[11px] font-mono text-[#6B7280] bg-[#F3F4F6] px-2.5 py-0.5 rounded border border-[#E5E7EB]">
-          Seeking Alpha model · {capitalStructure.source_status || "° Verified"}
+          {/* Financial-concept audit (2026-10-20): this badge used to read "Seeking
+              Alpha model", implying a third-party source. These figures are computed
+              by the REBH engine from the issuer's own filings. */}
+          REBH engine · {capitalStructure.source_status || "computed from filed statements"}
         </span>
       </div>
 
@@ -55,7 +58,7 @@ export default function CapitalStructureCard({
         <div className="bg-[#F7F8FA] rounded-[4px] p-3.5 border border-[#E5E7EB]">
           <span className="text-[11px] text-[#6B7280] block font-medium mb-1">Total Debt</span>
           <span className="text-base sm:text-lg font-black font-mono text-[#8C3B32]">
-            {debt != null ? `${debt.toLocaleString()} M` : "0 M"}
+            {debt != null ? `${debt.toLocaleString()} M` : "—"}
           </span>
           <span className="text-[10px] text-[#9CA3AF] block font-mono mt-0.5">
             {de != null ? `D/E: ${de}%` : "—"}
@@ -66,7 +69,7 @@ export default function CapitalStructureCard({
         <div className="bg-[#F7F8FA] rounded-[4px] p-3.5 border border-[#E5E7EB]">
           <span className="text-[11px] text-[#6B7280] block font-medium mb-1">Cash &amp; Cash Equivalents</span>
           <span className="text-base sm:text-lg font-black font-mono text-[#16A34A]">
-            {cash != null ? `${cash.toLocaleString()} M` : "0 M"}
+            {cash != null ? `${cash.toLocaleString()} M` : "—"}
           </span>
           <span className="text-[10px] text-[#9CA3AF] block font-mono mt-0.5">
             {netDebt != null ? `Net Debt: ${netDebt.toLocaleString()} M` : "—"}

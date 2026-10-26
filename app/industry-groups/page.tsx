@@ -337,15 +337,8 @@ function useIndustryGroups() {
 
     useEffect(() => {
         const params = filtersToParams(filters, stockFilters, rsMomentumFilters);
-        // Preserve ?autoReport=true across filter-driven URL rewrites. Without this,
-        // generateReport() (which changes filters/stockFilters) causes this effect to
-        // strip autoReport from the URL before exportData('pdf') gets a chance to read
-        // it, so the jsPDF output falls back to doc.save() instead of populating
-        // window.__REPORT_PDF_BASE64__ for the Puppeteer-driven report route.
-        if (typeof window !== 'undefined') {
-            const currentAutoReport = new URLSearchParams(window.location.search).get('autoReport');
-            if (currentAutoReport === 'true') params.set('autoReport', 'true');
-        }
+        // 2026-10-25: the ?autoReport=true URL passthrough was removed together with
+        // the deleted Puppeteer report route — this effect only syncs filters to the URL.
         const query = params.toString();
         router.replace(`${pathname}${query ? `?${query}` : ''}`, { scroll: false });
     }, [filters, stockFilters, rsMomentumFilters, router, pathname]);
@@ -711,41 +704,9 @@ function useIndustryGroups() {
         }
     }, [isGeneratingReport, filteredData, expandAllGroups]);
 
-    // Keep a ref to the latest generateReport/data so the mount-once effect
-    // below can always call the freshest version without needing to list them
-    // as dependencies (an effect that depends on a value which changes async
-    // can have its cleanup cancel a pending call before it ever fires).
-    const generateReportRef = useRef(generateReport);
-    useEffect(() => { generateReportRef.current = generateReport; }, [generateReport]);
-    const dataRef = useRef(data);
-    useEffect(() => { dataRef.current = data; }, [data]);
-
-    // Auto-trigger the report preset if requested by Puppeteer via ?autoReport=true.
-    // Runs exactly once per page load (empty dependency array) and reads the URL
-    // directly via window.location.search instead of the reactive useSearchParams()
-    // hook, so nothing (URL syncs, filter changes, async state updates) can ever
-    // re-run this effect and cancel the pending trigger. Instead of guessing a
-    // fixed delay, it polls until the industry-groups data has actually loaded
-    // (capped at 10s as a safety net) before calling generateReport().
-    const autoReportTriggeredRef = useRef(false);
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-
-        const initialAutoReport = new URLSearchParams(window.location.search).get('autoReport');
-        if (initialAutoReport !== 'true' || autoReportTriggeredRef.current) return;
-        autoReportTriggeredRef.current = true;
-
-        let attempts = 0;
-        const maxAttempts = 40; // 40 * 250ms = 10s safety cap
-        const poll = setInterval(() => {
-            attempts++;
-            const ready = dataRef.current.length > 0;
-            if (ready || attempts >= maxAttempts) {
-                clearInterval(poll);
-                generateReportRef.current();
-            }
-        }, 250);
-    }, []);
+    // 2026-10-25: the mount-once ?autoReport=true effect and its generateReportRef /
+    // dataRef were deleted along with app/api/generate-weekly-report. Nothing else
+    // read that URL param, so the page now exports only when the user asks.
 
     return {
         data, isLoading, error, stats,
@@ -1221,24 +1182,15 @@ function IndustryGroupsContent() {
                             doc.text('No expanded groups to export. Please expand at least one industry group before exporting.', 14, 20);
                         }
 
-                        // FIX #8e: Updated filename
-                        const searchParams = new URLSearchParams(window.location.search);
-                        if (searchParams.get('autoReport') === 'true') {
-                            (window as any).__REPORT_PDF_BASE64__ = doc.output('datauristring');
-                        } else {
-                            doc.save(`industry_groups_stocks_${new Date().toISOString().split('T')[0]}.pdf`);
-                        }
+                        doc.save(`industry_groups_stocks_${new Date().toISOString().split('T')[0]}.pdf`);
                     } catch (err) {
                         console.error('jsPDF execution error', err);
-                        (window as any).__REPORT_PDF_BASE64__ = 'ERROR';
                     }
                 }).catch(err => {
                     console.error('Failed to load jspdf-autotable', err);
-                    (window as any).__REPORT_PDF_BASE64__ = 'ERROR';
                 });
             }).catch(err => {
                 console.error('Failed to load jspdf', err);
-                (window as any).__REPORT_PDF_BASE64__ = 'ERROR';
             });
             return;
         }
@@ -1299,12 +1251,10 @@ function IndustryGroupsContent() {
             exportData('pdf');
             setIsGeneratingReport(false);
 
-            // Skip the filter reset if we are in Puppeteer automated mode
-            const searchParams = new URLSearchParams(window.location.search);
-            if (searchParams.get('autoReport') !== 'true') {
-                clearAllFilters();
-                collapseAllGroups();
-            }
+            // 2026-10-25: the ?autoReport=true escape hatch went with the deleted
+            // Puppeteer route — the report preset now always resets after exporting.
+            clearAllFilters();
+            collapseAllGroups();
         }
     }, [isGeneratingReport, filteredData, expandedGroups, stocksCache, loadingStocks, exportData, setIsGeneratingReport, clearAllFilters, collapseAllGroups]);
 
