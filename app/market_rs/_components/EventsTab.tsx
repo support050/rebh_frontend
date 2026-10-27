@@ -7,6 +7,7 @@ import { FONT_SERIF, FONT_MONO, type PaperTokens } from './paperTheme';
 import { useRsHubTheme } from './RsHubThemeContext';
 import { ExportButton } from './ExportButton';
 import { exportElementAsPng, buildExportFilename, waitForNextPaint } from './exportImage';
+import { exportTableAsFormat, type ExportFormat } from './exportData';
 
 interface EventGroupDef {
     title: string;
@@ -122,18 +123,44 @@ export function EventsTab({ stocks }: { stocks: StockData[] }) {
 
     const totalEvents = eventData.reduce((sum, g) => sum + g.items.length, 0);
 
-    const handleExport = useCallback(async () => {
-        const node = boardRef.current;
-        if (!node) return;
-        setTip(null);
-        flushSync(() => setExporting(true));
-        try {
-            await waitForNextPaint();
-            await exportElementAsPng(node, buildExportFilename('rs-events'), { backgroundColor: PAPER.paperLight });
-        } finally {
-            setExporting(false);
+    const handleExportFormat = useCallback(async (format: ExportFormat) => {
+        if (format === 'png') {
+            const node = boardRef.current;
+            if (!node) return;
+            setTip(null);
+            flushSync(() => setExporting(true));
+            try {
+                await waitForNextPaint();
+                await exportElementAsPng(node, buildExportFilename('rs-events'), { backgroundColor: PAPER.paperLight });
+            } finally {
+                setExporting(false);
+            }
+            return;
         }
-    }, [PAPER.paperLight]);
+
+        const headers = ['Event Category', 'Symbol', 'Company Name', 'Group', 'Current RS', 'RS 1W', 'Category'];
+        const rows: (string | number | null | undefined)[][] = [];
+        eventData.forEach(group => {
+            group.items.forEach(stock => {
+                rows.push([
+                    group.title,
+                    stock.s,
+                    stock.c || stock.s,
+                    stock.grp || '-',
+                    stock.rs,
+                    stock.rs1w ?? '-',
+                    stock.cat,
+                ]);
+            });
+        });
+
+        exportTableAsFormat(format, {
+            title: 'Market RS Events',
+            filenamePrefix: 'rs-events',
+            headers,
+            rows,
+        });
+    }, [PAPER.paperLight, eventData]);
 
     return (
         <div
@@ -148,9 +175,9 @@ export function EventsTab({ stocks }: { stocks: StockData[] }) {
                 <span className="text-xs" style={{ color: PAPER.inkMuted, fontFamily: FONT_MONO }}>{totalEvents} events</span>
                 <ExportButton
                     label="Export Events"
-                    title="Download the RS events board as a PNG"
+                    title="Export RS events data or image"
                     className="ml-auto"
-                    onExport={handleExport}
+                    onExportFormat={handleExportFormat}
                 />
             </div>
 

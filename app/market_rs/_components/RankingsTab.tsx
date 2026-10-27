@@ -8,6 +8,8 @@ import { authFetch } from '@/lib/api/authFetch';
 import { FONT_SERIF, FONT_MONO, type PaperTokens } from './paperTheme';
 import { Stamp, LedgerLabel } from './PaperUI';
 import { useRsHubTheme } from './RsHubThemeContext';
+import { ExportButton } from './ExportButton';
+import { exportTableAsFormat, type ExportFormat } from './exportData';
 
 type FilterKey = 'all' | '90' | '80' | '70' | 'blue' | 'blue52' | 'blue13' | 'up' | 'dn' | 'rsnh' | 'focus' | 'dist' | 'burst' | 'bull' | 'bear' | 'res' | 'STRONG' | 'IMPROVE' | 'NEUTRAL' | 'WEAK' | 'momentum';
 type SortKey = 's' | 'c' | 'rs' | 'd1w' | 'm1' | 'm3' | 'm6' | 'm9' | 'm12' | 'age' | 'grp';
@@ -279,22 +281,21 @@ export function RankingsTab({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [filtered, selectedStock, onToggleWatchlist, toggleCompare, handleOpenHistory]);
 
-    const exportCSV = () => {
-        const csvCell = (value: unknown) => {
-            const text = value == null ? '' : String(value);
-            return `"${text.replace(/"/g, '""')}"`;
-        };
-
+    const handleExportFormat = useCallback((format: ExportFormat) => {
         const headers = ['Symbol', 'Company', 'RS', 'D1W', '1M', '3M', '6M', '9M', '12M', 'Trend', 'Group', 'Signals'];
         const rows = filtered.map(st => [
             st.s,
-            csvCell(st.c),
+            st.c || '',
             st.rs,
-            st.rs - st.rs1w,
-            st.m1, st.m3, st.m6, st.m9, st.m12,
+            st.rs1w != null ? st.rs - st.rs1w : '-',
+            st.m1 ?? '-',
+            st.m3 ?? '-',
+            st.m6 ?? '-',
+            st.m9 ?? '-',
+            st.m12 ?? '-',
             st.ageTag || '',
-            csvCell(st.grp),
-            csvCell([
+            st.grp || '',
+            [
                 st.sig?.includes('blue') ? 'RS_LEAD' : '',
                 (st.rsnh || st.sig?.includes('rsnh')) ? 'RS_1Y_HIGH' : '',
                 (st.res || st.sig?.includes('res')) ? 'RESILIENT' : '',
@@ -302,19 +303,16 @@ export function RankingsTab({
                 (st.dist || st.sig?.includes('dist')) ? 'DIST' : '',
                 st.sig?.includes('up') ? 'UP' : '',
                 st.sig?.includes('dn') ? 'DOWN' : '',
-            ].filter(Boolean).join('|')),
+            ].filter(Boolean).join('|'),
         ]);
-        const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-        const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `rebh_rs_rankings.csv`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    };
+
+        exportTableAsFormat(format === 'png' ? 'pdf' : format, {
+            title: 'Market RS Rankings',
+            filenamePrefix: 'rs-rankings',
+            headers,
+            rows,
+        });
+    }, [filtered]);
 
     const percentile = useMemo(() => {
         if (!selectedStock || !stocks.length) return 0;
@@ -425,13 +423,12 @@ export function RankingsTab({
                     <span className="text-xs font-semibold" style={{ color: PAPER.inkMuted, fontFamily: FONT_SERIF }}>
                         {filtered.length} stocks
                     </span>
-                    <button
-                        onClick={exportCSV}
-                        className="flex items-center gap-1.5 px-4 py-2 rounded-[3px] text-xs font-semibold"
-                        style={{ background: PAPER.brassLight, color: PAPER.ink, border: `1px solid ${PAPER.brass}`, fontFamily: FONT_SERIF }}
-                    >
-                        Export CSV
-                    </button>
+                    <ExportButton
+                        label="Export"
+                        title="Export rankings data"
+                        formats={['pdf', 'xlsx', 'xls', 'csv', 'txt']}
+                        onExportFormat={handleExportFormat}
+                    />
                 </div>
             </div>
 

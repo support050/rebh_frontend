@@ -6,6 +6,7 @@ import { FONT_SERIF, FONT_MONO, type PaperTokens } from './paperTheme';
 import { useRsHubTheme } from './RsHubThemeContext';
 import { ExportButton } from './ExportButton';
 import { exportElementAsPng, exportSvgAsPng, buildExportFilename, type CropBox } from './exportImage';
+import { exportTableAsFormat, type ExportFormat } from './exportData';
 
 type RotShow = 'sec8' | 'secAll' | 'stk90' | 'stk20' | 'watch';
 type LabelDensity = 'hide' | 'S' | 'M' | 'L';
@@ -241,23 +242,86 @@ export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; w
     const showLevelPicker = show === 'sec8' || show === 'secAll';
 
     // ── Export handlers ──
-    const handleExportChart = async () => {
-        if (!svgRef.current) return;
-        await exportSvgAsPng(
-            svgRef.current,
-            buildExportFilename('rs-rotation-chart'),
-            exportCropBox,
-            { backgroundColor: PAPER.paperLight },
-        );
+    const handleExportChartFormat = async (format: ExportFormat) => {
+        if (format === 'png') {
+            if (!svgRef.current) return;
+            await exportSvgAsPng(
+                svgRef.current,
+                buildExportFilename('rs-rotation-chart'),
+                exportCropBox,
+                { backgroundColor: PAPER.paperLight },
+            );
+            return;
+        }
+
+        // Tabular export of rotation chart data reflecting current period and trail
+        const periodLabel = TIME_LABELS[fromIdx] || 'Custom';
+        const startLabel = `RS at ${periodLabel}`;
+        const headers = [
+            'Name',
+            'Label',
+            startLabel,
+            'Current RS (NOW)',
+            'RS Change (Period)',
+            'Momentum (Velocity)',
+            'Quadrant',
+        ];
+
+        const rows = entries.map(e => {
+            const startVal = e.path.length > 0 ? e.path[0].rs : e.rs;
+            const currentVal = e.rs;
+            const diff = currentVal - startVal;
+            return [
+                e.name,
+                e.label,
+                startVal,
+                currentVal,
+                diff >= 0 ? `+${diff}` : String(diff),
+                e.mom,
+                getQuad(e.rs, e.mom),
+            ];
+        });
+
+        exportTableAsFormat(format, {
+            title: `RS Rotation Chart Data (Period: ${periodLabel} to NOW)`,
+            filenamePrefix: `rs-rotation-chart-${periodLabel.toLowerCase()}`,
+            headers,
+            rows,
+        });
     };
 
-    const handleExportPanel = async () => {
-        if (!panelRef.current) return;
-        await exportElementAsPng(
-            panelRef.current,
-            buildExportFilename('rs-rotation-panel'),
-            { backgroundColor: PAPER.paperLight },
-        );
+    const handleExportPanelFormat = async (format: ExportFormat) => {
+        if (format === 'png') {
+            if (!panelRef.current) return;
+            await exportElementAsPng(
+                panelRef.current,
+                buildExportFilename('rs-rotation-panel'),
+                { backgroundColor: PAPER.paperLight },
+            );
+            return;
+        }
+
+        // Tabular export of top ranked entries in the panel reflecting current period
+        const periodLabel = TIME_LABELS[fromIdx] || 'Custom';
+        const headers = ['Rank', 'Name', 'Label', `RS at ${periodLabel}`, 'Current RS', 'Momentum', 'Quadrant'];
+        const rows = rankedEntries.slice(0, PANEL_RANK_LIMIT).map((e, idx) => {
+            const startVal = e.path.length > 0 ? e.path[0].rs : e.rs;
+            return [
+                idx + 1,
+                e.name,
+                e.label,
+                startVal,
+                e.rs,
+                e.mom,
+                getQuad(e.rs, e.mom),
+            ];
+        });
+        exportTableAsFormat(format, {
+            title: `RS Rotation Top Rankings (Period: ${periodLabel})`,
+            filenamePrefix: `rs-rotation-panel-${periodLabel.toLowerCase()}`,
+            headers,
+            rows,
+        });
     };
 
     return (
@@ -321,9 +385,9 @@ export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; w
 
                 <ExportButton
                     label="Export Chart"
-                    title="Download the rotation chart as a PNG"
+                    title="Export rotation chart"
                     className="ml-auto"
-                    onExport={handleExportChart}
+                    onExportFormat={handleExportChartFormat}
                 />
             </div>
 
@@ -448,8 +512,8 @@ export function RotationTab({ stocks, watchlist = [] }: { stocks: StockData[]; w
                     <div className="flex justify-end px-4 pt-3">
                         <ExportButton
                             label="Export Panel"
-                            title="Download the legend and top 8 rankings as a PNG"
-                            onExport={handleExportPanel}
+                            title="Export legend and top 8 rankings"
+                            onExportFormat={handleExportPanelFormat}
                         />
                     </div>
 

@@ -10,6 +10,7 @@ import { useRsHubTheme } from './RsHubThemeContext';
 import { categoryFromRs, getCategoryMovement, rsRose } from './matrixHelpers';
 import { ExportButton } from './ExportButton';
 import { exportElementAsPng, buildExportFilename, waitForNextPaint } from './exportImage';
+import { exportTableAsFormat, type ExportFormat } from './exportData';
 
 type Theme = 'strong' | 'improve' | 'neutral' | 'weak';
 
@@ -71,18 +72,46 @@ export function MatrixTab({ stocks }: { stocks: StockData[] }) {
         };
     }, [stocks, groups]);
 
-    const handleExportQuadrant = useCallback(async () => {
-        const node = quadRef.current;
-        if (!node) return;
-        // Hide the selection ring / hover affordances for the capture, then restore.
-        flushSync(() => setExporting(true));
-        try {
-            await waitForNextPaint();
-            await exportElementAsPng(node, buildExportFilename('rs-matrix-quadrant'), { backgroundColor: PAPER.paperLight });
-        } finally {
-            setExporting(false);
+    const handleExportQuadrantFormat = useCallback(async (format: ExportFormat) => {
+        if (format === 'png') {
+            const node = quadRef.current;
+            if (!node) return;
+            // Hide the selection ring / hover affordances for the capture, then restore.
+            flushSync(() => setExporting(true));
+            try {
+                await waitForNextPaint();
+                await exportElementAsPng(node, buildExportFilename('rs-matrix-quadrant'), { backgroundColor: PAPER.paperLight });
+            } finally {
+                setExporting(false);
+            }
+            return;
         }
-    }, [PAPER.paperLight]);
+
+        const headers = ['Category', 'Symbol', 'Company Name', 'Group', 'Current RS', 'RS 1W', 'Price', 'Change %'];
+        const rows: (string | number | null | undefined)[][] = [];
+        CATMETA.forEach(({ cat }) => {
+            const list = groups[cat as keyof typeof groups] || [];
+            list.forEach(stock => {
+                rows.push([
+                    cat,
+                    stock.s,
+                    stock.c || stock.s,
+                    stock.grp || '-',
+                    stock.rs,
+                    stock.rs1w ?? '-',
+                    stock.price,
+                    stock.chg != null ? `${stock.chg.toFixed(2)}%` : '-',
+                ]);
+            });
+        });
+
+        exportTableAsFormat(format, {
+            title: 'RS Matrix Quadrants',
+            filenamePrefix: 'rs-matrix-quadrant',
+            headers,
+            rows,
+        });
+    }, [PAPER.paperLight, groups]);
 
     return (
         <div
@@ -102,9 +131,9 @@ export function MatrixTab({ stocks }: { stocks: StockData[] }) {
                 {viewMode === 'quad' && (
                     <ExportButton
                         label="Export Quadrant"
-                        title="Download the quadrant view as a PNG"
+                        title="Export quadrant data or image"
                         className="ml-auto"
-                        onExport={handleExportQuadrant}
+                        onExportFormat={handleExportQuadrantFormat}
                     />
                 )}
             </div>
