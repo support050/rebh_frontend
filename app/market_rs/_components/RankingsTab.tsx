@@ -282,29 +282,34 @@ export function RankingsTab({
     }, [filtered, selectedStock, onToggleWatchlist, toggleCompare, handleOpenHistory]);
 
     const handleExportFormat = useCallback((format: ExportFormat) => {
-        const headers = ['Symbol', 'Company', 'RS', 'D1W', '1M', '3M', '6M', '9M', '12M', 'Trend', 'Group', 'Signals'];
-        const rows = filtered.map(st => [
-            st.s,
-            st.c || '',
-            st.rs,
-            st.rs1w != null ? st.rs - st.rs1w : '-',
-            st.m1 ?? '-',
-            st.m3 ?? '-',
-            st.m6 ?? '-',
-            st.m9 ?? '-',
-            st.m12 ?? '-',
-            st.ageTag || '',
-            st.grp || '',
-            [
-                st.sig?.includes('blue') ? 'RS_LEAD' : '',
-                (st.rsnh || st.sig?.includes('rsnh')) ? 'RS_1Y_HIGH' : '',
-                (st.res || st.sig?.includes('res')) ? 'RESILIENT' : '',
-                (st.focus || st.sig?.includes('focus')) ? 'FOCUS' : '',
-                (st.dist || st.sig?.includes('dist')) ? 'DIST' : '',
-                st.sig?.includes('up') ? 'UP' : '',
-                st.sig?.includes('dn') ? 'DOWN' : '',
-            ].filter(Boolean).join('|'),
-        ]);
+        const groupLabel = levelField === 'grp' ? 'Group' : levelField === 'sec' ? 'Sector' : levelField === 'ind' ? 'Industry' : 'Sub';
+        const headers = ['#', 'Symbol', 'Company', 'RS', 'Δ1W', '1M', '3M', '6M', '9M', '12M', 'Trend', 'Signals', groupLabel];
+        const rows = filtered.map((st, idx) => {
+            const d1w = st.rs1w != null ? st.rs - st.rs1w : null;
+            return [
+                idx + 1,
+                st.s,
+                st.c || '',
+                st.rs,
+                d1w != null ? (d1w > 0 ? `+${d1w}` : String(d1w)) : '—',
+                st.m1 ?? '—',
+                st.m3 ?? '—',
+                st.m6 ?? '—',
+                st.m9 ?? '—',
+                st.m12 ?? '—',
+                st.ageTag || '—',
+                [
+                    st.sig?.includes('blue') ? 'LEAD' : '',
+                    (st.rsnh || st.sig?.includes('rsnh')) ? '1Y' : '',
+                    (st.res || st.sig?.includes('res')) ? 'RES' : '',
+                    (st.focus || st.sig?.includes('focus')) ? 'FOC' : '',
+                    (st.dist || st.sig?.includes('dist')) ? 'DIST' : '',
+                    st.sig?.includes('up') ? 'UP' : '',
+                    st.sig?.includes('dn') ? 'DN' : '',
+                ].filter(Boolean).join('|') || '—',
+                st[levelField] || st.grp || '—',
+            ];
+        });
 
         exportTableAsFormat(format === 'png' ? 'pdf' : format, {
             title: 'Market RS Rankings',
@@ -312,7 +317,7 @@ export function RankingsTab({
             headers,
             rows,
         });
-    }, [filtered]);
+    }, [filtered, levelField]);
 
     const percentile = useMemo(() => {
         if (!selectedStock || !stocks.length) return 0;
