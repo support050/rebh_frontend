@@ -33,6 +33,26 @@ import { CopyButton, StatusPill } from './ui';
 const RUN_POLL_MS = 5000;
 const RUN_POLL_TICKS = 180;
 
+// Consecutive transient auth/network misses tolerated before we concede the
+// session is truly gone. A 15-min access token expiring mid-run produces a
+// single 401 that the axios interceptor heals by refreshing + retrying, so
+// this streak only trips if refresh itself keeps failing (~5 min at 5s/tick).
+const RUN_POLL_AUTH_GRACE = 60;
+
+/** Statuses job_runs writes when a row closes. Anything else — 'running',
+ *  'queued', or a null row the worker thread has not inserted yet — means the
+ *  run is still in progress, so the button must stay disabled. */
+const TERMINAL_RUN_STATUSES = new Set(['success', 'failed', 'error']);
+
+/** True for errors that are *transient auth artefacts*, not a real job signal:
+ *  401 (access token expired, refresh in flight), 403 (momentary during token
+ *  rotation), or no response at all (network blip / request aborted mid-refresh).
+ *  These must never be read as "the job finished". */
+function isTransientAuthError(err: unknown): boolean {
+  const status = (err as { response?: { status?: number } })?.response?.status;
+  return status === 401 || status === 403 || status === undefined;
+}
+
 /* ════════════════════════════════════════════════════════════════════════════
    1 · System header — what this is, who built it, which pages read it
    ════════════════════════════════════════════════════════════════════════════ */
@@ -190,23 +210,48 @@ function JobRow({ job, now, expanded, hasDetail, onToggle, onRerun }: {
   }
 
   function watchUntilDone() {
-    let ticks = 0;
+    let ticks = 0;        // successful status reads → drives the 15-min completion cap
+    let authStreak = 0;   // consecutive transient auth/network misses → tolerated, not fatal
     if (timer.current) clearInterval(timer.current);
     timer.current = setInterval(async () => {
-      ticks += 1;
       try {
         const s = await SystemMapService.jobStatus(job.job_name);
-        const stillRunning = s.in_flight_this_process || s.last_run?.status === 'running';
+        // A clean response ends any auth-streak; refresh has clearly succeeded.
+        authStreak = 0;
+        ticks += 1;
+        const status = s.last_run?.status ?? null;
+        // Still running when this process reports it in flight, OR the ledger
+        // row has not reached a terminal status yet (including a null row the
+        // worker thread has not inserted — treat as running so a refresh race
+        // can never flip the button back on mid-run).
+        const stillRunning =
+          s.in_flight_this_process || (status == null || !TERMINAL_RUN_STATUSES.has(status));
         if (stillRunning && ticks < RUN_POLL_TICKS) return;
         stopPolling();
         if (!stillRunning) {
-          const st = s.last_run?.status ?? 'unknown';
-          setNote({ text: `Finished: ${st}`, tone: st === 'failed' ? 'bad' : 'ok' });
+          setNote({ text: `Finished: ${status}`, tone: status === 'failed' ? 'bad' : 'ok' });
         } else {
           setNote({ text: 'Still running — refresh later', tone: 'ok' });
         }
         onRerun?.();
-      } catch {
+      } catch (err) {
+        // Transient 401/refresh/network: the interceptor is refreshing the
+        // session in the background. Keep the interval ALIVE — the next tick
+        // retries against the renewed token. Do NOT stopPolling() (which would
+        // call setPending(false) and re-enable Run Now → 409 on click) and do
+        // NOT count it toward the completion budget.
+        if (isTransientAuthError(err)) {
+          authStreak += 1;
+          if (authStreak < RUN_POLL_AUTH_GRACE) return;
+          // Refresh has failed for a long stretch → the session is gone. Stop
+          // quietly with an auth-specific note; do not claim the job finished.
+          stopPolling();
+          setNote({ text: 'Session expired — sign in and re-open to resume', tone: 'bad' });
+          return;
+        }
+        // A real, non-auth failure. Keep polling until the completion budget
+        // runs out, then give up with a neutral note (job may still be running
+        // server-side, exactly as the old 2026-10-13 comment warns).
         if (ticks >= RUN_POLL_TICKS) {
           stopPolling();
           setNote({ text: 'Status unavailable', tone: 'bad' });
@@ -228,11 +273,19 @@ function JobRow({ job, now, expanded, hasDetail, onToggle, onRerun }: {
       setNote({ text: 'Started…', tone: 'ok' });
       watchUntilDone();
     } catch (err: unknown) {
-      stopPolling();
       const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 409) {
+        // A run is already in flight server-side. Keep the button disabled and
+        // watch that run to completion rather than re-enabling and inviting a
+        // second click (the exact 409 the token-refresh race used to cause).
+        setNote({ text: 'Already running', tone: 'ok' });
+        watchUntilDone();
+        return;
+      }
+      stopPolling();
       setNote(
-        status === 409
-          ? { text: 'Already running', tone: 'bad' }
+        isTransientAuthError(err)
+          ? { text: 'Session expired — sign in and try again', tone: 'bad' }
           : { text: `Rejected (${status ?? 'network'})`, tone: 'bad' },
       );
     }
