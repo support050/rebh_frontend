@@ -40,7 +40,7 @@ import { StatusDot } from './_lib/ui';
 import './system-map.css';
 
 const LIST_PATH = '/api/admin/system-map/systems';
-/** Matches CACHE_TTL_SECONDS in backend/app/api/routes/system_map.py. */
+/** Matches IN_MEMORY_TTL_SYSTEM_MAP in backend/app/core/cache_config.py. */
 const REFRESH_MS = 60_000;
 /** Relative labels ("3h ago") are re-rendered on this tick, independent of fetches. */
 const CLOCK_MS = 30_000;

@@ -10,8 +10,16 @@ import type { NextRequest } from 'next/server';
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
+  // L-7: HSTS once the site is served over TLS. Browsers ignore the header on
+  // plain http, and local dev stays on http, so emitting it conditionally keeps
+  // the header meaningful (it also survives behind TLS-terminating proxies via
+  // x-forwarded-proto).
+  const isHttps =
+    request.nextUrl.protocol === 'https:' ||
+    request.headers.get('x-forwarded-proto')?.split(',')[0].trim() === 'https';
+
   if (path.startsWith('/api/')) {
-    return NextResponse.next();
+    return withSecurityHeaders(NextResponse.next(), isHttps);
   }
 
   const normalizedPath = path === '/' ? '/' : path.replace(/\/+$/, '');
@@ -46,36 +54,43 @@ export async function middleware(request: NextRequest) {
     if (hasPending) {
       // Pending users go to waiting page; if cookie is stale, that page handles cleanup
       return withSecurityHeaders(
-        NextResponse.redirect(new URL('/pending-approval', request.url))
+        NextResponse.redirect(new URL('/pending-approval', request.url)),
+        isHttps
       );
     }
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('callbackUrl', `${path}${request.nextUrl.search}`);
-    return withSecurityHeaders(NextResponse.redirect(loginUrl));
+    return withSecurityHeaders(NextResponse.redirect(loginUrl), isHttps);
   }
 
   // Avoid bounce loops: pending cookie alone must not keep forcing login↔pending
   if (hasPending && !hasSession && !hasRefresh) {
     if (normalizedPath === '/login' || normalizedPath === '/register') {
       return withSecurityHeaders(
-        NextResponse.redirect(new URL('/pending-approval', request.url))
+        NextResponse.redirect(new URL('/pending-approval', request.url)),
+        isHttps
       );
     }
   }
 
   // Only redirect away from login when an access cookie exists (refresh-only stays on login)
   if (hasSession && (normalizedPath === '/login' || normalizedPath === '/register')) {
-    return withSecurityHeaders(NextResponse.redirect(new URL('/', request.url)));
+    return withSecurityHeaders(NextResponse.redirect(new URL('/', request.url)), isHttps);
   }
 
-  return withSecurityHeaders(NextResponse.next());
+  return withSecurityHeaders(NextResponse.next(), isHttps);
 }
 
-function withSecurityHeaders(response: NextResponse): NextResponse {
+function withSecurityHeaders(response: NextResponse, isHttps = false): NextResponse {
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  if (isHttps) {
+    // 1 year, subdomains included. `preload` is deliberately NOT set until the
+    // domain is submitted to the HSTS preload list (requires https everywhere).
+    response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
   // CSP kept compatible with Next.js (inline scripts/styles may be required).
   // This is the SINGLE authoritative CSP: middleware sets it after next.config,
   // so it must carry every allowance the app needs or the stricter copy here wins

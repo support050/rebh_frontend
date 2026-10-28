@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { getChartData, getCompanies, getCompany, getKpis, getSection } from '@/lib/xbrl-api'
 import type {
@@ -81,25 +81,5 @@ export function useSectionData(symbol: string | null, section: SectionKey) {
   )
 }
 
-export function useUpload() {
-  const [uploading, setUploading] = useState(false)
-  const [result, setResult] = useState<{ symbol: string; periods: string[] } | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  const upload = useCallback(async (files: File[]) => {
-    setUploading(true)
-    setError(null)
-    setResult(null)
-    try {
-      const { uploadXbrlFiles } = await import('@/lib/xbrl-api')
-      const res = await uploadXbrlFiles(files)
-      setResult(res)
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Upload failed')
-    } finally {
-      setUploading(false)
-    }
-  }, [])
-
-  return { upload, uploading, result, error }
-}
+// useUpload() and the /api/upload/xbrl client chain were deleted 2026-10-29:
+// zero callers, and the endpoint itself was retired as dead code.

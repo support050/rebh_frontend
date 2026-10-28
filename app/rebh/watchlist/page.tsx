@@ -15,6 +15,7 @@ import {
     Loader2,
 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api/config";
+import { authFetch } from "@/lib/api/authFetch";
 import { TableStatusRow } from "./components/TableStatusRow";
 import { Badge } from "./components/Badge";
 import { ExportButton, ExportColumn } from "./components/Exportbutton";
@@ -707,7 +708,7 @@ export default function RebhWatchlistPage() {
 
         // Sync with backend API — FIX #1: revert on failure, show toast
         try {
-            const res = await fetch(`${API_BASE_URL}/api/rebh/watchlist/toggle`, {
+            const res = await authFetch(`${API_BASE_URL}/api/rebh/watchlist/toggle`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",

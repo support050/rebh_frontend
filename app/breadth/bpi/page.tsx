@@ -24,7 +24,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 /** #p-bpi kpis — BPI today / Status / Field position, from today + P&F counts. */
-function BpiKpis() {
+export function BpiKpis() {
   const today = useBreadthStore((s) => s.today);
   const series = useBreadthStore((s) => s.series);
   if (!today) return null;
@@ -53,7 +53,7 @@ function BpiKpis() {
   );
 }
 
-const PANELS: PanelDef[] = [
+export const PANELS: PanelDef[] = [
   idxPanel({ regimeStrip: true }),
   {
     title: 'Bullish Percent Index — % of stocks on a P&F buy signal',

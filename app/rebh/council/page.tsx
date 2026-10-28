@@ -15,6 +15,7 @@ import {
     Search,
 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api/config";
+import { authFetch } from "@/lib/api/authFetch";
 
 /* ============================================================
    REBH · Council & 31-Checklist Audit Station
@@ -255,7 +256,7 @@ export default function CouncilAuditStation() {
                 }
             });
 
-            const res = await fetch(`${API_BASE_URL}/api/rebh/council/${symbol}/save`, {
+            const res = await authFetch(`${API_BASE_URL}/api/rebh/council/${symbol}/save`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

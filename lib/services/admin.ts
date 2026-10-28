@@ -38,6 +38,16 @@ export const AdminService = {
             headers: { 'x-csrf-token': getCsrfToken() },
         });
     },
+
+    /** Grant or revoke admin. Returns the updated user so the table can reconcile. */
+    async setUserRole(userId: number, isAdmin: boolean): Promise<User> {
+        const response = await apiClient.post<User>(
+            `/api/admin/users/${userId}/role`,
+            { is_admin: isAdmin },
+            { headers: { 'x-csrf-token': getCsrfToken() } },
+        );
+        return response.data;
+    },
 }
 
 export interface PipelineDbStatus {

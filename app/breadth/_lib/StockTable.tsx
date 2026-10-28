@@ -14,12 +14,15 @@ import { fmt, num, pct, signClass } from './format';
 import {
   COL_HEADERS,
   DEFAULT_COLS,
+  RsCell,
   StageBadge,
   StockRow,
   TableStatus,
+  heatReactStyle,
   stockCellText,
   stockSortValue,
 } from './ui';
+import { heatStyle } from './heat';
 
 export interface StockTableProps {
   rows: StockRow[];
@@ -35,6 +38,10 @@ export interface StockTableProps {
   onSymbol?: (sym: number) => void;
   /** keeps sort/filter state per instance across re-renders */
   id?: string;
+  /** CR3 sector-drill flag: inserts the 30-day RS heat strip after 'name' */
+  heat?: boolean;
+  /** date labels for the heat strip (sector heatmap dates — same columns) */
+  heatDates?: string[];
 }
 
 /** Cell text used for filter matching (same strings the DOM would expose). */
@@ -63,16 +70,25 @@ export default function StockTable({
   csvName = 'table',
   csvDate = '',
   onSymbol,
+  heat,
+  heatDates = [],
 }: StockTableProps) {
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [asc, setAsc] = useState(true);
   const [q, setQ] = useState('');
 
+  // reference stockTable opts.heat: splice the 'heat' column right after 'name'
+  const useCols = useMemo(() => {
+    const c = cols.slice();
+    if (heat && !c.includes('heat') && c.includes('name')) c.splice(c.indexOf('name') + 1, 0, 'heat');
+    return c;
+  }, [cols, heat]);
+
   const view = useMemo(() => {
     let out = rows;
     if (q.trim()) {
       const needle = q.trim().toLowerCase();
-      out = out.filter((r) => rowText(r, cols).includes(needle));
+      out = out.filter((r) => rowText(r, useCols).includes(needle));
     }
     if (sortCol) {
       const col = sortCol;
@@ -86,7 +102,7 @@ export default function StockTable({
       });
     }
     return out;
-  }, [rows, cols, q, sortCol, asc]);
+  }, [rows, useCols, q, sortCol, asc]);
 
   const clickHeader = useCallback((col: string) => {
     if (sortCol === col) setAsc((v) => !v);
@@ -101,6 +117,16 @@ export default function StockTable({
       <td className={signClass(v)}>{v == null ? '—' : pct(v)}</td>
     );
     switch (col) {
+      case 'heat':
+        return (r.rsh || []).map((v, i) => (
+          <td
+            key={`h${i}`}
+            className="hc"
+            {...(v == null ? {} : { 'data-heat': String((v - 1) / 98), style: heatReactStyle(heatStyle((v - 1) / 98)) })}
+          >
+            {v == null ? '' : v}
+          </td>
+        ));
       case 'sym':
         return (
           <td>
@@ -120,11 +146,7 @@ export default function StockTable({
       case 'close':
         return <td>{fmt(r.close ?? null, 2)}</td>;
       case 'rs':
-        return (
-          <td style={{ fontWeight: 700, color: r.rs == null ? 'inherit' : r.rs >= 80 ? 'var(--up)' : r.rs <= 30 ? 'var(--down)' : 'inherit' }}>
-            {r.rs ?? '—'}
-          </td>
-        );
+        return <RsCell rs={r.rs} d={r.rs21} h={r.rsh} />;
       case 'stage':
         return <td>{r.stage == null ? '—' : <StageBadge stage={r.stage} />}</td>;
       case 'rvol':
@@ -153,7 +175,7 @@ export default function StockTable({
         {filterable ? (
           <input value={q} placeholder="filter…" onChange={(e) => setQ(e.target.value)} />
         ) : null}
-        <button className="btn" onClick={() => exportCsv(view, cols, csvName, csvDate)}>
+        <button className="btn" onClick={() => exportCsv(view, useCols, csvName, csvDate)}>
           ⇩ CSV
         </button>
         <span className="note" style={{ margin: 0 }}>click a header to sort</span>
@@ -163,21 +185,29 @@ export default function StockTable({
         <table>
           <thead>
             <tr>
-              {cols.map((c) => (
-                <th
-                  key={c}
-                  className={`sortable${sortCol === c ? (asc ? ' asc' : ' desc') : ''}`}
-                  onClick={() => clickHeader(c)}
-                >
-                  {COL_HEADERS[c] ?? c}
-                </th>
-              ))}
+              {useCols.map((c) =>
+                c === 'heat' ? (
+                  <React.Fragment key="heat">
+                    {heatDates.map((d) => (
+                      <th key={d} className="hc" title={`RS rating on ${d}`}>{d}</th>
+                    ))}
+                  </React.Fragment>
+                ) : (
+                  <th
+                    key={c}
+                    className={`sortable${sortCol === c ? (asc ? ' asc' : ' desc') : ''}`}
+                    onClick={() => clickHeader(c)}
+                  >
+                    {COL_HEADERS[c] ?? c}
+                  </th>
+                ),
+              )}
             </tr>
           </thead>
           <tbody>
             {view.map((r) => (
               <tr key={`${r.sym}`} style={r.traded === false ? { opacity: 0.5 } : undefined}>
-                {cols.map((c) => (
+                {useCols.map((c) => (
                   <React.Fragment key={c}>{renderCell(r, c)}</React.Fragment>
                 ))}
               </tr>

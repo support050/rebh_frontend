@@ -86,6 +86,8 @@ export interface PanelDef {
 }
 
 export interface StackOptions {
+  /** clone stack: no per-panel controls, no widget registration, no stack chrome (CR3) */
+  noctl?: boolean;
   /** left-margin override, etc. reserved for future parity tweaks */
   [k: string]: unknown;
 }

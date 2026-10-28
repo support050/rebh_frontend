@@ -155,7 +155,7 @@ export default function ProfilePage() {
                         </div>
 
                         <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                            <label className="block text-sm font-medium text-blue-900 mb-1.5">Current Password (Required for Email Change)</label>
+                            <label className="block text-sm font-medium text-blue-900 mb-1.5">Current Password (Required to change your email or password)</label>
                             <div className="relative">
                                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-400" />
                                 <input
@@ -208,24 +208,33 @@ export default function ProfilePage() {
                         </p>
                         <button
                             onClick={async () => {
-                                if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-                                    try {
-                                        const API_URL = API_BASE_URL;
-                                        const res = await fetch(`${API_URL}/api/auth/delete-account`, {
-                                            method: 'DELETE',
-                                            headers: { 'x-csrf-token': getCsrfToken() },
-                                            credentials: 'include'
-                                        });
+                                if (!confirm('Are you sure you want to delete your account? This action cannot be undone.')) return;
+                                // M-7: the backend now requires re-authentication — the
+                                // session cookie alone is no longer enough to erase an account.
+                                const password = prompt('Enter your password to confirm permanent deletion:');
+                                if (!password) return;
+                                try {
+                                    const API_URL = API_BASE_URL;
+                                    const res = await fetch(`${API_URL}/api/auth/delete-account`, {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'x-csrf-token': getCsrfToken()
+                                        },
+                                        credentials: 'include',
+                                        body: JSON.stringify({ password })
+                                    });
 
-                                        if (!res.ok) {
-                                            throw new Error('Failed to delete account');
-                                        }
-
-                                        // Clear local storage and redirect
-                                        window.location.href = '/';
-                                    } catch (error) {
-                                        alert('Failed to delete account. Please try again.');
+                                    if (!res.ok) {
+                                        const data = await res.json().catch(() => null);
+                                        throw new Error(data?.detail || 'Failed to delete account');
                                     }
+
+                                    // Clear local storage and redirect
+                                    localStorage.clear();
+                                    window.location.href = '/';
+                                } catch (error: any) {
+                                    alert(error?.message || 'Failed to delete account. Please try again.');
                                 }
                             }}
                             className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"

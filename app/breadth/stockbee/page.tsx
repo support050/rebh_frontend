@@ -18,7 +18,7 @@ import StockChartModal from '../_lib/StockChartModal';
 import { Card, fmt, indexBySymbol, num, useStockModal, type StockRow } from '../_lib/ui';
 import type { PanelDef } from '../_engine/types';
 
-const PANELS: PanelDef[] = [
+export const PANELS: PanelDef[] = [
   idxPanel(),
   {
     title: 'Stocks up ≥4% (green) / down ≥4% (red) with volume',

@@ -1,11 +1,17 @@
 "use client";
 import { useEffect, useState } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import { useAuth } from '@/app/providers/AuthProvider';
 import { AdminService, User } from '@/lib/services/admin';
 
 type Tab = 'pending' | 'approved' | 'all';
 
+/** Backend rejects are Arabic/English `detail` strings — surface them verbatim. */
+const roleError = (error: unknown, fallback: string): string =>
+    (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? fallback;
+
 export default function AdminUsersPage() {
+    const { user: currentUser } = useAuth();
     const [allUsers, setAllUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [tab, setTab] = useState<Tab>('pending');
@@ -73,6 +79,28 @@ export default function AdminUsersPage() {
             alert(`🗑️ User ${user.email} deleted successfully.`);
         } catch (error) {
             alert("Failed to delete user.");
+            console.error(error);
+        } finally {
+            setActionLoading(prev => ({ ...prev, [user.id]: false }));
+        }
+    };
+
+    const handleToggleRole = async (user: User) => {
+        const granting = !user.is_admin;
+        const confirmed = window.confirm(
+            granting
+                ? `👑 Grant admin to "${user.full_name || user.email}"?\n\nThey get every admin page, user approval, and the power to remove other admins.`
+                : `⛔ Remove admin from "${user.full_name || user.email}"?\n\nTheir account stays and becomes a normal customer; all of their sessions are logged out.`
+        );
+        if (!confirmed) return;
+
+        setActionLoading(prev => ({ ...prev, [user.id]: true }));
+        try {
+            const updated = await AdminService.setUserRole(user.id, granting);
+            setAllUsers(prev => prev.map(u => u.id === user.id ? { ...u, ...updated } : u));
+            alert(granting ? `👑 ${updated.email} is now an admin.` : `⛔ Admin removed from ${updated.email}.`);
+        } catch (error) {
+            alert(roleError(error, "Failed to update role."));
             console.error(error);
         } finally {
             setActionLoading(prev => ({ ...prev, [user.id]: false }));
@@ -232,8 +260,21 @@ export default function AdminUsersPage() {
                                                             {actionLoading[user.id] ? '...' : '🗑️ Delete'}
                                                         </button>
                                                     )}
-                                                    {user.is_admin && (
-                                                        <span className="text-[11px] text-slate-400 italic">Protected</span>
+                                                    {/* Self is never offered a role switch — the backend refuses it too. */}
+                                                    {currentUser?.id !== user.id && (
+                                                        <button
+                                                            onClick={() => handleToggleRole(user)}
+                                                            disabled={actionLoading[user.id]}
+                                                            className={`px-3.5 py-1.5 text-white text-xs font-semibold rounded-lg transition shadow-sm disabled:opacity-40 disabled:cursor-not-allowed ${user.is_admin ? 'bg-purple-600 hover:bg-purple-700' : 'bg-slate-700 hover:bg-slate-800'
+                                                                }`}
+                                                        >
+                                                            {actionLoading[user.id] ? '...' : user.is_admin ? '⛔ Remove admin' : '👑 Make admin'}
+                                                        </button>
+                                                    )}
+                                                    {/* Only the signed-in admin is un-touchable;
+                                                        other admins can now be demoted here. */}
+                                                    {currentUser?.id === user.id && (
+                                                        <span className="text-[11px] text-slate-400 italic">This is you</span>
                                                     )}
                                                 </div>
                                             </td>

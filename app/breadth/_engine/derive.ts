@@ -76,3 +76,15 @@ export function applyDerived(S: SeriesMap): void {
     S.bpi_state_num = S.bpi_status.map((v) => (v == null ? null : BPI_STATE[String(v)] ?? 0));
   }
 }
+
+/** Every key applyDerived can produce — these must NEVER be requested from
+ *  /series (the API answers HTTP 400 for unknown keys). */
+export const DERIVED_KEYS: ReadonlySet<string> = new Set([
+  ...SHARE_PAIRS.flatMap(([k]) => [k, `${k}_10`]),
+  'bpi_state_num',
+]);
+
+/** True when a series key is browser-derived rather than API-stored. */
+export function isDerivedKey(key: string): boolean {
+  return DERIVED_KEYS.has(key);
+}

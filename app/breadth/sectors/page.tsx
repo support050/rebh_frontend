@@ -19,7 +19,9 @@ import {
   Card,
   TableStatus,
   fmt,
-  heatColor,
+  heatCellProps,
+  RsCell,
+  rsCellBg,
   sectorStocks,
   useStockModal,
   type SectorHeatRow,
@@ -27,9 +29,10 @@ import {
   type StockRow,
 } from '../_lib/ui';
 import { num } from '../_lib/format';
+import { getPrefs } from '../_lib/prefs';
 import type { PanelDef } from '../_engine/types';
 
-const PANELS: PanelDef[] = [
+export const PANELS: PanelDef[] = [
   idxPanel(),
   {
     title: '% of sectors healthy (score ≥ 60) vs weak (≤ 40)',
@@ -59,7 +62,6 @@ const KEYS = [...IDX_KEYS, 'pct_healthy', 'n_weak', 'median_score'];
 /** Drill-down columns = the reference stockTable cols minus 'group'. */
 const DRILL_COLS = ['sym', 'name', 'close', 'd1', 'm1', 'm3', 'rs', 'vs50', 'vs200', 'hi52', 'lo52', 'stage', 'rvol', 'bo', 'flags'];
 const RANK_COLS = ['1M', '3M', '6M', '12M'];
-
 function SectorsBody() {
   const sectorsQ = useTableData(fetchSectors);
   const stocksQ = useTableData(fetchStocks);
@@ -92,7 +94,13 @@ function SectorsBody() {
     return { rows, mx };
   }, [perfRows, period]);
 
-  const ranked = useMemo(() => perfRows.slice().sort((a, b) => (a.rank[sortBy] ?? 0) - (b.rank[sortBy] ?? 0)), [perfRows, sortBy]);
+  const ranked = useMemo(
+    () =>
+      perfRows
+        .slice()
+        .sort((a, b) => (sortBy === 'RS' ? (b.rs ?? 0) - (a.rs ?? 0) : (a.rank[sortBy] ?? 0) - (b.rank[sortBy] ?? 0))),
+    [perfRows, sortBy],
+  );
 
   const focusSector = (name: string) => {
     setOpenSector((cur) => (cur === name ? cur : name));
@@ -137,10 +145,30 @@ function SectorsBody() {
             {theme.rows.map((r) => {
               const v = num(r[period]) ?? 0;
               const w = (50 * Math.abs(v)) / theme.mx;
+              const d = r.rs21;
               return (
                 <React.Fragment key={r.name}>
-                  <div className="n" title={`${r.name} — click for stocks`} onClick={() => focusSector(r.name)}>
+                  <div
+                    className="n"
+                    title={`${r.name} — RS ${r.rs ?? '—'} (${d == null ? '' : `${d > 0 ? '+' : ''}${d}`} vs 21d) — click for stocks`}
+                    onClick={() => focusSector(r.name)}
+                    style={
+                      getPrefs().rscolor && r.rs != null
+                        ? { ...rsCellBg(r.rs), borderRadius: 4, padding: '0 4px' }
+                        : undefined
+                    }
+                  >
                     {r.name}
+                    {r.rs != null ? (
+                      <>
+                        {' '}<b style={{ fontSize: 11 }}>{r.rs}</b>
+                        {d != null ? (
+                          <span style={{ fontSize: 10, color: d > 0 ? 'var(--up)' : d < 0 ? 'var(--down)' : 'var(--text2)' }}>
+                            {d > 0 ? '▲' : d < 0 ? '▼' : '•'}
+                          </span>
+                        ) : null}
+                      </>
+                    ) : null}
                   </div>
                   <div className="bar">
                     <i
@@ -166,7 +194,7 @@ function SectorsBody() {
           actions={
             <>
               <span className="note" style={{ margin: 0 }}>sort by</span>
-              {RANK_COLS.map((p) => (
+              {['RS', ...RANK_COLS].map((p) => (
                 <button key={p} className={`btn${sortBy === p ? ' active' : ''}`} onClick={() => setSortBy(p)}>
                   {p}
                 </button>
@@ -179,6 +207,7 @@ function SectorsBody() {
               <thead>
                 <tr>
                   <th>Name</th>
+                  <th>RS (Δ21d · 30d)</th>
                   {RANK_COLS.map((c) => (
                     <th key={c}>{c}</th>
                   ))}
@@ -190,9 +219,10 @@ function SectorsBody() {
                   const n = ranked.length;
                   return (
                     <tr key={r.name}>
-                      <td title="click for stocks" onClick={() => focusSector(r.name)}>
+                      <td title="click for stocks" onClick={() => focusSector(r.name)} style={rsCellBg(r.rs)}>
                         {r.name}
                       </td>
+                      <RsCell rs={r.rs} d={r.rs21} h={r.rsh} extra={{ textAlign: 'left' }} />
                       {RANK_COLS.map((c) => {
                         const rk = r.rank[c];
                         const ch = r.rank_chg[c];
@@ -238,6 +268,7 @@ function SectorsBody() {
                 {heatDates.map((d) => (
                   <th key={d}>{d}</th>
                 ))}
+                <th>RS (Δ21d · 30d)</th>
                 <th>%&gt;50</th>
                 <th>%&gt;200</th>
                 <th>NH−NL%</th>
@@ -257,12 +288,13 @@ function SectorsBody() {
                       ref={(el) => { heatRowRefs.current[r.sector] = el; }}
                       onClick={() => setOpenSector(open ? null : r.sector)}
                     >
-                      <td style={{ whiteSpace: 'nowrap' }}>{r.sector}</td>
+                      <td style={{ whiteSpace: 'nowrap', ...rsCellBg(r.rs) }}>{r.sector}</td>
                       {r.scores.map((v, i) => (
-                        <td key={i} style={{ background: heatColor(v) }}>
+                        <td key={i} className="hc" {...(v == null ? { style: { background: 'var(--surface2)' } } : heatCellProps(v))}>
                           {v == null ? '' : v}
                         </td>
                       ))}
+                      <RsCell rs={r.rs} d={r.rs21} h={r.rsh} extra={{ textAlign: 'left' }} />
                       <td>{fmt(r.pct50)}</td>
                       <td>{fmt(r.pct200)}</td>
                       <td>{fmt(r.nhnl)}</td>
@@ -282,6 +314,8 @@ function SectorsBody() {
                               <StockTable
                                 rows={list}
                                 cols={DRILL_COLS}
+                                heat
+                                heatDates={heatDates}
                                 csvName={`sector_${r.sector.replace(/[^a-z0-9]+/gi, '_')}`}
                                 csvDate={snapshot}
                                 onSymbol={modal.open}

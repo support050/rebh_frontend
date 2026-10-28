@@ -21,7 +21,7 @@ import { num } from '../_lib/format';
 import type { PanelDef } from '../_engine/types';
 import type { BreadthStocks } from '@/types/breadth';
 
-const PANELS: PanelDef[] = [
+export const PANELS: PanelDef[] = [
   idxPanel({ regimeStrip: true }),
   {
     title: '% passing the Minervini trend template',

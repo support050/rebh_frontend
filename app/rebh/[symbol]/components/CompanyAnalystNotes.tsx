@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Edit3, Save, Check, Loader2, Trash2, PlusCircle } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api/config";
+import { authFetch } from "@/lib/api/authFetch";
 
 interface CompanyAnalystNotesProps {
   symbol: string;
@@ -75,7 +76,7 @@ export default function CompanyAnalystNotes({ symbol }: CompanyAnalystNotesProps
 
     // 2. Persist to API
     try {
-      const res = await fetch(`${API_BASE_URL}/api/engine/notes/${symbol}`, {
+      const res = await authFetch(`${API_BASE_URL}/api/engine/notes/${symbol}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -121,7 +122,7 @@ export default function CompanyAnalystNotes({ symbol }: CompanyAnalystNotesProps
 
     // 2. Clear from API
     try {
-      await fetch(`${API_BASE_URL}/api/engine/notes/${symbol}`, {
+      await authFetch(`${API_BASE_URL}/api/engine/notes/${symbol}`, {
         method: "DELETE",
         credentials: "include"
       });

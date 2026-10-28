@@ -12,6 +12,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import type { SeriesVal } from '../_engine/types';
 import { fmt, num, pct, signClass } from './format';
 import { fetchOhlcSymbol } from './tableApi';
+import { heatStyle, rsColor } from './heat';
+import { getPrefs } from './prefs';
 
 /* ===================================================================== row types */
 
@@ -31,6 +33,12 @@ export interface StockRow {
   stage?: number | null;
   rvol?: number | null;
   rs?: number | null;
+  /** RS delta vs 21 days ago (CR3 rsCell) */
+  rs21?: number | null;
+  /** RS 5-day delta (engine rs5) */
+  rs5?: number | null;
+  /** RS rating history, last 30 sessions (sparkline + heat strip) */
+  rsh?: (number | null)[] | null;
   tt?: boolean;
   nh?: boolean;
   nhv?: boolean;
@@ -47,6 +55,9 @@ export interface SectorHeatRow {
   nhnl?: number | null;
   ad10?: number | null;
   mom10?: number | null;
+  rs?: number | null;
+  rs21?: number | null;
+  rsh?: (number | null)[] | null;
 }
 
 export interface SectorPerfRow {
@@ -54,6 +65,9 @@ export interface SectorPerfRow {
   rank: Record<string, number>;
   rank_chg: Record<string, number>;
   stocks?: number;
+  rs?: number | null;
+  rs21?: number | null;
+  rsh?: (number | null)[] | null;
   [period: string]: unknown;
 }
 
@@ -84,14 +98,47 @@ export function statusColor(status: string): string {
 }
 
 /**
- * Sector heat colour (reference col): score 50 is the divide, red below,
- * green above, opacity scaled by distance from 50.
+ * Sector heat colour — the exact CR3 palette (heatRGB: red → amber → green
+ * with theme-blended fill and auto text contrast, reference template lines
+ * 203-205). `v` is a 0-100 score. Kept string-returning for legacy callers;
+ * prefer heatCellStyle() so cells also carry data-heat for the theme toggle.
  */
 export function heatColor(v: number | null | undefined): string {
   if (v == null || Number.isNaN(v)) return 'var(--surface2)';
-  const t = (v - 50) / 50;
-  const a = Math.min(1, Math.abs(t));
-  return t < 0 ? `rgba(227,73,72,${(0.15 + 0.7 * a).toFixed(3)})` : `rgba(27,175,122,${(0.15 + 0.7 * a).toFixed(3)})`;
+  return heatStyle(v / 100);
+}
+
+/** Parses a heatStyle() css string into a React style object. */
+export function heatReactStyle(css: string): React.CSSProperties {
+  const out: Record<string, string> = {};
+  css.split(';').forEach((d) => {
+    const i = d.indexOf(':');
+    if (i < 0) return;
+    const prop = d.slice(0, i).trim();
+    const val = d.slice(i + 1).trim();
+    const camel = prop.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
+    out[camel] = val;
+  });
+  return out as React.CSSProperties;
+}
+
+/** Cell props for a heat-score td: reference `<td data-heat=… style=heatStyle>`. */
+export function heatCellStyle(t: number | null | undefined, alpha?: number): React.CSSProperties | undefined {
+  if (t == null || Number.isNaN(t)) return undefined;
+  return heatReactStyle(heatStyle(t, alpha));
+}
+
+/** td props for a 0-100 sector score cell (data-heat lets the theme re-ink it). */
+export function heatCellProps(v: number | null | undefined): { style?: React.CSSProperties; 'data-heat'?: string } {
+  if (v == null || Number.isNaN(v)) return { style: { background: 'var(--surface2)' } };
+  const t = v / 100;
+  return { style: heatReactStyle(heatStyle(t)), 'data-heat': String(t) };
+}
+
+/** RS background for a name/row cell when PREFS.rscolor is on (reference style attr). */
+export function rsCellBg(v: number | null | undefined): React.CSSProperties | undefined {
+  if (!getPrefs().rscolor || v == null) return undefined;
+  return heatReactStyle(rsColor(v));
 }
 
 /* ===================================================================== cell helpers */
@@ -105,7 +152,7 @@ export const COL_HEADERS: Record<string, string> = {
   d1: '1D',
   m1: '1M',
   m3: '3M',
-  rs: 'RS',
+  rs: 'RS (Δ21d · 30d)',
   vs50: 'vs 50DMA',
   vs200: 'vs 200DMA',
   hi52: 'from 52w high',
@@ -200,6 +247,76 @@ export function StageBadge({ stage }: { stage: number | null | undefined }) {
     <span className="stg-b" style={{ background: STAGE_COLORS[stage] ?? 'var(--text2)' }}>
       {stage}
     </span>
+  );
+}
+
+/* ===================================================================== RS cells (CR3) */
+
+/**
+ * 30-day RS sparkline — reference rsSpark (template line 207): 44×14 SVG
+ * polyline, nulls skipped, stroke = --up when the window rose, --down when it
+ * fell. Returns null when fewer than 5 points exist (reference behaviour).
+ */
+export function RsSpark({ hist }: { hist: (number | null)[] | null | undefined }) {
+  const a = (hist ?? []).filter((x): x is number => x != null);
+  if (a.length < 5) return null;
+  const w = 44, ht = 14;
+  const mn = Math.min(...a), mx = Math.max(...a), rg = (mx - mn) || 1;
+  const src = hist as (number | null)[];
+  const pts = src
+    .map((v, i) => (v == null ? null : `${((i / (src.length - 1)) * w).toFixed(1)},${(ht - 1 - ((v - mn) / rg) * (ht - 2)).toFixed(1)}`))
+    .filter(Boolean)
+    .join(' ');
+  const up = a[a.length - 1] >= a[0];
+  return (
+    <svg width={w} height={ht} style={{ verticalAlign: 'middle', marginLeft: 5 }} role="img" aria-label="RS rating, last 30 days">
+      <title>RS rating, last 30 days</title>
+      <polyline points={pts} fill="none" stroke={up ? 'var(--up)' : 'var(--down)'} strokeWidth={1.3} />
+    </svg>
+  );
+}
+
+/** Δ21 arrow chip — reference rsCell's `arr` span (▲/▼/• + |Δ|, theme colours). */
+export function RsDelta({ d }: { d: number | null | undefined }) {
+  if (d == null) return null;
+  return (
+    <span
+      title="RS change vs 21 days ago"
+      style={{ fontSize: 10, marginLeft: 4, color: d > 0 ? 'var(--up)' : d < 0 ? 'var(--down)' : 'var(--text2)' }}
+    >
+      {d > 0 ? '▲' : d < 0 ? '▼' : '•'}{Math.abs(d)}
+    </span>
+  );
+}
+
+/**
+ * The interactive RS table cell — reference rsCell(rs,d,h,extra) (template
+ * line 206): bold nowrap td, rsColor heat background when PREFS.rscolor, Δ21
+ * arrow and the 30-day sparkline. `tag` is a pre-existing <td> slot, so this
+ * renders the td itself.
+ */
+export function RsCell({
+  rs,
+  d,
+  h,
+  extra,
+}: {
+  rs: number | null | undefined;
+  d?: number | null;
+  h?: (number | null)[] | null;
+  extra?: React.CSSProperties;
+}) {
+  if (rs == null) return <td>—</td>;
+  const P = getPrefs();
+  return (
+    <td
+      data-heat={P.rscolor ? String((rs - 1) / 98) : undefined}
+      style={{ fontWeight: 700, whiteSpace: 'nowrap', ...(P.rscolor ? heatReactStyle(rsColor(rs)) : undefined), ...extra }}
+    >
+      {rs}
+      <RsDelta d={d} />
+      {P.rscolor && h ? <RsSpark hist={h} /> : null}
+    </td>
   );
 }
 

@@ -7,7 +7,7 @@ import React from 'react';
 import { ChartPage } from '../_lib/BreadthView';
 import type { PanelDef } from '../_engine/types';
 
-const PANELS: PanelDef[] = [
+export const PANELS: PanelDef[] = [
   {
     title: 'TASI (blue) vs Equal-Weight TASI (orange) — rebased at window start',
     height: 240,

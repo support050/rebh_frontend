@@ -11,6 +11,8 @@
  * colours from the CSS custom properties on the .breadth-root scope element.
  */
 import { cssVar, fmt, nice, num, ticks } from './helpers';
+import { getPrefs, prefsStore } from '../_lib/prefs';
+import { exportCSV, exportPine, exportPNG, type ExportPanel } from '../_lib/exports';
 import {
   CanaryEpisode,
   PanelDef,
@@ -23,6 +25,17 @@ import {
 export interface HubOptions {
   /** initial visible window in trading days (default 500, matching the reference) */
   defaultDays?: number;
+  /** snapshot date used in export filenames (defaults to the last stored date) */
+  todayDate?: string;
+  /**
+   * Widget catalog hook (CR3 ★ Custom Dashboard): every non-mini panel registers
+   * itself as `panel:${pageId}:${k}` carrying its PanelDef, so the dashboard grid
+   * can re-mount clones against its own hub (see `_lib/widgets.ts`).
+   */
+  registerWidget?: (id: string, title: string, group: string, panel: PanelDef) => void;
+  /** page identity for widget ids + remembered panel sizes (PH key prefix) */
+  pageId?: string;
+  pageName?: string;
 }
 
 /** Shared controller: the DATA slice, the visible date window, and the stack registry. */
@@ -33,6 +46,10 @@ export class ChartHub {
   dateIdx: Record<string, number> = {};
   range: { i0: number; i1: number };
   stacks: Stack[] = [];
+  /** page identity (widget ids, PH keys) + the snapshot date for exports */
+  pageId: string;
+  pageName: string;
+  registerWidget?: HubOptions['registerWidget'];
   private n: number;
   private tipEl: HTMLDivElement | null = null;
 
@@ -41,8 +58,18 @@ export class ChartHub {
     this.scope = scope;
     this.n = data.dates.length;
     data.dates.forEach((d, i) => (this.dateIdx[d] = i));
-    const days = opts.defaultDays ?? 500;
+    const days = opts.defaultDays ?? getPrefs().range ?? 500;
     this.range = { i0: Math.max(0, this.n - days), i1: Math.max(0, this.n - 1) };
+    this.pageId = opts.pageId ?? '';
+    this.pageName = opts.pageName ?? '';
+    this.registerWidget = opts.registerWidget;
+    this._todayDate = opts.todayDate;
+  }
+
+  private _todayDate?: string;
+  /** snapshot date used in export footers/filenames. */
+  get todayDate(): string {
+    return this._todayDate || this.data.dates[this.n - 1] || '';
   }
 
   get length(): number {
@@ -87,6 +114,14 @@ export class ChartHub {
     if (this.tipEl) this.tipEl.style.display = 'none';
   }
 
+  /** Re-scale + repaint every stack after a PREFS change (drawer sliders/toggles). */
+  relayout(): void {
+    this.stacks.forEach((s) => {
+      s.applyScale();
+      s.refreshPrefs();
+    });
+  }
+
   destroy(): void {
     this.hideTip();
     if (this.tipEl && this.tipEl.parentNode) this.tipEl.parentNode.removeChild(this.tipEl);
@@ -123,23 +158,32 @@ export class ChartHub {
   }
 }
 
-/** runtime panel = definition + attached DOM nodes */
+/** runtime panel = definition + attached DOM nodes + control refs */
 interface RuntimePanel extends PanelDef {
   canvas: HTMLCanvasElement;
   div: HTMLDivElement;
   last?: boolean;
+  pk?: string;
 }
 
 const UP = '--up';
 const DOWN = '--down';
 
+/** Detachable copy of a panel spec (no DOM refs), for cloning into modals/widgets. */
+export function cloneSpec(p: PanelDef): PanelDef {
+  const { canvas: _c, div: _d, pk: _pk, last: _l, ...rest } = p as Partial<RuntimePanel>;
+  return { ...rest, series: p.series.map((x) => ({ ...x })) } as PanelDef;
+}
+
 export class Stack {
-  private el: HTMLElement;
+  el: HTMLElement;
   private panels: RuntimePanel[];
   private hub: ChartHub;
   private opts: StackOptions;
   hover: number | null = null;
   private drag: { x: number; i0: number; i1: number } | null = null;
+  private tdrag: { x: number; i0: number; i1: number; moved: boolean } | null = null;
+  private pinch: number | null = null;
   private ro: ResizeObserver;
   private onMouseUp: () => void;
 
@@ -149,14 +193,19 @@ export class Stack {
     this.opts = opts;
     this.panels = [];
     el.classList.add('breadth-stack');
+    const noctl = !!opts.noctl;
+    const pageId = hub.pageId;
+    const scale = getPrefs().chart;
 
-    panels.forEach((p) => {
+    panels.forEach((p, k) => {
       const d = document.createElement('div');
       d.className = 'breadth-panel';
-      d.style.height = (p.height || 150) + 'px';
+      d.style.height = Math.round((p.height || 150) * (p.mini ? 1 : scale)) + 'px';
       const c = document.createElement('canvas');
       d.appendChild(c);
       const rp = { ...p, canvas: c, div: d } as RuntimePanel;
+      const pk = `${pageId}:${k}`;
+      rp.pk = pk;
       this.panels.push(rp);
 
       if (!p.mini) {
@@ -164,15 +213,23 @@ export class Stack {
         t.className = 'breadth-ttl';
         t.innerHTML =
           `<b>${p.title || ''}</b>` +
-          p.series
-            .map(
-              (s) =>
-                `<span class="lg"><i style="background:${this.hub.css(s.color)}"></i>${s.label || s.key}</span>`,
-            )
-            .join('');
+          (getPrefs().legend
+            ? p.series
+                .map(
+                  (s) =>
+                    `<span class="lg"><i style="background:${this.hub.css(s.color)}"></i>${s.label || s.key}</span>`,
+                )
+                .join('')
+            : '');
         d.appendChild(t);
       }
       el.appendChild(d);
+
+      // CR3 v5: per-panel controls (maximize/collapse/PNG/CSV/TV) + drag-to-resize,
+      // and self-registration as a Custom Dashboard widget. Skipped for mini/clone.
+      if (!p.mini && !noctl) {
+        this.attachControls(rp, pk, pageId);
+      }
 
       c.addEventListener('mousemove', (e) => this.onMove(e, rp));
       c.addEventListener('mouseleave', () => {
@@ -193,33 +250,219 @@ export class Stack {
       });
       c.addEventListener('mousemove', (e) => {
         if (!this.drag) return;
-        const w = this.plotW(rp);
-        const n = this.hub.range.i1 - this.hub.range.i0;
-        const di = Math.round(-(e.clientX - this.drag.x) / w * n);
-        let a = this.drag.i0 + di;
-        let b = this.drag.i1 + di;
-        if (a < 0) {
-          b -= a;
-          a = 0;
-        }
-        if (b > this.hub.length - 1) {
-          a -= b - (this.hub.length - 1);
-          b = this.hub.length - 1;
-        }
-        this.hub.range.i0 = a;
-        this.hub.range.i1 = b;
-        this.hub.drawAll();
+        this.panBy(e.clientX - this.drag.x, this.drag.i0, this.drag.i1);
       });
+
+      // touch: one finger = pan / crosshair tap, two fingers = pinch zoom (ref 226-230)
+      c.addEventListener(
+        'touchstart',
+        (e) => {
+          if (e.touches.length === 1) {
+            const t0 = e.touches[0];
+            this.tdrag = { x: t0.clientX, i0: this.hub.range.i0, i1: this.hub.range.i1, moved: false };
+            this.onMove({ clientX: t0.clientX, clientY: t0.clientY } as MouseEvent, rp);
+          } else if (e.touches.length === 2) {
+            this.pinch = Math.hypot(
+              e.touches[0].clientX - e.touches[1].clientX,
+              e.touches[0].clientY - e.touches[1].clientY,
+            );
+            this.tdrag = null;
+          }
+        },
+        { passive: true },
+      );
+      c.addEventListener(
+        'touchmove',
+        (e) => {
+          if (e.touches.length === 2 && this.pinch) {
+            e.preventDefault();
+            const dist = Math.hypot(
+              e.touches[0].clientX - e.touches[1].clientX,
+              e.touches[0].clientY - e.touches[1].clientY,
+            );
+            const f = this.pinch / dist;
+            if (Math.abs(f - 1) > 0.04) {
+              const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+              this.zoom(f, this.xIndex({ clientX: cx, clientY: 0 } as MouseEvent, rp));
+              this.pinch = dist;
+            }
+            return;
+          }
+          if (!this.tdrag || e.touches.length !== 1) return;
+          e.preventDefault();
+          const t0 = e.touches[0];
+          const dx = t0.clientX - this.tdrag.x;
+          if (Math.abs(dx) > 6) this.tdrag.moved = true;
+          if (!this.tdrag.moved) {
+            this.onMove({ clientX: t0.clientX, clientY: t0.clientY } as MouseEvent, rp);
+            return;
+          }
+          this.panBy(dx, this.tdrag.i0, this.tdrag.i1);
+        },
+        { passive: false },
+      );
+      c.addEventListener('touchend', () => { this.tdrag = null; this.pinch = null; }, { passive: true });
     });
 
-    this.onMouseUp = () => (this.drag = null);
+    this.onMouseUp = () => { this.drag = null; };
     window.addEventListener('mouseup', this.onMouseUp);
 
     this.hub.stacks.push(this);
     this.ro = new ResizeObserver(() => this.draw());
     this.ro.observe(el);
+
+    // stack-level wrapper controls: fullscreen ⛶ + export-all PNG (ref line 234)
+    if (!noctl) {
+      el.classList.add('stackwrap');
+      const sc = document.createElement('div');
+      sc.className = 'sctl';
+      sc.innerHTML =
+        '<button title="fullscreen">⛶</button>' +
+        '<button title="export all panels as PNG" style="width:auto;padding:0 5px">📷 PNG</button>';
+      const bFs = sc.children[0] as HTMLButtonElement;
+      const bPng = sc.children[1] as HTMLButtonElement;
+      bFs.onclick = () => { el.classList.toggle('fs'); this.draw(); };
+      bPng.onclick = () =>
+        exportPNG(this.hub, this.exportPanels(), (this.panels[0] && this.panels[0].title) || 'chart', this.hub.todayDate);
+      el.appendChild(sc);
+    }
+
     this.draw();
   }
+
+  /** Attach the ⤢ − 📷 CSV TV bar, the drag-to-resize handle, and register the widget. */
+  private attachControls(rp: RuntimePanel, pk: string, pageId: string): void {
+    const d = rp.div;
+    if (pageId && pageId !== 'custom') {
+      this.hub.registerWidget?.(`panel:${pk}`, rp.title || `panel ${pk}`, this.hub.pageName, cloneSpec(rp));
+    }
+
+    const ctl = document.createElement('div');
+    ctl.className = 'ctl';
+    ctl.innerHTML =
+      '<button title="maximize">⤢</button>' +
+      '<button title="collapse / expand">−</button>' +
+      '<button title="export PNG">📷</button>' +
+      '<button title="export CSV (TradingView layout)" style="width:auto;padding:0 4px">CSV</button>' +
+      '<button title="export TradingView Pine Script" style="width:auto;padding:0 4px">TV</button>';
+    const [bMax, bCol, bPng, bCsv, bTv] = Array.from(ctl.children) as HTMLButtonElement[];
+    bMax.onclick = () => this.maximize(rp);
+    bCol.onclick = () => {
+      d.classList.toggle('collapsed');
+      bCol.textContent = d.classList.contains('collapsed') ? '+' : '−';
+      prefsStore.setPanelCollapse(pk, d.classList.contains('collapsed'));
+      this.draw();
+    };
+    bPng.onclick = () => exportPNG(this.hub, [rp], rp.title || 'panel', this.hub.todayDate);
+    bCsv.onclick = () => exportCSV(this.hub, [rp], rp.title || 'panel');
+    bTv.onclick = () => exportPine(this.hub, [rp], rp.title || 'panel', this.hub.todayDate);
+    d.appendChild(ctl);
+
+    if (prefsStore.ph.h[pk]) d.style.height = prefsStore.ph.h[pk] + 'px';
+    if (prefsStore.ph.c[pk]) { d.classList.add('collapsed'); bCol.textContent = '+'; }
+
+    const rz = document.createElement('div');
+    rz.className = 'rsz';
+    rz.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      const y0 = e.clientY;
+      const h0 = d.clientHeight;
+      const mv = (ev: MouseEvent) => { d.style.height = Math.max(60, h0 + ev.clientY - y0) + 'px'; this.draw(); };
+      const up = () => {
+        window.removeEventListener('mousemove', mv);
+        window.removeEventListener('mouseup', up);
+        prefsStore.setPanelHeight(pk, d.clientHeight);
+      };
+      window.addEventListener('mousemove', mv);
+      window.addEventListener('mouseup', up);
+    });
+    d.appendChild(rz);
+  }
+
+  /** Enlarge a panel into a modal, alongside the stack's TASI index panel if present. */
+  private maximize(panel: RuntimePanel): void {
+    const spec = cloneSpec(panel);
+    spec.height = Math.max(380, window.innerHeight - 260);
+    const dim = document.createElement('div');
+    dim.className = 'breadth-modal-dim';
+    dim.style.display = 'block';
+    const modal = document.createElement('div');
+    modal.className = 'breadth-modal';
+    modal.style.display = 'block';
+    const hd = document.createElement('div');
+    hd.className = 'hd';
+    hd.innerHTML = `<h3>${panel.title || ''}</h3><span class="sp"></span>`;
+    const close = document.createElement('button');
+    close.className = 'btn';
+    close.textContent = '✕ close';
+    hd.appendChild(close);
+    const body = document.createElement('div');
+    modal.appendChild(hd);
+    modal.appendChild(body);
+    document.body.appendChild(dim);
+    document.body.appendChild(modal);
+
+    const specs: PanelDef[] = [];
+    const idx = this.panels.find((p) => !p.mini && p !== panel && /tasi/i.test(p.title || ''));
+    if (idx) { const ix = cloneSpec(idx); ix.height = 200; specs.push(ix); }
+    specs.push(spec);
+    const st = new Stack(body, this.hub, specs, { noctl: true });
+
+    const closeFn = () => {
+      st.destroy();
+      dim.remove();
+      modal.remove();
+      document.removeEventListener('keydown', onKey);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeFn(); };
+    close.onclick = closeFn;
+    dim.onclick = closeFn;
+    document.addEventListener('keydown', onKey);
+  }
+
+  /** Pan the shared window by `dx` px from a base range (mouse drag + touch pan). */
+  private panBy(dx: number, baseI0: number, baseI1: number): void {
+    const p = this.panels[0];
+    if (!p) return;
+    const w = this.plotW(p);
+    const n = baseI1 - baseI0;
+    const di = Math.round((-dx / w) * n);
+    let a = baseI0 + di;
+    let b = baseI1 + di;
+    if (a < 0) { b -= a; a = 0; }
+    if (b > this.hub.length - 1) { a -= b - (this.hub.length - 1); b = this.hub.length - 1; }
+    this.hub.range.i0 = a;
+    this.hub.range.i1 = b;
+    this.hub.drawAll();
+  }
+
+  /** Panels as plain export targets (canvas + div + spec fields). */
+  exportPanels(): ExportPanel[] {
+    return this.panels.map((p) => ({
+      canvas: p.canvas, div: p.div, title: p.title, series: p.series, hlines: p.hlines, mini: p.mini,
+    }));
+  }
+
+  /** Re-scale non-manual panel heights to PREFS.chart (drawer Chart-height slider). */
+  applyScale(): void {
+    const scale = getPrefs().chart;
+    const pageId = this.hub.pageId;
+    this.panels.forEach((p, k) => {
+      if (p.mini) return;
+      const pk = `${pageId}:${k}`;
+      if (prefsStore.ph.h[pk]) return;
+      p.div.style.height = Math.round((p.height || 150) * scale) + 'px';
+    });
+    this.draw();
+  }
+
+  /** Toggle legends + repaint (drawer Show-legends / line-thickness change). */
+  refreshPrefs(): void {
+    const legend = getPrefs().legend;
+    this.el.querySelectorAll('.breadth-ttl .lg').forEach((e) => { (e as HTMLElement).style.display = legend ? '' : 'none'; });
+    this.draw();
+  }
+
 
   // --- margins (identical to the reference: mini panels hug their plot) ---
   private L(p: RuntimePanel): number {
@@ -511,7 +754,7 @@ export class Stack {
         }
       } else {
         g.strokeStyle = col;
-        g.lineWidth = s.width || 1.5;
+        g.lineWidth = (s.width || 1.5) * getPrefs().lw;
         g.beginPath();
         let pen = false;
         for (let i = i0; i <= i1; i++) {

@@ -1,4 +1,5 @@
 import { API_BASE_URL } from "./config";
+import { authFetch } from "./authFetch";
 
 export type TradeStatus = "active" | "closed";
 export type TradeType = "buy" | "sell";
@@ -129,7 +130,7 @@ export async function fetchJournalApi(signal?: AbortSignal): Promise<{ ok: boole
 
 export async function createTradeApi(payload: TradePayload): Promise<{ ok: boolean; status: number; serverId?: string; error?: string }> {
     try {
-        const res = await fetch(`${API_BASE_URL}/api/rebh/journal`, {
+        const res = await authFetch(`${API_BASE_URL}/api/rebh/journal`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
@@ -147,7 +148,7 @@ export async function createTradeApi(payload: TradePayload): Promise<{ ok: boole
 
 export async function updateTradeApi(id: string, payload: TradePayload): Promise<{ ok: boolean; status: number; error?: string }> {
     try {
-        const res = await fetch(`${API_BASE_URL}/api/rebh/journal/${id}`, {
+        const res = await authFetch(`${API_BASE_URL}/api/rebh/journal/${id}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
@@ -161,7 +162,7 @@ export async function updateTradeApi(id: string, payload: TradePayload): Promise
 
 export async function deleteTradeApi(id: string): Promise<{ ok: boolean; status: number; error?: string }> {
     try {
-        const res = await fetch(`${API_BASE_URL}/api/rebh/journal/${id}`, {
+        const res = await authFetch(`${API_BASE_URL}/api/rebh/journal/${id}`, {
             method: "DELETE",
             credentials: "include",
         });

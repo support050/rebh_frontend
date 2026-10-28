@@ -20,7 +20,7 @@ import type { BreadthSignals } from '@/types/breadth';
 type SigRow = BreadthSignals['signals_table'][number];
 type StatRow = BreadthSignals['signal_stats'][number];
 
-const PANELS: PanelDef[] = [
+export const PANELS: PanelDef[] = [
   idxPanel({
     episodes: true,
     events: [

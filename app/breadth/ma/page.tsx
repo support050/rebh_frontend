@@ -8,7 +8,7 @@ import { ChartPage } from '../_lib/BreadthView';
 import { idxPanel, IDX_KEYS } from '../_lib/panels';
 import type { PanelDef } from '../_engine/types';
 
-const PANELS: PanelDef[] = [
+export const PANELS: PanelDef[] = [
   idxPanel(),
   {
     title: '% above 200 DMA',

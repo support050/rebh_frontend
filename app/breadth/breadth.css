@@ -621,3 +621,436 @@ html.dark .breadth-root,
   vertical-align: middle;
 }
 
+/* ==========================================================================
+   CR3 (Rebh_CR3_reference/pro_dashboard_template.html lines 116-148):
+   panel controls · fullscreen · custom-dashboard grid · drawer · menus ·
+   tour · heat cells · compact · print.
+   ========================================================================== */
+
+/* ---- per-panel hover controls + drag-resize (ref .panel .ctl/.rsz) ---- */
+.breadth-panel .ctl {
+  position: absolute;
+  right: 8px;
+  top: 4px;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 3;
+}
+.breadth-panel:hover .ctl,
+.breadth-stack:hover .sctl {
+  opacity: 1;
+}
+.ctl button,
+.sctl button {
+  background: var(--surface2, #f4f4f2);
+  border: 1px solid var(--border, #dcdbd6);
+  color: var(--text2, #52514e);
+  border-radius: 4px;
+  width: 22px;
+  height: 20px;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+.ctl button:hover,
+.sctl button:hover {
+  color: var(--text, #0b0b0b);
+  border-color: var(--blue, #2a78d6);
+}
+.breadth-panel .rsz {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -3px;
+  height: 6px;
+  cursor: ns-resize;
+  z-index: 2;
+}
+.breadth-panel.collapsed {
+  height: 26px !important;
+}
+.breadth-panel.collapsed canvas {
+  display: none;
+}
+
+/* ---- stack-level controls + fullscreen (ref .sctl/.stackwrap/.stack.fs) ---- */
+.sctl {
+  position: absolute;
+  right: 8px;
+  top: -30px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.stackwrap {
+  position: relative;
+}
+.breadth-stack.fs {
+  position: fixed;
+  inset: 12px;
+  z-index: 45;
+  margin: 0;
+  overflow: auto;
+}
+.breadth-stack.fs .breadth-panel {
+  min-height: 120px;
+}
+
+/* ---- ★ custom dashboard grid (ref .cgrid/.cw/.cat/.tabs) ---- */
+.breadth-root .cgrid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+.breadth-root .cw {
+  grid-column: span 6;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  position: relative;
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+}
+.breadth-root .cw.dragover {
+  outline: 2px dashed var(--blue);
+}
+.breadth-root .cw .cwh {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text2);
+  cursor: grab;
+  user-select: none;
+}
+.breadth-root .cw .cwh b {
+  color: var(--text);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.breadth-root .cw .cwh button {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  border-radius: 4px;
+  height: 20px;
+  min-width: 22px;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.breadth-root .cw .cwb {
+  padding: 6px;
+  overflow: auto;
+  flex: 1;
+}
+.breadth-root .cw .cwb .breadth-stack {
+  margin: 0;
+  border: none;
+}
+.breadth-root .cw .cwb .kpis {
+  margin: 0;
+}
+.breadth-root .cw.w3 { grid-column: span 3; }
+.breadth-root .cw.w4 { grid-column: span 4; }
+.breadth-root .cw.w6 { grid-column: span 6; }
+.breadth-root .cw.w8 { grid-column: span 8; }
+.breadth-root .cw.w9 { grid-column: span 9; }
+.breadth-root .cw.w12 { grid-column: span 12; }
+@media (max-width: 1000px) {
+  .breadth-root .cw,
+  .breadth-root .cw.w3,
+  .breadth-root .cw.w4,
+  .breadth-root .cw.w6,
+  .breadth-root .cw.w8,
+  .breadth-root .cw.w9,
+  .breadth-root .cw.w12 {
+    grid-column: span 12;
+  }
+}
+.breadth-root .cat {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 8px;
+}
+.breadth-root .cat .it {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.breadth-root .cat .it:hover {
+  border-color: var(--blue);
+}
+.breadth-root .cat .it small {
+  display: block;
+  color: var(--text2);
+  margin-top: 2px;
+}
+.breadth-root .tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.breadth-root .tabs .tab {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface2);
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text);
+}
+.breadth-root .tabs .tab.active {
+  background: var(--blue);
+  color: #fff;
+  border-color: var(--blue);
+}
+
+/* ---- ⚙ drawer + ⇩ export menu (ref #drawer/.menu) — variables resolve
+     because the chrome mounts inside a .breadth-root scope ---- */
+.breadth-drawer {
+  position: fixed;
+  top: 0;
+  right: -380px;
+  width: 360px;
+  height: 100%;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  z-index: 36;
+  padding: 14px 16px;
+  overflow: auto;
+  transition: right 0.2s;
+  box-shadow: -8px 0 30px rgba(0, 0, 0, 0.25);
+}
+.breadth-drawer.open {
+  right: 0;
+}
+/* transparent click-catcher behind the ⚙ drawer — any outside click closes it */
+.breadth-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+}
+.breadth-drawer h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+.breadth-drawer h4 {
+  margin: 14px 0 6px;
+  font-size: 12px;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.breadth-drawer .row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+  font-size: 12px;
+}
+.breadth-drawer .row label {
+  flex: 1;
+  color: var(--text2);
+}
+.breadth-drawer input[type='range'] {
+  width: 140px;
+}
+.breadth-drawer select,
+.breadth-drawer input[type='text'] {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-size: 12px;
+}
+.breadth-menu {
+  position: relative;
+  display: inline-block;
+}
+.breadth-menu .dd {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 28px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-width: 260px;
+  z-index: 30;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  padding: 6px;
+}
+.breadth-menu.open .dd {
+  display: block;
+}
+.breadth-menu .dd a {
+  display: block;
+  padding: 6px 10px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 12px;
+  border-radius: 6px;
+}
+.breadth-menu .dd a:hover {
+  background: var(--surface2);
+}
+.breadth-menu .dd small {
+  display: block;
+  color: var(--text2);
+}
+
+/* ---- ? tour (ref #tour-dim/#tour/.tour-hl) ---- */
+.breadth-tour-dim {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 30;
+}
+.breadth-tour {
+  position: fixed;
+  z-index: 32;
+  width: 380px;
+  max-width: calc(100vw - 24px);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.breadth-tour h4 {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+.breadth-tour .step {
+  color: var(--text2);
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+.breadth-tour .btns {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  align-items: center;
+}
+.breadth-tour .btns .sp {
+  flex: 1;
+}
+.breadth-tour kbd {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 4px;
+  font-size: 11px;
+}
+.tour-hl {
+  position: relative;
+  z-index: 31;
+  box-shadow: 0 0 0 3px var(--blue, #2a78d6), 0 0 0 6px rgba(57, 135, 229, 0.35);
+  border-radius: 8px;
+}
+
+/* ---- heat-rank table cells (ref td.hc/th.hc) ---- */
+.breadth-root td.hc,
+.breadth-root th.hc {
+  padding: 2px 3px;
+  font-size: 10px;
+  text-align: center;
+  min-width: 26px;
+}
+.breadth-root th.hc {
+  font-weight: 600;
+  white-space: normal;
+  line-height: 1.15;
+  width: 26px;
+}
+
+/* ---- ? help chip (ref .help) ---- */
+.breadth-help {
+  display: inline-block;
+  margin-left: 8px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--surface2, #f4f4f2);
+  border: 1px solid var(--border, #dcdbd6);
+  color: var(--text2, #52514e);
+  text-align: center;
+  line-height: 16px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+/* ---- compact mode (ref body.compact) ---- */
+body.breadth-compact .breadth-root .kpi { padding: 6px 8px; }
+body.breadth-compact .breadth-root .kpi .v { font-size: 17px; }
+body.breadth-compact .breadth-root th,
+body.breadth-compact .breadth-root td { padding: 2px 5px; font-size: 11px; }
+body.breadth-compact .breadth-root .stackwrap { margin-bottom: 8px; }
+
+/* ---- present mode (ref body.present) ---- */
+body.present header,
+body.present nav,
+body.present .breadth-toolbar,
+body.present .breadth-menu,
+body.present .breadth-drawer,
+body.present .breadth-drawer-backdrop,
+body.present .sctl,
+body.present .ctl {
+  display: none;
+}
+
+/* ---- print / PDF export (ref @media print line 141) ---- */
+@media print {
+  header,
+  nav,
+  .breadth-toolbar,
+  .ctl,
+  .sctl,
+  .rsz,
+  .breadth-tour,
+  .breadth-tour-dim,
+  .tblbar,
+  .breadth-help,
+  .breadth-drawer,
+  .breadth-drawer-backdrop,
+  .breadth-menu {
+    display: none !important;
+  }
+  main {
+    padding: 0;
+  }
+  .breadth-stack {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-bottom: 10px;
+  }
+  .tblwrap {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  body,
+  .breadth-root {
+    background: #fff;
+    color: #000;
+  }
+}
+

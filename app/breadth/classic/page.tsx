@@ -9,7 +9,7 @@ import { ChartPage } from '../_lib/BreadthView';
 import { IDX_KEYS } from '../_lib/panels';
 import type { PanelDef } from '../_engine/types';
 
-const PANELS: PanelDef[] = [
+export const PANELS: PanelDef[] = [
   {
     title: 'TASI · EMA(21) · MA(50) · MA(200)',
     height: 300,

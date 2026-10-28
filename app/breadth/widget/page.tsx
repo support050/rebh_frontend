@@ -54,7 +54,7 @@ function GaugeRow({ title, upV, dnV, upLabel, dnLabel }: {
 }
 
 /** #stage-mini — the '% in each stage' strip inside the widget card. */
-const MINI_PANELS: PanelDef[] = [
+export const MINI_PANELS: PanelDef[] = [
   {
     title: '% in each stage',
     height: 150,
@@ -68,13 +68,13 @@ const MINI_PANELS: PanelDef[] = [
   },
 ];
 
-function WidgetCard({ i, date }: { i: number; date: string }) {
+export function WidgetCard({ i, date }: { i: number; date: string }) {
   const series = useBreadthStore((s) => s.series);
   const val = (k: string): number | null => num(series[k]?.[i]);
   const st = [1, 2, 3, 4].map((k) => val(`stage${k}`) || 0);
   const n = st.reduce((a, b) => a + b, 0) || 1;
   return (
-    <div className="widget">
+    <div className="widget" id="w-widget">
       <h3>Market Breadth · {date || '—'}</h3>
       {GAUGES.map((g) => (
         <GaugeRow
@@ -134,7 +134,7 @@ const stageSeries = (sfx: string, wk: boolean): SeriesDef[] =>
   }));
 
 /** Main column: head panel + the five share gauges (template wStack panels 0–5). */
-const MAIN_PANELS: PanelDef[] = [
+export const MAIN_PANELS: PanelDef[] = [
   idxPanel({ regimeStrip: true }),
   sharePanel('New highs share — NH/(NH+NL) %', 'w_nh', 'w_nh_10', '--blue', 'NH %'),
   sharePanel('Advance share — A/(A+D) %', 'w_ad', 'w_ad_10', '--blue', 'Adv %'),
@@ -216,7 +216,7 @@ function WidgetBody() {
       />
       <div className="ovgrid">
         <WidgetCard i={i} date={dates[i] ?? ''} />
-        <div className="space-y-3">
+        <div className="space-y-3" id="w-stack">
           <RangeToolbar />
           <div className="breadth-toolbar">
             <span className="lbl">Stages</span>

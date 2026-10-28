@@ -57,16 +57,5 @@ export const getTrustBadge = (symbol: string): Promise<{ symbol: string; verifie
 export const getValuationModels = (symbol: string): Promise<{ symbol: string; company_name?: string; models: any }> =>
   apiFetch(`/api/companies/${symbol}/models`)
 
-export async function uploadXbrlFiles(files: File[]) {
-  const form = new FormData()
-  files.forEach((f) => form.append('files', f))
-  const res = await fetch(`${API_BASE_URL}/api/upload/xbrl`, {
-    method: 'POST',
-    body: form,
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }))
-    throw new Error(err.detail ?? 'Upload failed')
-  }
-  return res.json()
-}
+// uploadXbrlFiles() was deleted 2026-10-29 together with the dead
+// POST /api/upload/xbrl endpoint (raw fetch, no CSRF/credentials, zero callers).

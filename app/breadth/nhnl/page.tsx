@@ -13,7 +13,7 @@ import { Tag, fmt, signClass } from '../_lib/ui';
 import type { BreadthEventsCanaryItem } from '@/types/breadth';
 import type { PanelDef } from '../_engine/types';
 
-const PANELS: PanelDef[] = [
+export const PANELS: PanelDef[] = [
   idxPanel({ episodes: true }),
   {
     title: 'New highs (green) / new lows (red)',
@@ -58,7 +58,7 @@ const PANELS: PanelDef[] = [
 const KEYS = [...IDX_KEYS, 'new_highs', 'new_lows', 'net_nh_nl', 'nhnl_sum5', 'nhnl_thr', 'hl_index'];
 
 /** "Canary episodes on TASI (2007–2026)" — header order and footer exactly as the template. */
-function CanaryTable({ episodes }: { episodes: BreadthEventsCanaryItem[] }) {
+export function CanaryTable({ episodes }: { episodes: BreadthEventsCanaryItem[] }) {
   if (!episodes.length) return null;
   const closed = episodes.filter((e) => e.pct != null);
   const mean = (get: (e: BreadthEventsCanaryItem) => number) =>

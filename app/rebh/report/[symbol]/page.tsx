@@ -8,6 +8,7 @@ import {
   AlertCircle, FileText, Scale, Edit3, Save, AlertTriangle
 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api/config";
+import { authFetch } from "@/lib/api/authFetch";
 import { generateOfficialReportPdf, OfficialReportPdfData } from "./components/exportpdf";
 
 const SECTION_TITLE = "text-xs font-bold text-[#8C3B32] uppercase tracking-wide mb-2 border-b border-[#E5E7EB] pb-1";
@@ -76,7 +77,7 @@ export default function RebhReportPage() {
 
     // 2. Persist to API per user
     try {
-      await fetch(`${API_BASE_URL}/api/rebh/notes/${symbol}`, {
+      await authFetch(`${API_BASE_URL}/api/rebh/notes/${symbol}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

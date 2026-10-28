@@ -252,6 +252,7 @@ export default function Navbar() {
   const { user, logout } = useAuth()
   const pathname = usePathname()
   const isBreadthActive = pathname?.startsWith('/breadth')
+  const isGuruActive = pathname?.startsWith('/guru-scans')
 
   // ── Menu data ────────────────────────────────
   const menuItems: MenuMap = {
@@ -655,8 +656,8 @@ export default function Navbar() {
             </div>
           ))}
 
-          {/* Market Breadth direct link (next to Terminal) */}
-          <Link
+          {/* Market Breadth direct link (temporarily commented out) */}
+          {/* <Link
             href="/breadth"
             className="flex items-center px-3 h-full text-[13.5px] font-medium transition-colors duration-150 whitespace-nowrap no-underline outline-none"
             style={{
@@ -668,6 +669,22 @@ export default function Navbar() {
           >
             <span className={isBreadthActive ? 'font-semibold text-blue-700' : 'text-gray-600 hover:text-gray-900'}>
               Market Breadth
+            </span>
+          </Link> */}
+
+          {/* Guru Stock Scans direct link */}
+          <Link
+            href="/guru-scans"
+            className="flex items-center px-3 h-full text-[13.5px] font-medium transition-colors duration-150 whitespace-nowrap no-underline outline-none"
+            style={{
+              color: isGuruActive ? '#1D4ED8' : undefined,
+              borderBottom: isGuruActive
+                ? '2px solid #1D4ED8'
+                : '2px solid transparent',
+            }}
+          >
+            <span className={isGuruActive ? 'font-semibold text-blue-700' : 'text-gray-600 hover:text-gray-900'}>
+              Guru Scans
             </span>
           </Link>
         </div>
@@ -807,8 +824,8 @@ export default function Navbar() {
             </div>
           ))}
 
-          {/* Market Breadth direct link (mobile) */}
-          <Link
+          {/* Market Breadth direct link (mobile) (temporarily commented out) */}
+          {/* <Link
             href="/breadth"
             onClick={closeAll}
             className={`block px-3 py-2.5 text-[14px] font-medium rounded-md transition-colors no-underline ${
@@ -816,6 +833,17 @@ export default function Navbar() {
             }`}
           >
             Market Breadth
+          </Link> */}
+
+          {/* Guru Stock Scans direct link (mobile) */}
+          <Link
+            href="/guru-scans"
+            onClick={closeAll}
+            className={`block px-3 py-2.5 text-[14px] font-medium rounded-md transition-colors no-underline ${
+              isGuruActive ? 'text-blue-700 bg-blue-50 font-semibold' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+          >
+            Guru Scans
           </Link>
 
           {/* Extra links */}

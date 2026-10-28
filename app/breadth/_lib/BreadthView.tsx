@@ -11,12 +11,17 @@
  * so a page only needs to wrap its content in <BreadthView> to get the theme.
  */
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import '../breadth.css';
 import { ChartHub, Stack } from '../_engine/Stack';
 import { applyDerived } from '../_engine/derive';
 import type { PanelDef, StackOptions } from '../_engine/types';
 import type { DataSource } from '../_engine/types';
 import { useBreadthStore } from './store';
+import { pageByPath } from './pageMap';
+import { registerPanelWidget } from './widgets';
+import { applyPrefs, getPrefs, prefsStore } from './prefs';
+import { setActivePage } from './activeHub';
 
 const HubCtx = createContext<ChartHub | null>(null);
 export const useHub = (): ChartHub | null => useContext(HubCtx);
@@ -42,12 +47,16 @@ export function BreadthView({
   const scopeRef = useRef<HTMLDivElement>(null);
   const [hub, setHub] = useState<ChartHub | null>(null);
 
+  const pathname = usePathname();
+  const page = useMemo(() => pageByPath(pathname), [pathname]);
+
   const load = useBreadthStore((s) => s.load);
   const status = useBreadthStore((s) => s.status);
   const error = useBreadthStore((s) => s.error);
   const dates = useBreadthStore((s) => s.dates);
   const series = useBreadthStore((s) => s.series);
   const events = useBreadthStore((s) => s.events);
+  const today = useBreadthStore((s) => s.today);
 
   // request only what this page draws (store merges + caches across pages)
   const keySig = keys.join(',');
@@ -65,20 +74,53 @@ export function BreadthView({
     return { dates, series: merged, events: (events as unknown as DataSource['events']) || {} };
   }, [dates, series, events]);
 
-  // create the hub once the scope node + first data slice are both ready
+  // create the hub once the scope node + first data slice are both ready.
+  // Page identity comes from the route (widget ids + PH keys); every panel
+  // self-registers into the ★ Custom Dashboard catalog via registerPanelWidget.
   useEffect(() => {
-    if (data && scopeRef.current && !hub) setHub(new ChartHub(data, scopeRef.current));
-  }, [data, hub]);
+    if (data && scopeRef.current && !hub) {
+      setHub(
+        new ChartHub(data, scopeRef.current, {
+          pageId: page?.id ?? '',
+          pageName: page?.name ?? '',
+          todayDate: today?.date,
+          registerWidget: (id, title, group, panel) => registerPanelWidget(id, title, group, panel),
+        }),
+      );
+    }
+  }, [data, hub, page, today?.date]);
 
   // feed newer snapshots into the live hub
   useEffect(() => {
     if (hub && data) hub.setData(data);
   }, [hub, data]);
 
+  // CR3 §4: boot prefs from localStorage (constructor did), reconcile with the
+  // server, and re-apply on every change; the hub re-scales panels live.
+  useEffect(() => {
+    applyPrefs();
+    void prefsStore.hydrate();
+    return prefsStore.subscribe(() => {
+      applyPrefs();
+      hub?.relayout();
+    });
+  }, [hub]);
+
+  // CR3 §3: publish this page so the layout-level Export/Drawer/Tour chrome can
+  // act on the live hub (reference `activePage()`).
+  useEffect(() => {
+    const el = scopeRef.current;
+    if (hub && el && page) {
+      setActivePage({ hub, el, pageId: page.id, pageName: page.name });
+      return () => setActivePage(null);
+    }
+    return undefined;
+  }, [hub, page]);
+
   useEffect(() => () => hub?.destroy(), [hub]);
 
   return (
-    <div ref={scopeRef} className={`breadth-root ${className}`}>
+    <div ref={scopeRef} id={page ? `p-${page.id}` : undefined} className={`breadth-root ${className}`}>
       {status === 'error' ? (
         <div className="breadth-error">Failed to load breadth data — {error}</div>
       ) : null}
@@ -144,7 +186,7 @@ export function ChartPage({
 /** Shared range control — drives every stack on the hub at once. */
 export function RangeToolbar() {
   const hub = useHub();
-  const [active, setActive] = useState<number | null>(500);
+  const [active, setActive] = useState<number | null>(() => getPrefs().range ?? 500);
   if (!hub) return <div className="breadth-toolbar" />;
   return (
     <div className="breadth-toolbar">
@@ -155,6 +197,7 @@ export function RangeToolbar() {
           className={`btn${active === d ? ' active' : ''}`}
           onClick={() => {
             setActive(d);
+            prefsStore.set({ range: d });
             hub.setRange(d);
           }}
         >
