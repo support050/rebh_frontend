@@ -14,15 +14,15 @@ const SCHEDULE = {
         { id: 'treasury-fred', title: 'Treasury Yield Curve', source: 'Treasury.gov', url: '/api/economic-indicators/scrape/yield-curve', msg: '✅ Treasury Yield Curve started!', when: 'Every business day', file: 'treasury_gov_scraper.py', note: 'Endpoint /scrape/yield-curve calls treasury_gov_scraper (verified in app/api/routes/economic_indicators.py) — there is no treasury_scraper.py' },
         { id: 'fred-all', title: 'All FRED Indicators', source: 'FRED API', url: '/api/economic-indicators/scrape', msg: '✅ All FRED indicators started!', when: 'Every business day', file: 'fred_scraper.py', note: 'Fetches all configured codes automatically' },
         { id: 'eurodollar', title: 'Eurodollar Futures', source: 'Investing.com', url: '/api/economic-indicators/scrape/eurodollar-futures', msg: '✅ Eurodollar started!', when: 'Every business day', file: 'eurodollar_scraper.py', snapshot: true },
-        { id: 'cme', title: 'CME FedWatch', source: 'CME Group', url: '/api/economic-indicators/scrape/cme-fedwatch', msg: '✅ CME FedWatch started!', when: 'Every business day', file: 'cmefedwatch_scraper.py', snapshot: true, note: 'Selenium' },
+        { id: 'cme', title: 'CME FedWatch', source: 'CME Group', url: '/api/economic-indicators/scrape/cme-fedwatch', msg: '✅ CME FedWatch started!', when: 'Every business day', file: 'cmefedwatch_scraper.py', snapshot: true, note: 'curl_cffi TLS impersonation — replays the QuikStrike ASP.NET postbacks (no browser, no Selenium): 9 meeting tabs + horizons + Dot Plot → 6 tables' },
     ],
     weekly: [
         // FRED weekly indicators are now handled by the 'All FRED Indicators' button
     ],
     monthly: [
         { id: 'sp500-pe', title: 'S&P 500 PE (Multpl)', source: 'Multpl.com', url: '/api/economic-indicators/scrape/sp500-pe', msg: '✅ Multpl PE started (updates History table)!', when: 'Once a month', file: 'sp500_pe_scraper.py' },
-        { id: 'sp500-ey', title: 'S&P 500 Earnings Yield', source: 'GuruFocus', url: '/api/economic-indicators/scrape/SP500_EY', msg: '✅ SP500 EY started!', when: 'Once a month', file: 'gurufocus_scraper.py', note: 'Selenium' },
-        { id: 'sp500-pe-guru', title: 'S&P 500 PE Ratio', source: 'GuruFocus', url: '/api/economic-indicators/scrape/SP500_PE', msg: '✅ SP500 PE Ratio started!', when: 'Once a month', file: 'gurufocus_scraper.py', note: 'Selenium' },
+        { id: 'sp500-ey', title: 'S&P 500 Earnings Yield', source: 'GuruFocus', url: '/api/economic-indicators/scrape/SP500_EY', msg: '✅ SP500 EY started!', when: 'Once a month', file: 'gurufocus_scraper.py', note: 'Scrapling HTTP (rotating impersonation) — Selenium removed 2026-10-23' },
+        { id: 'sp500-pe-guru', title: 'S&P 500 PE Ratio', source: 'GuruFocus', url: '/api/economic-indicators/scrape/SP500_PE', msg: '✅ SP500 PE Ratio started!', when: 'Once a month', file: 'gurufocus_scraper.py', note: 'Scrapling HTTP (rotating impersonation) — Selenium removed 2026-10-23' },
     ],
     marketReports: [
         { id: 'market-reports-all', title: 'Saudi Market Reports (All)', source: 'Saudi Exchange', url: '/api/market-reports/scrape', msg: '✅ Saudi Market Reports started in background!', when: 'Sun-Thu (After Close)', file: 'update_market_reports.py', note: 'Runs Substantial Shareholders, Net Short, Headroom, Buybacks, SBL' },
@@ -54,8 +54,11 @@ const PIPELINES = [
     },
     {
         table: 'cme_fedwatch', label: 'CME FedWatch',
-        scrapers: ['cmefedwatch_scraper.py → CME Group (snapshot)'],
+        scrapers: [
+            'cmefedwatch_scraper.py → CME QuikStrike postbacks via curl_cffi (no browser) → cme_fedwatch + _snapshot + _horizon + _futures + _meeting + _dotplot',
+        ],
         pages: ['/interest-rate/cme-fedwatch'],
+        warn: 'One job writes six tables — the registry (GET /api/admin/system-map/pipelines) lists each table as its own row',
     },
     {
         table: 'tasi_components', label: 'TASI Components (Market Weight)',
@@ -94,14 +97,26 @@ function StorageBadge({ storage }: { storage: string }) {
 
 function LastRunChip({ job }: { job: ScheduleJob }) {
     const lr = job.last_run;
-    if (!lr) return <span className="text-[10px] text-slate-400">never recorded</span>;
-    const cls = lr.status === 'failed' ? 'bg-red-50 text-red-600 border-red-200'
-        : lr.status === 'running' ? 'bg-amber-50 text-amber-600 border-amber-200'
+    /* `verdict` is the shared rule the Runbook uses too (ledger row + the freshness
+       of the tables the job writes), served from the same snapshot. This tab used
+       to render `last_run.status` — the raw ledger — which is why it could print
+       "failed" beside a Runbook that had already overturned that row with data.
+       The ledger row still drives the age/rows text and stays in the tooltip. */
+    const status = job.verdict || lr?.status || 'unknown';
+    if (!lr && !job.superseded) return <span className="text-[10px] text-slate-400">never recorded</span>;
+    const cls = status === 'bad' ? 'bg-red-50 text-red-600 border-red-200'
+        : status === 'late' ? 'bg-amber-50 text-amber-600 border-amber-200'
             : 'bg-emerald-50 text-emerald-600 border-emerald-200';
-    const label = lr.status === 'failed' ? '❌ failed' : lr.status === 'running' ? '⏳ running' : '✅ ok';
+    const label = lr?.status === 'running' ? '⏳ running'
+        : status === 'bad' ? (lr ? '❌ failed' : '❌ never recorded')
+            : status === 'late' ? '⚠ late'
+                : job.superseded ? '✅ ok · from tables' : '✅ ok';
     return (
-        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${cls}`}>
-            {label}{lr.age_hours != null ? ` · ${Math.round(lr.age_hours)}h ago` : ''}{lr.rows_written != null ? ` · ${lr.rows_written} rows` : ''}
+        <span
+            className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${cls}`}
+            title={job.verdict_message || lr?.error_message || undefined}
+        >
+            {label}{lr?.age_hours != null ? ` · ${Math.round(lr.age_hours)}h ago` : ''}{lr?.rows_written != null ? ` · ${lr.rows_written} rows` : ''}
         </span>
     );
 }
@@ -139,13 +154,6 @@ function ScriptCard({ job, runState, copied, onCopy, onRun }: { job: ScheduleJob
             {job.writes.length > 0 && (
                 <p className="text-[10px] text-slate-400">→ writes: <span className="font-mono">{job.writes.join(', ')}</span></p>
             )}
-            {job.commands.length > 0 && (
-                <div className="space-y-1.5 pt-1 border-t border-slate-100">
-                    {job.commands.map((c, i) => (
-                        <CommandRow key={i} cmd={c} jobKey={job.job_name} copied={copied} onCopy={onCopy} />
-                    ))}
-                </div>
-            )}
             <div className="mt-auto flex items-center justify-between gap-2 pt-1">
                 <LastRunChip job={job} />
                 {job.delegated_to ? (
@@ -162,6 +170,23 @@ function ScriptCard({ job, runState, copied, onCopy, onRun }: { job: ScheduleJob
                     <span className="text-[10px] text-slate-400" title="No server-side callable — copy the command and run it in a terminal">⌨ terminal only</span>
                 )}
             </div>
+            {/* The terminal command sits UNDER “Run Now” on purpose: an operator who
+                does not want to trigger the job from the browser copies this and
+                pastes it into a terminal. registry.commands_for() fills it for every
+                card whose script really has a __main__ door; when it cannot (a library
+                module), the card says why instead of leaving a blank slot. */}
+            {job.commands.length > 0 ? (
+                <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                    <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest">⌨ From a terminal</p>
+                    {job.commands.map((c, i) => (
+                        <CommandRow key={i} cmd={c} jobKey={job.job_name} copied={copied} onCopy={onCopy} />
+                    ))}
+                </div>
+            ) : (
+                <p className="text-[10px] text-slate-400 italic pt-2 border-t border-slate-100">
+                    {job.cli_absence_reason || 'no terminal command registered — use Run Now'}
+                </p>
+            )}
         </div>
     );
 }

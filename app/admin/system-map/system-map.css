@@ -162,6 +162,78 @@ html.dark .sm-btn-primary {
 .sm-runnote-ok { color: var(--green); }
 .sm-runnote-bad { color: var(--red); }
 
+/* ── Terminal command — the copy-paste door under “Run now” ─────────────────
+   Run now dispatches inside the app; this is the SAME job for an operator who
+   prefers a terminal. The string is decided only by the registry
+   (backend/app/system_registry.py → commands_for / derived_command), which
+   emits it solely for scripts that really carry a __main__ door. The cell shows
+   the primary command truncated with a one-click Copy; the expanded row prints
+   every command in full. */
+.sm-cmd {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 340px;
+}
+
+.sm-cmdline {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, 'Segoe UI Mono', Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sm-cmdmore {
+  font-size: 10px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.sm-cmdlist {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.sm-cmdlist-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sm-cmdlabel {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.sm-cmdfull {
+  flex: 1 1 320px;
+  min-width: 0;
+  margin: 0;
+  padding: 4px 8px;
+  font-family: ui-monospace, SFMono-Regular, 'Segoe UI Mono', Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 /* ── grid ─────────────────────────────────────────────────────────────────── */
 .sm-grid {
   display: grid;

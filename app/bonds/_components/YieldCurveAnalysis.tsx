@@ -6,6 +6,8 @@ import {
   ResponsiveContainer, ReferenceLine, ReferenceArea, Legend
 } from 'recharts';
 import { API_BASE_URL } from '@/lib/api/config';
+import { BONDS_FONT, SHAPE_COLORS } from '../_data/bondsDesign';
+import BondsSourceAttribution from './BondsSourceAttribution';
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 interface YCRow {
@@ -14,6 +16,19 @@ interface YCRow {
   year_1: number | null; year_2: number | null; year_3: number | null;
   year_5: number | null; year_7: number | null; year_10: number | null;
   year_20: number | null; year_30: number | null;
+}
+
+/** GET /api/economic-indicators/yield-curve/summary (backend _shape rules:
+ *  inverted < 0 ≤ flat < 0.20 ≤ normal). Nothing here is derived client-side —
+ *  the badge shows exactly what the API computed from scraped rows. */
+interface CurveSummary {
+  as_of: string;
+  last_updated: string | null;
+  curve_shape: 'normal' | 'flat' | 'inverted' | 'unknown';
+  spreads: {
+    '10Y2Y': { value: number | null; shape: string; inverted: boolean };
+    '10Y3M': { value: number | null; shape: string; inverted: boolean };
+  };
 }
 
 const MATURITIES = [
@@ -133,6 +148,7 @@ export default function YieldCurveAnalysis() {
   const [ycData, setYcData] = useState<YCRow[]>([]);
   const [sp500Data, setSp500Data] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [summary, setSummary] = useState<CurveSummary | null>(null);
 
   /* ── Historical section states ──────────────────────────────────────── */
   const [histIndex, setHistIndex] = useState(-1);
@@ -148,6 +164,7 @@ export default function YieldCurveAnalysis() {
   // Spread chart zoom states
   const [spread1Zoom, setSpread1Zoom] = useState('All');
   const [spread2Zoom, setSpread2Zoom] = useState('All');
+  const [spread3Zoom, setSpread3Zoom] = useState('All');
 
   useEffect(() => {
     (async () => {
@@ -167,6 +184,11 @@ export default function YieldCurveAnalysis() {
       } catch { /* ignore */ }
       setLoading(false);
     })();
+    // Shape badge source — one-call summary (curve_shape + the two FRED spreads)
+    fetch(`${API_BASE_URL}/api/economic-indicators/yield-curve/summary`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(s => setSummary(s))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -203,13 +225,22 @@ export default function YieldCurveAnalysis() {
   }, [latest, oneYearAgo, twoYearsAgo]);
 
   const spreadData = useMemo(() => {
+    // 10Y is the common leg; each short leg is computed independently so a row
+    // missing one maturity still feeds the other two series (Recharts skips
+    // nulls rather than the whole row being dropped, as the old filter did).
     return ycData
-      .filter(d => d.year_10 !== null && d.year_1 !== null && d.year_2 !== null)
-      .map(d => ({ date: d.report_date, spread10y1y: +(d.year_10! - d.year_1!).toFixed(2), spread10y2y: +(d.year_10! - d.year_2!).toFixed(2) }));
+      .filter(d => d.year_10 !== null)
+      .map(d => ({
+        date: d.report_date,
+        spread10y1y: d.year_1 !== null ? +(d.year_10! - d.year_1).toFixed(2) : null,
+        spread10y2y: d.year_2 !== null ? +(d.year_10! - d.year_2).toFixed(2) : null,
+        spread10y3m: d.month_3 !== null ? +(d.year_10! - d.month_3).toFixed(2) : null,
+      }));
   }, [ycData]);
 
   const filteredSpread1 = useMemo(() => filterByZoom(spreadData, spread1Zoom), [spreadData, spread1Zoom]);
   const filteredSpread2 = useMemo(() => filterByZoom(spreadData, spread2Zoom), [spreadData, spread2Zoom]);
+  const filteredSpread3 = useMemo(() => filterByZoom(spreadData, spread3Zoom), [spreadData, spread3Zoom]);
 
   const demoCurves = useMemo(() => {
     const normal = findClosestDate(ycData, '2021-04-15');
@@ -294,16 +325,40 @@ export default function YieldCurveAnalysis() {
     return [Number(Math.max(0, dataMin - range * 0.1).toFixed(3)), Number((dataMax + range * 0.1).toFixed(3))];
   };
 
+  const shapeKey = (summary?.curve_shape ?? 'unknown') as keyof typeof SHAPE_COLORS;
+  const shapeC = SHAPE_COLORS[shapeKey] ?? SHAPE_COLORS.unknown;
+
   return (
-    <div style={{ maxWidth: 980, margin: '0 auto', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+    <div style={{ maxWidth: 980, margin: '0 auto', fontFamily: BONDS_FONT }}>
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* SECTION 1: Current Treasury Yield Curve                          */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       <div style={SECTION}>
         <h2 style={H2}>US Treasury Yield Curve (updated daily)</h2>
-        <div style={{ textAlign: 'center', fontSize: 12, color: '#6b7280', marginBottom: 16 }}>
-          Updated: {new Date(latestDate).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}
+        {/* Shape badge — straight off /yield-curve/summary (backend-computed
+            from the two FRED spreads; never derived from substituted data) */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, flexWrap: 'wrap', fontSize: 12, color: '#6b7280', marginBottom: 16 }}>
+          <span>
+            Updated: {new Date(latestDate).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}
+          </span>
+          <span style={{
+            fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase',
+            color: shapeC.fg, background: shapeC.bg, border: `1px solid ${shapeC.border}`,
+            borderRadius: 999, padding: '2px 10px',
+          }}>
+            Curve shape: {shapeKey}
+          </span>
+          {summary?.spreads?.['10Y2Y']?.value != null && (
+            <span style={{ fontSize: 11, color: summary.spreads['10Y2Y'].inverted ? '#b91c1c' : '#374151' }}>
+              10Y−2Y {summary.spreads['10Y2Y'].value! > 0 ? '+' : ''}{summary.spreads['10Y2Y'].value!.toFixed(2)}%
+            </span>
+          )}
+          {summary?.spreads?.['10Y3M']?.value != null && (
+            <span style={{ fontSize: 11, color: summary.spreads['10Y3M'].inverted ? '#b91c1c' : '#374151' }}>
+              10Y−3M {summary.spreads['10Y3M'].value! > 0 ? '+' : ''}{summary.spreads['10Y3M'].value!.toFixed(2)}%
+            </span>
+          )}
         </div>
 
         <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
@@ -432,11 +487,14 @@ export default function YieldCurveAnalysis() {
               </div>
             </div>
             <div style={{ position: 'relative', height: 220, marginBottom: 4 }}>
-              {filteredSpread1.length > 0 && (
-                <div style={{ position: 'absolute', right: 28, top: '40%', zIndex: 10, fontSize: 13, fontWeight: 700, color: '#1d4ed8' }}>
-                  {filteredSpread1[filteredSpread1.length - 1].spread10y1y.toFixed(2)}%
-                </div>
-              )}
+              {(() => {
+                const v = [...filteredSpread1].reverse().find(d => d.spread10y1y !== null)?.spread10y1y;
+                return v != null ? (
+                  <div style={{ position: 'absolute', right: 28, top: '40%', zIndex: 10, fontSize: 13, fontWeight: 700, color: '#1d4ed8' }}>
+                    {v.toFixed(2)}%
+                  </div>
+                ) : null;
+              })()}
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={filteredSpread1} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                   <CartesianGrid {...GRID} />
@@ -466,11 +524,14 @@ export default function YieldCurveAnalysis() {
               </div>
             </div>
             <div style={{ position: 'relative', height: 220, marginBottom: 4 }}>
-              {filteredSpread2.length > 0 && (
-                <div style={{ position: 'absolute', right: 28, top: '40%', zIndex: 10, fontSize: 13, fontWeight: 700, color: '#7c3aed' }}>
-                  {filteredSpread2[filteredSpread2.length - 1].spread10y2y.toFixed(2)}%
-                </div>
-              )}
+              {(() => {
+                const v = [...filteredSpread2].reverse().find(d => d.spread10y2y !== null)?.spread10y2y;
+                return v != null ? (
+                  <div style={{ position: 'absolute', right: 28, top: '40%', zIndex: 10, fontSize: 13, fontWeight: 700, color: '#7c3aed' }}>
+                    {v.toFixed(2)}%
+                  </div>
+                ) : null;
+              })()}
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={filteredSpread2} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                   <CartesianGrid {...GRID} />
@@ -483,13 +544,51 @@ export default function YieldCurveAnalysis() {
                 </LineChart>
               </ResponsiveContainer>
             </div>
-            <div style={{ textAlign: 'center', fontSize: 11, color: '#6b7280', marginBottom: 6 }}>━ Treasury Yield Spread (10Y-2Y)</div>
+            <div style={{ textAlign: 'center', fontSize: 11, color: '#6b7280', marginBottom: 20 }}>━ Treasury Yield Spread (10Y-2Y)</div>
+
+            {/* Chart 3: 10Y-3M — the second spread FRED tracks (T10Y3M) and the
+                one the brief benchmarks the inversion call against */}
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 4 }}>
+              <h3 style={{ ...H3, margin: 0 }}>Historical Treasury Yield Spread (10Y–3M)</h3>
+              <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                <span style={{ fontSize: 11, color: '#6b7280', marginRight: 4 }}>Zoom</span>
+                {['1m', '3m', '6m', 'YTD', '1y', '5y', '10y', 'All'].map(z => (
+                  <button key={z} onClick={() => setSpread3Zoom(z)}
+                    style={{ padding: '2px 7px', fontSize: 11, fontWeight: spread3Zoom === z ? 700 : 400, color: spread3Zoom === z ? '#111827' : '#6b7280',
+                      background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: spread3Zoom === z ? 'underline' : 'none', textUnderlineOffset: 3 }}>
+                    {z}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{ position: 'relative', height: 220, marginBottom: 4 }}>
+              {(() => {
+                const v = [...filteredSpread3].reverse().find(d => d.spread10y3m !== null)?.spread10y3m;
+                return v != null ? (
+                  <div style={{ position: 'absolute', right: 28, top: '40%', zIndex: 10, fontSize: 13, fontWeight: 700, color: '#0f766e' }}>
+                    {v.toFixed(2)}%
+                  </div>
+                ) : null;
+              })()}
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={filteredSpread3} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                  <CartesianGrid {...GRID} />
+                  {RECESSIONS.map((r, i) => <ReferenceArea key={i} x1={r.start} x2={r.end} fill="#d1d5db" fillOpacity={0.45} />)}
+                  <ReferenceLine y={0} stroke="#ef4444" strokeWidth={1.5} />
+                  <XAxis dataKey="date" minTickGap={80} tickFormatter={v => new Date(v).getFullYear().toString()} tick={TICK} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
+                  <YAxis domain={[-5, 5]} ticks={[-5, -2.5, 0, 2.5, 5]} tickFormatter={v => v % 1 === 0 ? `${v}%` : `${v.toFixed(1)}%`} tick={TICK} tickLine={false} axisLine={false} width={38} />
+                  <Tooltip formatter={(v: any) => v != null ? `${Number(v).toFixed(2)}%` : '—'} labelFormatter={(l: any) => new Date(l).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} />
+                  <Line type="monotone" dataKey="spread10y3m" name="10Y − 3M" stroke="#0f766e" strokeWidth={1.2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <div style={{ textAlign: 'center', fontSize: 11, color: '#6b7280', marginBottom: 6 }}>━ Treasury Yield Spread (10Y-3M)</div>
             <p style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>* The grey zones indicate US recessions.</p>
           </div>
 
           {/* ── RIGHT: Description ── */}
           <div style={{ fontSize: 14, color: '#374151', lineHeight: 1.8 }}>
-            <p>An <strong>inverted yield curve</strong> occurs when yields on short-term bonds rise above the yields on longer-term bonds of the same credit quality, which has proven to be a relatively reliable indicator of an economic recession. The inverted yield curve can be observed when the yield spread between long-term yield and short-term yield is less than zero, as shown in the left two graphs.</p>
+            <p>An <strong>inverted yield curve</strong> occurs when yields on short-term bonds rise above the yields on longer-term bonds of the same credit quality, which has proven to be a relatively reliable indicator of an economic recession. The inverted yield curve can be observed when the yield spread between long-term yield and short-term yield is less than zero, as shown in the graphs on the left.</p>
 
             <p style={{ marginTop: 16 }}>The gray bars throughout the charts indicate the past U.S. recessions since 1967. A quick look at the &quot;Historical Treasury Yield Spread (10Y-1Y)&quot; graph suggests that historically, an economic recession generally follows once the yield spread drops below 0% (the red Y-axis). This is especially true for recessions during the late 1900s. The yield spread reached an all-time low of -3.10% around April 1980, during the economic recession of the early 1980s.</p>
 
@@ -699,6 +798,12 @@ export default function YieldCurveAnalysis() {
           </ResponsiveContainer>
         </div>
       </div>}
+
+      <BondsSourceAttribution
+        detail={summary
+          ? `Curve as of ${summary.as_of}${summary.last_updated ? ` · last fetched ${new Date(summary.last_updated).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}` : ''}.`
+          : null}
+      />
 
     </div>
   );

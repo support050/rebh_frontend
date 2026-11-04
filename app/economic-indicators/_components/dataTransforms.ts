@@ -70,34 +70,52 @@ export function applyUnitsTransform(
 
 /* ─────────────────────────────────────────────
    2. Frequency Aggregation
-   Aggregates data to lower frequencies.
+   Aggregates data to a lower frequency. Grouping is
+   idempotent: when the source is already at (or coarser than)
+   the target frequency every bucket holds a single point, so the
+   output equals the input — that lets one code path serve monthly
+   series (UNRATE) and daily ones (ICE BofA spreads) alike.
 ───────────────────────────────────────────── */
+
+/* Bucket key for a date at the requested frequency; null = no aggregation. */
+function getPeriodKey(dateStr: string, targetFrequency: string): string | null {
+  const d = new Date(dateStr + 'T12:00:00');
+  const year = d.getFullYear();
+  const month = d.getMonth(); // 0-indexed
+
+  switch (targetFrequency) {
+    case 'Daily':
+      return null;
+    case 'Weekly': {
+      // Bucket by the Monday of the ISO week (keeps Sat/Sun together).
+      const monday = new Date(d);
+      monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+      return monday.toDateString();
+    }
+    case 'Quarterly':
+      return `${year}-Q${Math.floor(month / 3) + 1}`;
+    case 'Semiannual':
+      return `${year}-H${month < 6 ? 1 : 2}`;
+    case 'Annual':
+      return `${year}`;
+    case 'Monthly':
+    default:
+      return `${year}-${month}`;
+  }
+}
+
 export function applyFrequencyTransform(
   data: DataPoint[],
   targetFrequency: string
 ): DataPoint[] {
   if (!data || data.length === 0) return [];
-  if (targetFrequency === 'Monthly') return data;
+  if (targetFrequency === 'Daily') return data;
 
-  const monthsPerPeriod = getMonthsPerPeriod(targetFrequency);
   const grouped: Map<string, DataPoint[]> = new Map();
 
   for (const point of data) {
-    const d = new Date(point.date + 'T12:00:00');
-    const year = d.getFullYear();
-    const month = d.getMonth(); // 0-indexed
-
-    let periodKey: string;
-    if (targetFrequency === 'Annual') {
-      periodKey = `${year}`;
-    } else if (targetFrequency === 'Semiannual') {
-      const half = month < 6 ? 1 : 2;
-      periodKey = `${year}-H${half}`;
-    } else {
-      // Quarterly
-      const quarter = Math.floor(month / 3) + 1;
-      periodKey = `${year}-Q${quarter}`;
-    }
+    const periodKey = getPeriodKey(point.date, targetFrequency);
+    if (periodKey === null) return data;
 
     if (!grouped.has(periodKey)) {
       grouped.set(periodKey, []);
@@ -163,20 +181,13 @@ export function getTransformedYAxisLabel(
 ───────────────────────────────────────────── */
 function getPeriodsPerYear(frequency: string): number {
   switch (frequency) {
+    case 'Daily': return 252;
+    case 'Weekly': return 52;
     case 'Monthly': return 12;
     case 'Quarterly': return 4;
     case 'Semiannual': return 2;
     case 'Annual': return 1;
     default: return 12;
-  }
-}
-
-function getMonthsPerPeriod(frequency: string): number {
-  switch (frequency) {
-    case 'Quarterly': return 3;
-    case 'Semiannual': return 6;
-    case 'Annual': return 12;
-    default: return 1;
   }
 }
 

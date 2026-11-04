@@ -5,13 +5,15 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 
-interface SidebarItem {
+export interface SidebarItem {
   en: string
   href: string
   items?: SidebarItem[]
 }
 
-const menuItems: SidebarItem[] = [
+/** Exported for the Admin System Map: the Market Data navbar IS the spine the
+ * page ↔ script lineage panel walks, so menu labels live in one place only. */
+export const menuItems: SidebarItem[] = [
   {
     en: 'Bonds',
     href: '/bonds',

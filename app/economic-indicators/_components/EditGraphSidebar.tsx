@@ -55,11 +55,19 @@ interface EditGraphSidebarProps {
     onFormulaApply?: (formula: string) => void;
     onOutputUnitsChange?: (outputUnits: string) => void;
     onAddSeries?: (seriesId: string) => void;
+    /** Remove a previously added data series from the graph. */
+    onRemoveSeries?: (seriesId: string) => void;
+    /** Last failure loading a series (shown next to the add controls). */
+    addSeriesError?: string | null;
     // New: user-defined lines
     userDefinedLines?: UserDefinedLine[];
     onUserDefinedLinesChange?: (lines: UserDefinedLine[]) => void;
     // Additional data series loaded (for "Edit Lines" select)
     additionalSeriesLabels?: Record<string, string>; // { seriesId: label }
+    /** Currently visible date range — new trend lines default to it so they are on-screen. */
+    visibleRange?: { start: string; end: string };
+    /** Value span of the visible primary series — new trend lines default to it. */
+    visibleValueRange?: { min: number; max: number };
 }
 
 /* ─────────────────────────────────────────────
@@ -103,6 +111,18 @@ const UNITS_OPTIONS_NUMBER = [
 
 const FREQUENCY_OPTIONS = ['Monthly', 'Quarterly', 'Semiannual', 'Annual'];
 
+/* FRED's "Modify frequency" only offers aggregations — a series can never be
+   up-sampled — so the list starts at the series' own base frequency. */
+const FINER_FREQUENCY_PREFIX: Record<string, string[]> = {
+    Daily: ['Daily', 'Weekly'],
+    Weekly: ['Weekly'],
+};
+
+function getFrequencyOptions(baseFrequency: string): string[] {
+    const prefix = FINER_FREQUENCY_PREFIX[baseFrequency];
+    return prefix ? [...prefix, ...FREQUENCY_OPTIONS] : FREQUENCY_OPTIONS;
+}
+
 const OUTPUT_UNITS_OPTIONS = [
     'Select',
     'Change',
@@ -143,6 +163,11 @@ function generateId() {
     return Math.random().toString(36).substr(2, 9);
 }
 
+/** Round to 4 decimals (trend-line default values). */
+function round4(n: number): number {
+    return Math.round(n * 10000) / 10000;
+}
+
 /* ─────────────────────────────────────────────
    Component
 ───────────────────────────────────────────── */
@@ -156,9 +181,13 @@ export default function EditGraphSidebar({
     onFormulaApply,
     onOutputUnitsChange,
     onAddSeries,
+    onRemoveSeries,
+    addSeriesError,
     userDefinedLines = [],
     onUserDefinedLinesChange,
     additionalSeriesLabels = {},
+    visibleRange,
+    visibleValueRange,
 }: EditGraphSidebarProps) {
     const [open, setOpen] = useState(false);
     const [activeTab, setActiveTab] = useState<'EDIT LINES' | 'ADD LINE' | 'FORMAT'>('EDIT LINES');
@@ -277,17 +306,23 @@ export default function EditGraphSidebar({
 
     /* ── User-defined line handlers ── */
     const handleCreateLine = () => {
-        // Create a default line immediately, just like FRED
+        // Create a default line immediately, just like FRED — spanning the
+        // currently visible range so the new line is always on screen.
+        const lineNo = userDefinedLines.length + 1;
+        // Default the endpoints onto the visible part of the primary series, so the
+        // line is always inside the plot regardless of the indicator's magnitude.
+        const vStart = visibleValueRange ? round4(visibleValueRange.min) : 3.4;
+        const vEnd = visibleValueRange ? round4(visibleValueRange.max) : 4.4;
         const newLine: UserDefinedLine = {
             id: generateId(),
-            dateStart: '1948-01-01', // Default start
-            dateEnd: new Date().toISOString().split('T')[0], // Default end (today)
-            valueStart: 3.4, // Default placeholder
-            valueEnd: 4.4,   // Default placeholder
-            color: '#e74c3c',
+            dateStart: visibleRange?.start || '1948-01-01',
+            dateEnd: visibleRange?.end || new Date().toISOString().split('T')[0],
+            valueStart: vStart,
+            valueEnd: vEnd,
+            color: TREND_LINE_COLORS[(lineNo - 1) % TREND_LINE_COLORS.length],
             lineStyle: 'Solid',
             lineWidth: 2,
-            label: `Trend Line`,
+            label: `Trend Line ${lineNo}`,
         };
         const updated = [...userDefinedLines, newLine];
         onUserDefinedLinesChange?.(updated);
@@ -307,8 +342,16 @@ export default function EditGraphSidebar({
         onUserDefinedLinesChange?.(updated);
     };
 
-    /* ── Build select options ── */
-    const unitsOptions = getUnitsOptions(lineInfo.units);
+    /* ── Build select options ──
+       Keep the current selection visible even when it's a transform that the
+       base-units list doesn't contain (otherwise the select renders blank). */
+    const baseUnitsOptions = getUnitsOptions(lineInfo.units);
+    const unitsOptions = baseUnitsOptions.includes(selectedUnits)
+        ? baseUnitsOptions
+        : [selectedUnits, ...baseUnitsOptions];
+
+    /* Frequency list adapts to the series' own frequency (daily spreads, etc.). */
+    const frequencyOptions = getFrequencyOptions(lineInfo.frequency);
 
     /* ── Reset all filters ── */
     const handleReset = () => {
@@ -323,6 +366,8 @@ export default function EditGraphSidebar({
         setLocalOutputUnits('Select');
         onOutputUnitsChange?.('Select');
         onUserDefinedLinesChange?.([]);
+        // Drop any added data series too, so the graph returns to Line 1 only.
+        Object.keys(additionalSeriesLabels).forEach((sid) => onRemoveSeries?.(sid));
         setSelectedLineId('primary');
         setLocalHeight(defaultFormatSettings.height);
         setLocalWidth(defaultFormatSettings.width);
@@ -343,6 +388,10 @@ export default function EditGraphSidebar({
     ];
 
     const selectedUDL = userDefinedLines.find(l => l.id === selectedLineId);
+    // An added data series (Line 2+) is selected rather than the primary line / a UDL.
+    const selectedSeriesId = selectedLineId !== 'primary' && !selectedUDL
+        ? Object.keys(additionalSeriesLabels).find((sid) => sid === selectedLineId)
+        : undefined;
     const selectedLineIdx = allLines.findIndex(l => l.id === selectedLineId);
 
     const TABS = ['EDIT LINES', 'ADD LINE', 'FORMAT'] as const;
@@ -359,8 +408,8 @@ export default function EditGraphSidebar({
                 className={[
                     'inline-flex items-center gap-1.5 text-[12px] font-semibold border rounded px-3 py-1.5 transition-colors select-none',
                     open
-                        ? 'bg-[#1a5276] text-white border-[#1a5276]'
-                        : 'bg-[#2874a6] text-white border-[#2874a6] hover:bg-[#1a5276]',
+                        ? 'bg-[#0052a3] text-white border-[#0052a3]'
+                        : 'bg-[#0066cc] text-white border-[#0066cc] hover:bg-[#0052a3]',
                 ].join(' ')}
             >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -464,7 +513,7 @@ export default function EditGraphSidebar({
                                             onChange={(e) => handleFrequencyChange(e.target.value)}
                                             className="w-full border border-[#4d7eb2] rounded px-2 py-2 text-[12px] bg-white focus:outline-none focus:border-[#2874a6] focus:ring-1 focus:ring-[#2874a6]"
                                         >
-                                            {FREQUENCY_OPTIONS.map((opt) => (
+                                            {frequencyOptions.map((opt) => (
                                                 <option key={opt} value={opt}>{opt}</option>
                                             ))}
                                         </select>
@@ -507,6 +556,9 @@ export default function EditGraphSidebar({
                                                 </svg>
                                             </button>
                                         </div>
+                                        {addSeriesError && (
+                                            <p className="text-[10px] text-red-500 -mt-2 mb-2">{addSeriesError}</p>
+                                        )}
 
                                         <div className="text-[11px] text-[#555] leading-snug mb-1">
                                             Now create a custom formula to combine or transform the series.
@@ -583,6 +635,36 @@ export default function EditGraphSidebar({
                                         </div>
                                     </div>
                                 </>
+                            )}
+
+                            {/* ── Added data series editor (Line 2+) ── */}
+                            {selectedSeriesId && (
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <div className="font-bold text-[13px]">Line {selectedLineIdx + 1}</div>
+                                            <div className="text-[11px] text-[#555]">
+                                                ({selectedSeriesId}) — plotted on the right axis
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => { onRemoveSeries?.(selectedSeriesId); setSelectedLineId('primary'); }}
+                                            className="w-8 h-8 flex items-center justify-center border border-[#e74c3c] rounded text-[#e74c3c] hover:bg-[#e74c3c] hover:text-white transition-colors"
+                                            title="Remove this series"
+                                        >
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                                <polyline points="3 6 5 6 21 6" />
+                                                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                                                <path d="M10 11v6M14 11v6" />
+                                                <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                    <div className="text-[11px] text-[#555] leading-snug">
+                                        To combine this series with Line 1, write a formula below
+                                        ('{String.fromCharCode(98 + Object.keys(additionalSeriesLabels).indexOf(selectedSeriesId))}' = {additionalSeriesLabels[selectedSeriesId]}).
+                                    </div>
+                                </div>
                             )}
 
                             {/* ── User-defined line editor ── */}
@@ -735,6 +817,29 @@ export default function EditGraphSidebar({
                                     <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" />
                                 </svg>
                             </button>
+
+                            {addSeriesError && (
+                                <p className="text-[11px] text-red-500">{addSeriesError}</p>
+                            )}
+
+                            {/* Series currently on the graph */}
+                            {Object.keys(additionalSeriesLabels).length > 0 && (
+                                <div className="border-t border-[#e5e5e5] pt-2">
+                                    <div className="text-[11px] font-bold text-[#333] mb-1">On the graph</div>
+                                    {Object.entries(additionalSeriesLabels).map(([sid, lbl]) => (
+                                        <div key={sid} className="flex items-center justify-between py-1 border-b border-[#f0f0f0] last:border-0">
+                                            <span className="text-[11px] text-[#555]">({sid}) {lbl}</span>
+                                            <button
+                                                onClick={() => onRemoveSeries?.(sid)}
+                                                className="text-[10px] text-[#c0392b] hover:underline"
+                                                title={`Remove ${sid}`}
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
 
                             {/* ── Create user-defined line ── */}
                             <div className="border-t border-[#e5e5e5] pt-3">
@@ -1006,12 +1111,14 @@ export default function EditGraphSidebar({
 ───────────────────────────────────────────── */
 export const defaultFormatSettings: GraphFormatSettings = {
     graphType: 'Line',
-    showTitle: true,
+    // FRED's default graph shows no centered title (only the legend overlay).
+    showTitle: false,
     showAxisTitles: true,
     showTooltip: true,
     showRecessionShading: true,
     logScaleLeft: false,
-    height: 450,
+    // Matches the measured .highcharts-container box (1320 x 465).
+    height: 465,
     width: 1320,
     lineStyle: 'Solid',
     lineWidth: 3,

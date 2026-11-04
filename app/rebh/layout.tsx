@@ -39,7 +39,7 @@ const NAV_ITEMS: { group: string; items: NavItem[] }[] = [
       { name: "Platform Scorecard (10/10)", nameEn: "Council Scorecard", path: "/rebh/score", icon: Award },
       { name: "Analytical Report", nameEn: "Abu Saad Report", path: "/rebh/report/2222", icon: FileText },
       { name: "Course Reports (10 Companies)", nameEn: "Course Reports", path: "/rebh/course-reports", icon: BookOpen },
-      { name: "Trading & Analysis Terminal", nameEn: "Terminal Suite", path: "/terminal", icon: BarChart2 },
+      { name: "Trading & Analysis Terminal", nameEn: "Terminal Suite", path: "/rebh/terminal", icon: BarChart2 },
       // { name: "Data Health & Audit", nameEn: "Data Health", path: "/rebh/health", icon: Activity },
     ]
   }

@@ -22,8 +22,7 @@ import useSWR from 'swr';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import {
   SystemMapService,
-  type SystemMapDetail,
-  type SystemMapListResponse,
+  type RunbookResponse,
   type SystemMapSummary,
 } from '@/lib/services/admin';
 import {
@@ -37,9 +36,11 @@ import {
 } from './_lib/panels';
 import { STATUS_LABEL, clockTime } from './_lib/format';
 import { StatusDot } from './_lib/ui';
+import { LineagePanel } from './_lib/lineage';
 import './system-map.css';
 
-const LIST_PATH = '/api/admin/system-map/systems';
+/** One request carries the sidebar list, every system's detail and the lineage. */
+const RUNBOOK_PATH = '/api/admin/system-map/runbook';
 /** Matches IN_MEMORY_TTL_SYSTEM_MAP in backend/app/core/cache_config.py. */
 const REFRESH_MS = 60_000;
 /** Relative labels ("3h ago") are re-rendered on this tick, independent of fetches. */
@@ -65,16 +66,16 @@ function Runbook() {
   const fetcher = useCallback(<T,>(path: string) => SystemMapService.fetcher<T>(path), []);
 
   const {
-    data: listData,
-    error: listError,
-    isLoading: listLoading,
-    mutate: mutateList,
-  } = useSWR<SystemMapListResponse>(LIST_PATH, fetcher, {
+    data,
+    error: runbookError,
+    isLoading,
+    mutate,
+  } = useSWR<RunbookResponse>(RUNBOOK_PATH, fetcher, {
     refreshInterval: REFRESH_MS,
     keepPreviousData: true,
   });
 
-  const systems = useMemo<SystemMapSummary[]>(() => listData?.systems ?? [], [listData]);
+  const systems = useMemo<SystemMapSummary[]>(() => data?.systems ?? [], [data]);
 
   // ?system= is read after mount, never during the first render: reading it on the
   // server would render a different system than the client hydrates into.
@@ -84,20 +85,16 @@ function Runbook() {
   }, []);
 
   // Nothing in the URL → the first system, without rewriting the address bar for it.
-  const activeId = urlRead ? selected ?? systems[0]?.id ?? null : null;
+  const activeId = urlRead ? selected ?? data?.active ?? systems[0]?.id ?? null : null;
 
-  const detailPath = activeId ? `/api/admin/system-map/systems/${activeId}` : null;
-  const {
-    data: detail,
-    error: detailError,
-    isLoading: detailLoading,
-    mutate: mutateDetail,
-  } = useSWR<SystemMapDetail>(detailPath, fetcher, {
-    refreshInterval: REFRESH_MS,
-    keepPreviousData: true,
-  });
+  // Every system's full entry arrived with the list, so picking another row in
+  // the sidebar is a lookup in data already in the browser — no fetch, no wait.
+  const detail = useMemo(
+    () => (activeId && data?.details ? data.details[activeId] : undefined),
+    [activeId, data],
+  );
 
-  const registryFile = listData?.registry_file ?? detail?.registry_file ?? 'backend/app/system_registry.py';
+  const registryFile = data?.registry_file ?? 'backend/app/system_registry.py';
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), CLOCK_MS);
@@ -124,28 +121,22 @@ function Runbook() {
   }, [urlRead, activeId, selected]);
 
   const forceRefresh = useCallback(async () => {
-    if (!activeId) return;
     setRefreshing(true);
     setManualError(null);
     try {
       // refresh=true skips the server's 60s snapshot, so "Refresh" really re-probes.
-      const [list, one] = await Promise.all([
-        SystemMapService.getSystems(true),
-        SystemMapService.getSystem(activeId, true),
-      ]);
-      await mutateList(list, false);
-      await mutateDetail(one, false);
+      await mutate(SystemMapService.getRunbook(activeId, true), false);
       setNow(Date.now());
     } catch (e) {
       setManualError(readMessage(e));
     } finally {
       setRefreshing(false);
     }
-  }, [activeId, mutateDetail, mutateList]);
+  }, [activeId, mutate]);
 
-  const error = manualError ?? readMessage(listError) ?? readMessage(detailError);
-  const updatedAt = detail?.generated_at ?? listData?.generated_at ?? null;
-  const showSkeleton = (listLoading && !listData) || (detailLoading && !detail);
+  const error = manualError ?? readMessage(runbookError);
+  const updatedAt = data?.generated_at ?? null;
+  const showSkeleton = isLoading && !data;
 
   return (
     <div dir="ltr" className="sysmap-root">
@@ -170,7 +161,7 @@ function Runbook() {
               type="button"
               className="sm-btn"
               onClick={forceRefresh}
-              disabled={refreshing || !activeId}
+              disabled={refreshing}
             >
               {refreshing ? 'Refreshing…' : 'Refresh'}
             </button>
@@ -200,7 +191,7 @@ function Runbook() {
           </div>
         ) : null}
 
-        {listData && systems.length === 0 ? (
+        {data && systems.length === 0 ? (
           <EmptyState
             text={`No system is registered. Add an entry to ${registryFile} and reload — this page holds no data of its own.`}
           />
@@ -219,8 +210,8 @@ function Runbook() {
               ) : !detail || detail.id !== activeId ? (
                 <EmptyState
                   text={
-                    detailError
-                      ? `System "${activeId ?? ''}" could not be loaded — ${readMessage(detailError)}`
+                    runbookError
+                      ? `System "${activeId ?? ''}" could not be loaded — ${readMessage(runbookError)}`
                       : 'Select a system on the left.'
                   }
                 />
@@ -250,6 +241,11 @@ function Runbook() {
             </main>
           </div>
         )}
+
+        {/* Global view: it walks the whole navbar, so it stays outside the
+            per-system panel stack and never depends on the selected system. It
+            rides in the same payload as everything else (B): no second fetch. */}
+        <LineagePanel lineage={data?.lineage} />
       </div>
     </div>
   );

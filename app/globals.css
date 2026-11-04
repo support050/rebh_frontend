@@ -79,3 +79,14 @@ body {
   --dropdown-hover: #21262d;
   --dropdown-border: #30363d;
 }
+
+/* ===== FRED chart fullscreen =====
+   Native Fullscreen API on the chart container ( EconomicIndicatorView).
+   The light-blue frame seen on fred.stlouisfed.org is the container's own
+   background filling the viewport. */
+.fred-fullscreen:fullscreen {
+  background: #e7effb;
+  /* extra bottom band so the pinned source / "Back" strip never covers the X axis */
+  padding: 16px 20px 42px;
+  overflow: hidden;
+}

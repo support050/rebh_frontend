@@ -5,6 +5,9 @@ export interface IndicatorMetadata {
   observationDate?: string;  // Date of the latest observation
   updated?: string;
   nextRelease?: string;
+  /** FRED's release-calendar page for this series' release, e.g.
+   *  https://fred.stlouisfed.org/releases/calendar?rid=209&y=2026 */
+  releaseCalendarUrl?: string;
   units: string;
   frequency: string;
   dateRange?: string;

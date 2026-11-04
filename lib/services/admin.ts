@@ -212,12 +212,23 @@ export interface MapJob {
   tracked: boolean;
   max_allowed_age_hours: number | null;
   writes: string[];
+  /** Reverse lineage: the pages that read what this job writes. */
+  pages?: string[];
   note: string;
+  /** Copy-paste terminal command(s), served from the same registry field the
+   * Schedule tab uses — registry.commands_for() is the single source. */
+  commands: ScheduleCommand[];
+  /** Printed when ``commands`` is empty, so the card explains the gap. */
+  cli_absence_reason?: string | null;
   failures_7d: number;
   stuck_running: number;
   last_run: MapLastRun | null;
   status: MapStatus;
   message: string;
+  /** The ledger said worse (failed / never recorded / 0 rows) but every table this
+   *  job writes measured fresh with data at least as new as that run — the run
+   *  happened outside `job_runs` (a terminal invocation). Verdict is `ok`. */
+  superseded?: boolean;
   run: MapRunCapability;
 }
 
@@ -276,6 +287,27 @@ export interface SystemMapDetail {
 }
 
 /**
+ * The whole Runbook page in one payload (GET /api/admin/system-map/runbook).
+ *
+ * The page used to fetch /systems, /systems/{id} and /pages together; all three
+ * read the same server snapshot, so they only added queueing. Here every system
+ * ships with its full entry, which makes switching systems a client-side lookup
+ * — no request, no wait.
+ */
+export interface RunbookResponse {
+  systems: SystemMapSummary[];
+  details: Record<string, SystemMapDetail>;
+  /** The system the server considers active (URL hint, else the first one). */
+  active: string | null;
+  lineage: PageLineageResponse;
+  generated_at: string | null;
+  cache_ttl_seconds: number;
+  registry_file: string;
+  build_error: string | null;
+  db_queries?: MapQueryCount;
+}
+
+/**
  * System Map (Runbook) client. Only the pipelines map is used by the legacy
  * /admin dashboard; the full runbook lives at /admin/system-map.
  */
@@ -300,6 +332,23 @@ export const SystemMapService = {
         const response = await apiClient.get<SystemMapDetail>(
             `/api/admin/system-map/systems/${systemId}`,
             { params: force ? { refresh: true } : undefined },
+        );
+        return response.data;
+    },
+
+    /**
+     * One request for the entire page: sidebar list + every system's detail +
+     * the page↔script lineage. `force` bypasses the 60s server cache.
+     */
+    async getRunbook(systemId?: string | null, force = false): Promise<RunbookResponse> {
+        const response = await apiClient.get<RunbookResponse>(
+            '/api/admin/system-map/runbook',
+            {
+                params: {
+                    ...(systemId ? { system: systemId } : {}),
+                    ...(force ? { refresh: true } : {}),
+                },
+            },
         );
         return response.data;
     },
@@ -333,6 +382,16 @@ export const SystemMapService = {
     async getSchedule(): Promise<ScheduleResponse> {
         const response = await apiClient.get<ScheduleResponse>(
             '/api/admin/system-map/schedule',
+        );
+        return response.data;
+    },
+
+    /** Page ↔ script lineage: what feeds each navbar page, and what each script
+     * serves (GET /api/admin/system-map/pages). No extra SQL on the backend. */
+    async getPageLineage(refresh = false): Promise<PageLineageResponse> {
+        const response = await apiClient.get<PageLineageResponse>(
+            '/api/admin/system-map/pages',
+            { params: refresh ? { refresh: true } : {} },
         );
         return response.data;
     },
@@ -387,6 +446,8 @@ export interface ScheduleJob {
   role: ScheduleRole;
   storage: ScheduleStorage;
   commands: ScheduleCommand[];
+  /** Printed when ``commands`` is empty, so the card explains the gap. */
+  cli_absence_reason?: string | null;
   writes: string[];
   expected_schedule: string;
   trigger: string;
@@ -399,6 +460,13 @@ export interface ScheduleJob {
   delegated_to: string | null;
   run_reason: string | null;
   last_run: MapLastRun | null;
+  /** The shared verdict (ledger row + table freshness) — the SAME rule the Runbook
+   *  applies, served from the same snapshot. Render this, not `last_run.status`. */
+  verdict?: MapStatus;
+  /** Why the verdict is what it is; shown as the chip's tooltip. */
+  verdict_message?: string;
+  /** True when the tables overruled the ledger (the run happened outside job_runs). */
+  superseded?: boolean;
 }
 
 export interface ScheduleResponse {
@@ -433,4 +501,74 @@ export interface IntegrityScan {
   findings: IntegrityFinding[];
   gaps: number;
   registry_file: string;
+}
+
+// ── Page ↔ script lineage (GET /api/admin/system-map/pages) ─────────────
+
+/** "table" = the table entry names this page on purpose. "system" = the table
+ * named no pages, so the whole owning system claims it (coarser by design). */
+export type LineageVia = 'table' | 'system';
+
+export interface LineageTable {
+  table: string;
+  system_id: string;
+  date_column: string | null;
+  source_job: string | null;
+  verified: boolean;
+  note: string;
+  via: LineageVia;
+  status: MapStatus;
+  latest: string | null;
+  lag_trading_days: number | null;
+  row_estimate: number | null;
+  measurable: boolean;
+}
+
+export interface LineageFeeder {
+  job_name: string;
+  file: string;
+  system_id: string;
+  cadence: string;
+  role: string;
+  expected_schedule: string;
+  tracked: boolean;
+  via: LineageVia;
+  status: MapStatus;
+  message: string;
+  last_run_at: string | null;
+  last_run_status: string | null;
+  rows_written: number | null;
+  commands: ScheduleCommand[];
+}
+
+export interface LineagePage {
+  path: string;
+  systems: { id: string; name: string; in_navbar: boolean; navbar_label: string | null }[];
+  jobs: LineageFeeder[];
+  tables: LineageTable[];
+  no_writer_tables: string[];
+  has_feeder: boolean;
+  status: MapStatus;
+}
+
+/** One script and every page that goes stale when it stops. */
+export interface LineageScript {
+  job_name: string;
+  file: string;
+  cadence: string;
+  status: MapStatus;
+  writes: string[];
+  pages: string[];
+  commands: ScheduleCommand[];
+  runnable: boolean;
+}
+
+export interface PageLineageResponse {
+  pages: LineagePage[];
+  scripts: LineageScript[];
+  counts: { pages: number; scripts: number };
+  registry_file: string;
+  generated_at: string | null;
+  snapshot_error: string | null;
+  note: string;
 }

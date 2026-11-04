@@ -126,6 +126,8 @@ export function JobsPanel({ jobs, now, onRerun }: {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const bad = jobs.filter((j) => j.status === 'bad').length;
   const late = jobs.filter((j) => j.status === 'late').length;
+  // Verdicts the tables had to overrule — the ledger never saw those runs.
+  const overtaken = jobs.filter((j) => j.superseded).length;
 
   return (
     <section className="sm-panel" aria-labelledby="sm-panel-jobs">
@@ -134,6 +136,7 @@ export function JobsPanel({ jobs, now, onRerun }: {
         <span className="sm-panel-hint">
           {jobs.length} job(s) · from <span className="sm-mono">job_runs</span>
           {bad || late ? ` · ${bad} bad, ${late} late` : ' · all read'}
+          {overtaken ? ` · ${overtaken} judged from the tables instead` : ''}
         </span>
       </div>
 
@@ -160,7 +163,9 @@ export function JobsPanel({ jobs, now, onRerun }: {
             <tbody>
               {jobs.map((job) => {
                 const expanded = !!open[job.job_name];
-                const hasDetail = Boolean(job.last_run?.error_message || job.note);
+                const hasDetail = Boolean(job.last_run?.error_message || job.note
+                  || (job.commands?.length ?? 0) > 1 || job.cli_absence_reason
+                  || (job.pages?.length ?? 0) > 0);
                 return (
                   <JobRow
                     key={job.job_name}
@@ -293,6 +298,9 @@ function JobRow({ job, now, expanded, hasDetail, onToggle, onRerun }: {
 
   // `run` is absent on a payload built before Phase 5 — no button, no guess.
   const canRun = Boolean(run?.runnable);
+  // registry.commands_for(): one copy-paste terminal command per job, derived in
+  // the backend so this surface and the Schedule cards can never disagree.
+  const cmds = job.commands ?? [];
 
   return (
     <>
@@ -331,38 +339,92 @@ function JobRow({ job, now, expanded, hasDetail, onToggle, onRerun }: {
             ? <span style={{ color: 'var(--red)' }}>{job.failures_7d}{job.stuck_running ? ` (+${job.stuck_running} open)` : ''}</span>
             : '0'}
         </td>
-        <td><StatusPill status={job.status} /></td>
         <td>
-          {canRun ? (
-            <div className="sm-runcell">
-              <button
-                type="button"
-                className="sm-btn sm-btn-run"
-                onClick={startRun}
-                disabled={pending}
-                title={run?.delegated_to
-                  ? `POST ${run.delegated_to}`
-                  : `POST /api/admin/system-map/jobs/${job.job_name}/run`}
-              >
-                {pending ? 'Running…' : 'Run now'}
-              </button>
-              {note ? (
-                <span className={`sm-runnote sm-runnote-${note.tone}`}>{note.text}</span>
-              ) : null}
+          <StatusPill status={job.status} />
+          {job.superseded ? (
+            <div
+              className="sm-cmdmore"
+              title="job_runs has no record of the run that wrote this data: every table this job writes is fresh and newer than the ledger line."
+            >
+              ledger overtaken by data
             </div>
-          ) : (
-            <span className="sm-subtle" title={run?.reason ?? 'not runnable'}>—</span>
-          )}
+          ) : null}
+        </td>
+        <td>
+          <div className="sm-runcell">
+            {canRun ? (
+              <>
+                <button
+                  type="button"
+                  className="sm-btn sm-btn-run"
+                  onClick={startRun}
+                  disabled={pending}
+                  title={run?.delegated_to
+                    ? `POST ${run.delegated_to}`
+                    : `POST /api/admin/system-map/jobs/${job.job_name}/run`}
+                >
+                  {pending ? 'Running…' : 'Run now'}
+                </button>
+                {note ? (
+                  <span className={`sm-runnote sm-runnote-${note.tone}`}>{note.text}</span>
+                ) : null}
+              </>
+            ) : (
+              <span className="sm-subtle" title={run?.reason ?? 'not runnable'}>—</span>
+            )}
+            {/* Under the button, always: the same job as a terminal command with a
+                one-click Copy, for an admin who would rather not run it from the
+                browser. Full text is in the expanded row. */}
+            {cmds.length > 0 ? (
+              <span className="sm-cmd">
+                <code className="sm-cmdline" title={`${cmds[0].label} — cwd backend/\n${cmds[0].cli}`}>
+                  {cmds[0].cli}
+                </code>
+                <CopyButton text={cmds[0].cli} />
+              </span>
+            ) : (
+              <span className="sm-cmdmore">{job.cli_absence_reason || 'no terminal command registered'}</span>
+            )}
+            {cmds.length > 1 ? (
+              <span className="sm-cmdmore">+{cmds.length - 1} more — expand row</span>
+            ) : null}
+          </div>
         </td>
         <td className="sm-wrapcell">{job.message}</td>
       </tr>
       {expanded ? (
         <tr>
           <td colSpan={9}>
+            {cmds.length > 0 ? (
+              <div className="sm-cmdlist">
+                {cmds.map((c, i) => (
+                  <div key={i} className="sm-cmdlist-row">
+                    <span className="sm-cmdlabel">{c.label}</span>
+                    <pre className="sm-cmdfull">{c.cli}</pre>
+                    <CopyButton text={c.cli} />
+                  </div>
+                ))}
+                <span className="sm-cmdmore">Run from <span className="sm-mono">backend/</span> — the venv path is relative to it.</span>
+              </div>
+            ) : job.cli_absence_reason ? (
+              <p className="sm-subtle">{job.cli_absence_reason}</p>
+            ) : null}
+            {job.pages && job.pages.length > 0 ? (
+              <div className="sm-cmdlist">
+                <span className="sm-cmdlabel">
+                  Pages that go stale if this stops ({job.pages.length})
+                </span>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {job.pages.map((pg) => (
+                    <a key={pg} className="sm-mono sm-cmdmore" href={pg} target="_blank" rel="noreferrer">{pg}</a>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             {job.last_run?.error_message ? (
               <pre className="sm-error">{job.last_run.error_message}</pre>
             ) : (
-              <div className="sm-subtle">{job.note || 'No extra detail.'}</div>
+              job.note ? <div className="sm-subtle">{job.note}</div> : null
             )}
           </td>
         </tr>

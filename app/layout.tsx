@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Noto_Sans_Arabic, Tajawal } from "next/font/google";
+import { Inter, Noto_Sans_Arabic, Roboto, Tajawal } from "next/font/google";
 import "./globals.css";
 import Layout from "@/components/Layout";
 import { AuthProvider } from "./providers/AuthProvider";
@@ -27,6 +27,16 @@ const tajawal = Tajawal({
   display: "swap",
 });
 
+// Roboto is the measured FRED body font (extract_fred_design.py). Loaded via
+// next/font so the /economic-indicators pages render the real face, not a
+// verdana/arial fallback. Exposed as --font-roboto (consumed by fredDesign.ts).
+const roboto = Roboto({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  variable: "--font-roboto",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "REBH",
   description: "المنصة الشاملة للتحليل المالي وتقييم الأسهم السعودية",
@@ -42,7 +52,7 @@ export default function RootLayout({
       lang="en"
       dir="ltr"
       suppressHydrationWarning
-      className={`${inter.variable} ${notoArabic.variable} ${tajawal.variable}`}
+      className={`${inter.variable} ${notoArabic.variable} ${tajawal.variable} ${roboto.variable}`}
     >
       <body className="font-sans">
         <QueryProvider>

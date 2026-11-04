@@ -274,6 +274,40 @@ export default function Navbar() {
           en: 'Fundamental', href: '#',
           items: [
             { en: 'XBRL Financials', href: '/stocks/1010/xbrl' },
+            {
+              en: 'REBH', href: '#',
+              items: [
+                { en: 'Overview (Home Hub)', href: '/rebh' },
+                {
+                  en: 'Company Analysis', href: '#',
+                  items: [
+                    { en: 'Company Analysis (ONE ∞)', href: '/rebh/company/2222' },
+                    { en: 'Chart Studio', href: '/rebh/studio/2222' },
+                    { en: 'Statements · Analyst', href: '/rebh/analyst/2222' },
+                    { en: 'Story X-Ray', href: '/rebh/xray/2222' },
+                    { en: 'Analytical Report', href: '/rebh/report/2222' },
+                  ],
+                },
+                {
+                  en: 'Tools & Screening', href: '#',
+                  items: [
+                    { en: 'Watchlist & Filters', href: '/rebh/watchlist' },
+                    { en: 'Tools & Labs', href: '/rebh/tools' },
+                    { en: 'Too-Hard Pile (Quarantine)', href: '/rebh/quarantine' },
+                    { en: 'Discipline Journal', href: '/rebh/journal' },
+                  ],
+                },
+                {
+                  en: 'Governance & Reports', href: '#',
+                  items: [
+                    { en: 'The Council (31 Rules)', href: '/rebh/council' },
+                    { en: 'Council Scorecard (10/10)', href: '/rebh/score' },
+                    { en: 'Course Reports (10 Companies)', href: '/rebh/course-reports' },
+                    { en: 'Data Health', href: '/rebh/health' },
+                  ],
+                },
+              ],
+            },
             // { en: 'Financial Terminal', href: '/terminal' },
             // { en: 'Legends Screener', href: '/legends' },
           ],
@@ -386,6 +420,13 @@ export default function Navbar() {
           en: 'US Market', href: '#',
           items: [
             { en: 'Weekly Study', href: '/weekly-study' },
+            {
+              en: 'Market Valuation', href: '#',
+              items: [
+                { en: 'S&P 500 Scenarios', href: '/valuation/sp500-scenarios/' },
+                { en: 'Historical P/E', href: '/valuation/historical-pe/' },
+              ],
+            },
           ]
         },
         {
@@ -395,6 +436,13 @@ export default function Navbar() {
             { en: 'Market Breadth', href: '/stocks/market-breadth' },
             { en: 'Market Pulse', href: '/market-pulse' },
             { en: 'RS HUB', href: '/market_rs' },
+            {
+              en: 'Market Valuation', href: '#',
+              items: [
+                { en: 'Market Weight', href: '/valuation/market-weight/' },
+                { en: 'Valuation Report', href: '/valuation/report/' },
+              ],
+            },
           ],
         },
         {
@@ -428,52 +476,8 @@ export default function Navbar() {
 
       ],
     },
-    rebh: {
-      en: 'REBH',
-      href: '/rebh',
-      items: [
-        { en: 'Overview (Home Hub)', href: '/rebh' },
-        {
-          en: 'Company Analysis', href: '#',
-          items: [
-            { en: 'Company Analysis (ONE ∞)', href: '/rebh/company/2222' },
-            { en: 'Chart Studio', href: '/rebh/studio/2222' },
-            { en: 'Statements · Analyst', href: '/rebh/analyst/2222' },
-            { en: 'Story X-Ray', href: '/rebh/xray/2222' },
-            { en: 'Analytical Report', href: '/rebh/report/2222' },
-          ],
-        },
-        {
-          en: 'Tools & Screening', href: '#',
-          items: [
-            { en: 'Watchlist & Filters', href: '/rebh/watchlist' },
-            { en: 'Tools & Labs', href: '/rebh/tools' },
-            { en: 'Too-Hard Pile (Quarantine)', href: '/rebh/quarantine' },
-            { en: 'Discipline Journal', href: '/rebh/journal' },
-          ],
-        },
-        {
-          en: 'Governance & Reports', href: '#',
-          items: [
-            { en: 'The Council (31 Rules)', href: '/rebh/council' },
-            { en: 'Council Scorecard (10/10)', href: '/rebh/score' },
-            { en: 'Course Reports (10 Companies)', href: '/rebh/course-reports' },
-            { en: 'Data Health', href: '/rebh/health' },
-          ],
-        },
-      ],
-    },
-    Terminal: {
-      en: 'Terminal',
-      href: '#',
-      items: [
-        { en: 'Terminal', href: '/terminal' },
-        { en: 'Company-analyzer', href: '/terminal/company-analyzer' },
-        { en: 'sector-templete', href: '/terminal/sector-templates' },
-        { en: 'standards-guide', href: '/terminal/standards-guide' },
-        { en: 'forensic-audit', href: '/terminal/forensic-audit' },
-      ],
-    },
+    // Terminal dropdown removed 2026-10-31: routes live under REBH now
+    // (see /rebh/terminal and the REBH sidebar in app/rebh/layout.tsx).
   }
 
   // ── Handlers ─────────────────────────────────

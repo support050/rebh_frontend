@@ -1,29 +1,79 @@
 'use client';
 
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine
+  AreaChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, ReferenceLine, ComposedChart,
 } from 'recharts';
 import { API_BASE_URL } from '@/lib/api/config';
+import { STOCKCHARTS } from '../_data/bondsDesign';
+import BondsSourceAttribution from './BondsSourceAttribution';
+
+/* Maturity ladder plotted on the X axis (positions in months, like the tool). */
+const MATURITIES = [
+  { key: 'month_1', label: '1M', sort: 1 },
+  { key: 'month_3', label: '3M', sort: 3 },
+  { key: 'month_6', label: '6M', sort: 6 },
+  { key: 'year_1', label: '1Y', sort: 12 },
+  { key: 'year_2', label: '2Y', sort: 24 },
+  { key: 'year_3', label: '3Y', sort: 36 },
+  { key: 'year_5', label: '5Y', sort: 60 },
+  { key: 'year_7', label: '7Y', sort: 84 },
+  { key: 'year_10', label: '10Y', sort: 120 },
+  { key: 'year_20', label: '20Y', sort: 240 },
+  { key: 'year_30', label: '30Y', sort: 360 },
+] as const;
+
+// X-axis tick set matches the reference screenshot: 3M 2Y 5Y 7Y 10Y 20Y 30Y
+const CURVE_TICKS = [3, 24, 60, 84, 120, 240, 360];
+const labelForSort = (s: number) => MATURITIES.find(m => m.sort === s)?.label ?? '';
+
+type CurveMap = Record<number, number | null>;
+function curveBySort(row: any): CurveMap {
+  const o: CurveMap = {};
+  for (const m of MATURITIES) o[m.sort] = row?.[m.key] ?? null;
+  return o;
+}
+
+function fmtLongDate(iso: string) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+/* 4 evenly-spaced ticks between min & max (StockCharts axis style). */
+function fourTicks(min: number, max: number): number[] {
+  if (!isFinite(min) || !isFinite(max) || min === max) return [min, min, min, min];
+  const step = (max - min) / 3;
+  return [min, min + step, min + step * 2, max];
+}
+
+interface Snapshot { id: number; color: string; bySort: CurveMap; date: string; }
+
+const SNAP_COLORS = ['#000000', '#0f766e', '#7c3aed', '#b45309', '#be123c'];
 
 export default function DynamicYieldCurve() {
-  const [ycData, setYcData] = useState<any[]>([]);
-  const [sp500Data, setSp500Data] = useState<any[]>([]);
+  const [ycData, setYcData] = useState<any[]>([]);       // ascending by date
+  const [sp500Data, setSp500Data] = useState<any[]>([]);  // ascending by date
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [summaryAsOf, setSummaryAsOf] = useState<string | null>(null);
 
   const [selectedDate, setSelectedDate] = useState<string>('');
+  const [trailLength, setTrailLength] = useState(0);
+  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+  const [playing, setPlaying] = useState(false);
+  const [showInfo, setShowInfo] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
-  const sp500ContainerRef = useRef<HTMLDivElement>(null);
+  const spRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    async function fetchData() {
+    (async () => {
       try {
         setLoading(true);
         const resYC = await fetch(`${API_BASE_URL}/api/economic-indicators/yield-curve?limit=25000`);
         if (!resYC.ok) throw new Error('Failed to fetch yield curve data');
         const jsonYC = await resYC.json();
-        const sortedYC = [...jsonYC].reverse();
+        const sortedYC = [...jsonYC].reverse();          // API is desc → ascending
         setYcData(sortedYC);
 
         const resSP = await fetch(`${API_BASE_URL}/api/economic-indicators/SP500?limit=25000`);
@@ -32,298 +82,347 @@ export default function DynamicYieldCurve() {
           setSp500Data([...jsonSP].reverse());
         }
 
-        if (sortedYC.length > 0) {
-          setSelectedDate(sortedYC[sortedYC.length - 1].report_date);
-        }
+        if (sortedYC.length > 0) setSelectedDate(sortedYC[sortedYC.length - 1].report_date);
       } catch (err: any) {
         setError(err.message);
       } finally {
         setLoading(false);
       }
-    }
-    fetchData();
+    })();
+    fetch(`${API_BASE_URL}/api/economic-indicators/yield-curve/summary`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(s => { if (s?.as_of) setSummaryAsOf(s.as_of); })
+      .catch(() => {});
   }, []);
 
-  const currentCurveData = React.useMemo(() => {
-    if (!selectedDate || ycData.length === 0) return [];
-    const dayData = ycData.find(d => d.report_date === selectedDate);
-    if (!dayData) return [];
+  const selectedIndex = useMemo(() => ycData.findIndex(d => d.report_date === selectedDate), [ycData, selectedDate]);
 
-    const maturities = [
-      { key: 'month_1', label: '1M', sort: 1 },
-      { key: 'month_3', label: '3M', sort: 3 },
-      { key: 'month_6', label: '6M', sort: 6 },
-      { key: 'year_1', label: '1Y', sort: 12 },
-      { key: 'year_2', label: '2Y', sort: 24 },
-      { key: 'year_3', label: '3Y', sort: 36 },
-      { key: 'year_5', label: '5Y', sort: 60 },
-      { key: 'year_7', label: '7Y', sort: 84 },
-      { key: 'year_10', label: '10Y', sort: 120 },
-      { key: 'year_20', label: '20Y', sort: 240 },
-      { key: 'year_30', label: '30Y', sort: 360 },
-    ];
+  // Animate: step the selection forward one session at a time, looping.
+  useEffect(() => {
+    if (!playing || ycData.length === 0) return;
+    const id = setInterval(() => {
+      setSelectedDate(prev => {
+        const i = ycData.findIndex(d => d.report_date === prev);
+        const next = (i + 1) % ycData.length;
+        return ycData[next]?.report_date ?? prev;
+      });
+    }, 350);
+    return () => clearInterval(id);
+  }, [playing, ycData]);
 
-    return maturities
-      .filter(m => dayData[m.key] !== null && dayData[m.key] !== undefined)
-      .map(m => ({ maturity: m.label, yield: dayData[m.key], sort: m.sort }));
-  }, [ycData, selectedDate]);
+  /* ── Left chart data: current curve + fading trail + snapshots ────────── */
+  const currentCurve = useMemo(
+    () => (selectedIndex >= 0 ? curveBySort(ycData[selectedIndex]) : {}),
+    [ycData, selectedIndex],
+  );
+
+  const trailCurves = useMemo(() => {
+    const out: { offset: number; bySort: CurveMap }[] = [];
+    for (let k = 1; k <= trailLength; k++) {
+      const idx = selectedIndex - k;
+      if (idx < 0) break;
+      out.push({ offset: k, bySort: curveBySort(ycData[idx]) });
+    }
+    return out;
+  }, [ycData, selectedIndex, trailLength]);
+
+  const leftData = useMemo(() => {
+    const sorts = MATURITIES.map(m => m.sort);
+    const rows: any[] = [];
+    for (const s of sorts) {
+      const cur = currentCurve[s];
+      if (cur == null) continue;                        // only maturities the day publishes
+      const row: any = { sort: s, label: labelForSort(s), current: cur };
+      trailCurves.forEach(t => { row[`trail${t.offset}`] = t.bySort[s] ?? null; });
+      snapshots.forEach((sn, i) => { row[`snap${i}`] = sn.bySort[s] ?? null; });
+      rows.push(row);
+    }
+    return rows;
+  }, [currentCurve, trailCurves, snapshots]);
+
+  const curveDomain = useMemo(() => {
+    const vals: number[] = [];
+    leftData.forEach(r => {
+      if (r.current != null) vals.push(r.current);
+      trailCurves.forEach(t => { if (r[`trail${t.offset}`] != null) vals.push(r[`trail${t.offset}`]); });
+    });
+    if (!vals.length) return { domain: [0, 5] as [number, number], ticks: [0, 1.67, 3.33, 5] };
+    const min = Math.min(...vals), max = Math.max(...vals);
+    const pad = (max - min) * 0.08 || 0.25;
+    const lo = min - pad, hi = max + pad;
+    return { domain: [lo, hi] as [number, number], ticks: fourTicks(lo, hi) };
+  }, [leftData, trailCurves]);
+
+  /* ── Right chart (S&P) ─────────────────────────────────────────────────── */
+  const spDomain = useMemo(() => {
+    const closes = sp500Data.map(d => d.close).filter((v: any) => v != null);
+    if (!closes.length) return { domain: [0, 1000] as [number, number], ticks: [0, 333, 666, 1000] };
+    const min = Math.min(...closes), max = Math.max(...closes);
+    const pad = (max - min) * 0.05 || 10;
+    const lo = min - pad, hi = max + pad;
+    return { domain: [lo, hi] as [number, number], ticks: fourTicks(lo, hi) };
+  }, [sp500Data]);
+
+  const spTicks = useMemo(() => {
+    // year ticks at ~3-year stride, matching the reference ('03 '07 '11 …)
+    if (!sp500Data.length) return [];
+    const years = sp500Data.map(d => new Date(d.trade_date).getFullYear());
+    const first = years[0], last = years[years.length - 1];
+    const stride = Math.max(1, Math.round((last - first) / 6));
+    const out: string[] = [];
+    for (let y = first; y <= last; y += stride) {
+      const hit = sp500Data.find(d => new Date(d.trade_date).getFullYear() === y);
+      if (hit) out.push(hit.trade_date);
+    }
+    return out;
+  }, [sp500Data]);
 
   const getDateFromMouseX = useCallback((clientX: number) => {
-    const container = sp500ContainerRef.current;
-    if (!container || sp500Data.length === 0) return;
-    const rect = container.getBoundingClientRect();
-    const chartLeft = rect.left + 20 + 40;
-    const chartRight = rect.right - 10;
-    let ratio = (clientX - chartLeft) / (chartRight - chartLeft);
+    const el = spRef.current;
+    if (!el || sp500Data.length === 0) return;
+    const rect = el.getBoundingClientRect();
+    const left = rect.left + 52;    // YAxis width gutter
+    const right = rect.right - 12;
+    let ratio = (clientX - left) / (right - left);
     ratio = Math.max(0, Math.min(1, ratio));
     const idx = Math.round(ratio * (sp500Data.length - 1));
-    const newDate = sp500Data[idx]?.trade_date;
-    if (newDate && newDate !== selectedDate) setSelectedDate(newDate);
-  }, [sp500Data, selectedDate]);
+    const d = sp500Data[idx]?.trade_date;
+    if (d) {
+      // snap to a date that actually has a treasury curve row
+      const yc = ycData.find(r => r.report_date === d);
+      setSelectedDate(yc ? d : (ycData.find(r => r.report_date >= d)?.report_date ?? selectedDate));
+    }
+  }, [sp500Data, ycData, selectedDate]);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    setIsDragging(true);
-    getDateFromMouseX(e.clientX);
-  }, [getDateFromMouseX]);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (isDragging) getDateFromMouseX(e.clientX);
-  }, [isDragging, getDateFromMouseX]);
-
-  const handleMouseUp = useCallback(() => setIsDragging(false), []);
-
+  const onDown = (e: React.MouseEvent) => { setPlaying(false); setIsDragging(true); getDateFromMouseX(e.clientX); };
+  const onMove = (e: React.MouseEvent) => { if (isDragging) getDateFromMouseX(e.clientX); };
+  const onUp = useCallback(() => setIsDragging(false), []);
   useEffect(() => {
-    const onUp = () => setIsDragging(false);
     window.addEventListener('mouseup', onUp);
     return () => window.removeEventListener('mouseup', onUp);
-  }, []);
+  }, [onUp]);
 
-  const selectedIndex = ycData.findIndex(d => d.report_date === selectedDate);
+  const spClose = sp500Data.find(s => s.trade_date === selectedDate)?.close
+    ?? [...sp500Data].reverse().find(s => s.trade_date <= selectedDate)?.close ?? null;
 
-  const curveShape = React.useMemo(() => {
-    if (currentCurveData.length < 2) return 'FLAT';
-    const diff = currentCurveData[currentCurveData.length - 1].yield - currentCurveData[0].yield;
+  const curveShape = useMemo(() => {
+    const vals = leftData.map(r => r.current).filter((v: any) => v != null) as number[];
+    if (vals.length < 2) return 'FLAT';
+    const diff = vals[vals.length - 1] - vals[0];
     if (diff > 0.5) return 'NORMAL';
     if (diff < -0.3) return 'INVERTED';
     return 'FLAT';
-  }, [currentCurveData]);
+  }, [leftData]);
+  const shapeColor = curveShape === 'INVERTED' ? '#d40000' : curveShape === 'NORMAL' ? '#0a7c52' : '#92640a';
 
-  const shapeColor = curveShape === 'NORMAL' ? '#0a7c52' : curveShape === 'INVERTED' ? '#b91c1c' : '#92640a';
-  const shapeBg = curveShape === 'NORMAL' ? '#ecfdf5' : curveShape === 'INVERTED' ? '#fef2f2' : '#fffbeb';
-  const shapeBorder = curveShape === 'NORMAL' ? '#6ee7b7' : curveShape === 'INVERTED' ? '#fca5a5' : '#fcd34d';
-
-  const axisTickStyle = { fontSize: 11, fill: '#4b5563', fontFamily: 'monospace' };
-  const gridStyle = { stroke: '#e5e7eb', strokeDasharray: '3 3' };
-
-  // Compute S&P 500 Y-axis ticks dynamically (4 evenly spaced values from data)
-  const sp500YTicks = React.useMemo(() => {
-    if (sp500Data.length === 0) return [];
-    const closes = sp500Data.map((d: any) => d.close).filter((v: number) => v != null);
-    const min = Math.floor(Math.min(...closes));
-    const max = Math.ceil(Math.max(...closes));
-    const step = (max - min) / 3;
-    return [min, Math.round(min + step), Math.round(min + step * 2), max];
-  }, [sp500Data]);
-
-  const YCTooltip = ({ active, payload }: any) => {
-    if (!active || !payload?.length) return null;
-    return (
-      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 4, padding: '3px 9px', fontSize: 11, fontFamily: 'monospace', boxShadow: '0 2px 6px rgba(0,0,0,0.08)' }}>
-        <span style={{ color: '#9ca3af' }}>{payload[0].payload.maturity} </span>
-        <span style={{ color: shapeColor, fontWeight: 700 }}>{payload[0].value.toFixed(2)}%</span>
-      </div>
-    );
+  const takeSnapshot = () => {
+    if (!Object.keys(currentCurve).length) return;
+    setSnapshots(prev => prev.length >= 5 ? prev : [
+      ...prev,
+      { id: Date.now(), color: SNAP_COLORS[prev.length % SNAP_COLORS.length], bySort: { ...currentCurve }, date: selectedDate },
+    ]);
   };
 
-  const SP500Tooltip = ({ active, payload }: any) => {
-    if (!active || !payload?.length) return null;
+  if (loading) {
     return (
-      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 4, padding: '3px 9px', fontSize: 11, fontFamily: 'monospace', boxShadow: '0 2px 6px rgba(0,0,0,0.08)' }}>
-        <span style={{ color: '#9ca3af' }}>{payload[0].payload.trade_date} </span>
-        <span style={{ color: '#1d4ed8', fontWeight: 700 }}>
-          {payload[0].value?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-        </span>
+      <div className="flex items-center justify-center py-28">
+        <svg className="h-9 w-9 animate-spin" viewBox="0 0 24 24" fill="none" style={{ color: STOCKCHARTS.spLine }}>
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+          <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z" />
+        </svg>
       </div>
     );
-  };
+  }
 
-  const sp500Close = sp500Data.find(s => s.trade_date === selectedDate)?.close ?? null;
-  const formattedDate = selectedDate
-    ? new Date(selectedDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
-    : '—';
+  const axisTick = { fontSize: 11, fill: STOCKCHARTS.axisText, fontFamily: 'Arial, sans-serif' };
 
   return (
-    <div style={{ background: '#f9fafb', padding: '14px 16px 12px', borderRadius: 8, fontFamily: 'monospace', border: '1px solid #e5e7eb', maxWidth: '50%', margin: '0 auto' }}>
+    <div style={{ background: '#f4f4f4', borderRadius: 4, padding: '10px 12px 12px', maxWidth: 1000, margin: '0 auto', fontFamily: 'Arial, Helvetica, sans-serif' }}>
 
-      {/* ── Header ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-        <span style={{ color: '#111827', fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>
-          US TREASURY YIELD CURVE
-        </span>
-        <span style={{ color: '#9ca3af', fontSize: 11 }}>vs S&amp;P 500</span>
-        <span style={{
-          marginLeft: 'auto', fontSize: 10, fontWeight: 700, letterSpacing: 1,
-          color: shapeColor, background: shapeBg, border: `1px solid ${shapeBorder}`,
-          borderRadius: 4, padding: '2px 9px', textTransform: 'uppercase',
-          flexShrink: 0, whiteSpace: 'nowrap'
-        }}>
-          {curveShape}
-        </span>
+      {/* Title bar (StockCharts light header) */}
+      <div style={{ textAlign: 'center', fontSize: 17, color: '#5b6b7a', fontWeight: 400, padding: '6px 0 12px', borderBottom: '1px solid #e2e2e2', marginBottom: 14 }}>
+        Dynamic Yield Curve
       </div>
 
       {error && (
-        <div style={{ color: '#b91c1c', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 4, padding: '6px 10px', marginBottom: 8, fontSize: 12 }}>
+        <div style={{ color: '#b91c1c', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 4, padding: '6px 10px', marginBottom: 10, fontSize: 12 }}>
           {error}
         </div>
       )}
 
-      {loading ? (
-        <div style={{ height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: 13 }}>
-          Loading market data…
-        </div>
-      ) : ycData.length === 0 ? (
-        <div style={{ height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: 12 }}>
-          No data — run the scraper first.
-        </div>
-      ) : (
-        <>
-          {/* ── Dual Charts ── */}
-          {/* ✅ Height reduced to 320, left chart narrowed to 220px */}
-          <div style={{ display: 'flex', height: 400, border: '1px solid #e5e7eb', borderRadius: 6, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', gap: 0, justifyContent: 'center', alignItems: 'stretch' }}>
 
-            {/* LEFT: Yield Curve */}
-            <div style={{ width: 220, height: '100%', position: 'relative', background: '#ffffff', borderRight: '1px solid #e5e7eb', flexShrink: 0 }}>
-              <div style={{ position: 'absolute', bottom: 52, left: 48, zIndex: 10, fontSize: 10, color: '#6b7280', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
-                {formattedDate}
+        {/* ── LEFT: Yield Curve ── */}
+        <div style={{ width: 250, height: 380, position: 'relative', background: '#ffffff', border: '1px solid #d0d0d0', flexShrink: 0 }}>
+          {showInfo && (
+            <>
+              <div style={{ position: 'absolute', bottom: 30, left: 40, zIndex: 10, fontSize: 10, color: '#333', pointerEvents: 'none' }}>
+                {fmtLongDate(selectedDate)}
               </div>
-              <div style={{ position: 'absolute', bottom: 52, right: 14, zIndex: 10, fontSize: 10, color: shapeColor, fontWeight: 700, pointerEvents: 'none', whiteSpace: 'nowrap' }}>
-                {curveShape}
+              <div style={{ position: 'absolute', bottom: 30, right: 10, zIndex: 10, fontSize: 10, color: shapeColor, fontWeight: 700, pointerEvents: 'none' }}>
+                {curveShape.charAt(0) + curveShape.slice(1).toLowerCase()}
               </div>
-
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={currentCurveData} margin={{ top: 18, right: 14, left: 4, bottom: 28 }}>
-                  <CartesianGrid {...gridStyle} vertical horizontal />
-                  <XAxis
-                    type="number" dataKey="sort"
-                    ticks={[1, 3, 6, 12, 24, 36, 60, 84, 120, 240, 360]}
-                    tickFormatter={(v) => {
-                      if (v === 1) return '1M';
-                      if (v === 3) return '3M';
-                      if (v === 6) return '6M';
-                      if (v === 12) return '1Y';
-                      if (v === 24) return '2Y';
-                      if (v === 36) return '3Y';
-                      if (v === 60) return '5Y';
-                      if (v === 84) return '7Y';
-                      if (v === 120) return '10Y';
-                      if (v === 240) return '20Y';
-                      if (v === 360) return '30Y';
-                      return '';
-                    }}
-                    domain={[0, 360]}
-                    tick={{ ...axisTickStyle, fontSize: 9 }} tickLine={false}
-                    axisLine={{ stroke: '#d1d5db' }} tickMargin={4} height={22}
-                  />
-                  <YAxis
-                    type="number" domain={[0, 7.5]}
-                    ticks={[0, 2.5, 5.0, 7.5]}
-                    tickFormatter={(v) => `${v}%`}
-                    tick={axisTickStyle} tickLine={false}
-                    axisLine={{ stroke: '#d1d5db' }} width={38}
-                  />
-                  <Tooltip cursor={false} content={<YCTooltip />} />
-                  {/* ✅ strokeWidth raised to 2.8 for better visibility */}
-                  <Line
-                    type="linear" dataKey="yield"
-                    stroke={shapeColor} strokeWidth={2.8}
-                    dot={{ r: 3, fill: shapeColor, strokeWidth: 0 }}
-                    activeDot={{ r: 5, fill: shapeColor, strokeWidth: 0 }}
-                    isAnimationActive={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* RIGHT: S&P 500 */}
-            <div
-              ref={sp500ContainerRef}
-              style={{ flex: 1, height: '100%', position: 'relative', background: '#ffffff', cursor: isDragging ? 'col-resize' : 'crosshair', userSelect: 'none' }}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-            >
-              <div style={{
-                position: 'absolute', top: 4, left: 66, zIndex: 10,
-                fontSize: 10, lineHeight: 1.4, pointerEvents: 'none', whiteSpace: 'nowrap'
-              }}>
-                <span style={{ color: '#111827', fontWeight: 700, fontSize: 11 }}>S&P 500</span>
-                <div style={{ color: '#6b7280' }}>{formattedDate}</div>
-                <div style={{ color: '#6b7280' }}>Close: <span style={{ color: '#1d4ed8', fontWeight: 700 }}>{sp500Close ? sp500Close.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '—'}</span></div>
-              </div>
-
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={sp500Data} margin={{ top: 44, right: 10, left: 20, bottom: 28 }}>
-                  <CartesianGrid {...gridStyle} vertical horizontal />
-                  <XAxis
-                    dataKey="trade_date"
-                    tickFormatter={(v) => `'${new Date(v).getFullYear().toString().substring(2)}`}
-                    minTickGap={30}
-                    tick={axisTickStyle} tickLine={false}
-                    axisLine={{ stroke: '#e5e7eb' }} tickMargin={4} height={22}
-                  />
-                  <YAxis
-                    domain={sp500YTicks.length >= 2 ? [sp500YTicks[0], sp500YTicks[sp500YTicks.length - 1]] : ['auto', 'auto']}
-                    ticks={sp500YTicks}
-                    tickFormatter={(v) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    tick={axisTickStyle} tickLine={false}
-                    axisLine={{ stroke: '#d1d5db' }} width={62}
-                  />
-                  <Tooltip content={<SP500Tooltip />} cursor={false} />
-                  <Line
-                    type="linear" dataKey="close"
-                    stroke="#3b82f6" strokeWidth={1.5}
-                    dot={false} activeDot={false}
-                    isAnimationActive={false}
-                  />
-                  {selectedDate && (
-                    <ReferenceLine x={selectedDate} stroke={shapeColor} strokeWidth={1.5} strokeDasharray="4 3" />
-                  )}
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* ── Slider only ── */}
-          <div style={{ display: 'flex', alignItems: 'center', marginTop: 10, gap: 10, fontSize: 11, color: '#6b7280' }}>
-            <span style={{ flexShrink: 0 }}>Trail</span>
-
-            <div style={{ position: 'relative', width: 180, height: 14, flexShrink: 0 }}>
-              <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 2, transform: 'translateY(-50%)', background: '#e5e7eb', borderRadius: 2 }} />
-              <div style={{
-                position: 'absolute', top: '50%', left: 0, height: 2,
-                transform: 'translateY(-50%)', borderRadius: 2, background: shapeColor,
-                width: `${(((ycData.length - 1) - selectedIndex) / (ycData.length - 1)) * 100}%`
-              }} />
-              <div style={{
-                position: 'absolute', top: '50%', width: 13, height: 13,
-                background: '#fff', border: `2px solid ${shapeColor}`, borderRadius: '50%',
-                transform: 'translate(-50%, -50%)',
-                left: `${(((ycData.length - 1) - selectedIndex) / (ycData.length - 1)) * 100}%`,
-                pointerEvents: 'none', boxShadow: '0 1px 4px rgba(0,0,0,0.12)'
-              }} />
-              <input
-                type="range" min={0} max={ycData.length - 1} step={1}
-                value={(ycData.length - 1) - selectedIndex}
-                onChange={(e) => {
-                  const mappedIndex = (ycData.length - 1) - parseInt(e.target.value, 10);
-                  setSelectedDate(ycData[mappedIndex].report_date);
-                }}
-                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'ew-resize', zIndex: 10 }}
+            </>
+          )}
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={leftData} margin={{ top: 14, right: 12, left: 0, bottom: 20 }}>
+              <defs>
+                <linearGradient id="curveGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={STOCKCHARTS.curveFillTop} stopOpacity={1} />
+                  <stop offset="100%" stopColor={STOCKCHARTS.curveFillBottom} stopOpacity={1} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke={STOCKCHARTS.grid} strokeOpacity={0.5} vertical horizontal />
+              <XAxis
+                type="number" dataKey="sort" domain={[1, 360]} ticks={CURVE_TICKS}
+                tickFormatter={labelForSort} tick={axisTick} tickLine={false}
+                axisLine={{ stroke: STOCKCHARTS.grid }} tickMargin={4} height={20}
               />
-            </div>
-          </div>
-        </>
+              <YAxis
+                type="number" domain={curveDomain.domain} ticks={curveDomain.ticks}
+                tickFormatter={(v) => `${Number(v).toFixed(2)}%`}
+                tick={axisTick} tickLine={false} axisLine={{ stroke: STOCKCHARTS.grid }} width={44}
+              />
+              <Tooltip
+                cursor={{ stroke: '#999' }}
+                contentStyle={{ fontSize: 11, fontFamily: 'Arial', padding: '3px 8px', borderRadius: 3 }}
+                formatter={(v: any, n: any) => [v == null ? '—' : `${Number(v).toFixed(2)}%`, n === 'current' ? 'Yield' : n]}
+                labelFormatter={() => ''}
+              />
+              {/* fading trail (oldest → newest) */}
+              {trailCurves.map(t => (
+                <Line
+                  key={`trail-${t.offset}`} type="linear" dataKey={`trail${t.offset}`}
+                  stroke={STOCKCHARTS.curveLine} strokeOpacity={Math.max(0.12, 0.5 - t.offset * 0.05)}
+                  strokeWidth={1} dot={false} activeDot={false} connectNulls isAnimationActive={false}
+                />
+              ))}
+              {/* snapshots */}
+              {snapshots.map((sn, i) => (
+                <Line
+                  key={`snap-${sn.id}`} type="linear" dataKey={`snap${i}`} name={fmtLongDate(sn.date)}
+                  stroke={sn.color} strokeWidth={1.4} strokeDasharray="4 3" dot={false} connectNulls isAnimationActive={false}
+                />
+              ))}
+              {/* current curve: red line over purple gradient area */}
+              <Area
+                type="linear" dataKey="current" name="Yield"
+                stroke={STOCKCHARTS.curveLine} strokeWidth={2}
+                fill="url(#curveGrad)" fillOpacity={1}
+                dot={{ r: 2, fill: STOCKCHARTS.curveLine, strokeWidth: 0 }}
+                isAnimationActive={false}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* ── RIGHT: S&P 500 ── */}
+        <div
+          ref={spRef}
+          onMouseDown={onDown}
+          onMouseMove={onMove}
+          onMouseUp={onUp}
+          style={{ flex: 1, minWidth: 0, height: 380, position: 'relative', background: '#ffffff', border: '1px solid #d0d0d0', borderLeft: 'none', cursor: isDragging ? 'col-resize' : 'crosshair', userSelect: 'none' }}
+        >
+          {showInfo && (
+            <>
+              <div style={{ position: 'absolute', top: 6, left: 52, zIndex: 10, fontSize: 11, lineHeight: 1.35, pointerEvents: 'none' }}>
+                <div style={{ color: '#333' }}>S&amp;P 500 ($SPX)</div>
+                <div style={{ color: '#333' }}>{fmtLongDate(selectedDate)}</div>
+                <div style={{ color: '#333' }}>Close: <span style={{ fontWeight: 700 }}>{spClose != null ? spClose.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</span></div>
+              </div>
+              <div style={{ position: 'absolute', top: 6, right: 10, zIndex: 10, fontSize: 10, color: '#9a9a9a', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
+                Design inspired by StockCharts.com | Data: U.S. Department of the Treasury
+              </div>
+            </>
+          )}
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={sp500Data} margin={{ top: 14, right: 12, left: 0, bottom: 20 }}>
+              <defs>
+                <linearGradient id="spGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={STOCKCHARTS.spFillTop} stopOpacity={1} />
+                  <stop offset="100%" stopColor={STOCKCHARTS.spFillBottom} stopOpacity={1} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke={STOCKCHARTS.grid} strokeOpacity={0.4} vertical horizontal />
+              <XAxis
+                dataKey="trade_date" ticks={spTicks}
+                tickFormatter={(v) => `'${new Date(v).getFullYear().toString().slice(2)}`}
+                tick={axisTick} tickLine={false} axisLine={{ stroke: STOCKCHARTS.grid }} tickMargin={4} height={20} interval={0}
+              />
+              <YAxis
+                domain={spDomain.domain} ticks={spDomain.ticks}
+                tickFormatter={(v) => Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                tick={axisTick} tickLine={false} axisLine={{ stroke: STOCKCHARTS.grid }} width={52}
+              />
+              <Tooltip
+                cursor={{ stroke: '#999' }}
+                contentStyle={{ fontSize: 11, fontFamily: 'Arial', padding: '3px 8px', borderRadius: 3 }}
+                formatter={(v: any) => [v == null ? '—' : Number(v).toLocaleString(undefined, { minimumFractionDigits: 2 }), 'Close']}
+                labelFormatter={(l: any) => fmtLongDate(String(l))}
+              />
+              <Area
+                type="linear" dataKey="close" name="Close"
+                stroke={STOCKCHARTS.spLine} strokeWidth={1.3}
+                fill="url(#spGrad)" fillOpacity={1}
+                dot={false} activeDot={false} isAnimationActive={false}
+              />
+              {selectedDate && <ReferenceLine x={selectedDate} stroke={STOCKCHARTS.curveLine} strokeWidth={1.4} />}
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* ── Control strip ── */}
+      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 12, fontSize: 12, color: '#333' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontWeight: 700 }}>Trail length:</span>
+          <input
+            type="range" min={0} max={12} step={1} value={trailLength}
+            onChange={e => setTrailLength(parseInt(e.target.value, 10))}
+            style={{ width: 120, accentColor: STOCKCHARTS.spLine }}
+          />
+          <span style={{ width: 18, textAlign: 'right' }}>{trailLength}</span>
+        </label>
+
+        {/* Date scrubber — the primary dynamic control */}
+        <input
+          type="range" min={0} max={Math.max(0, ycData.length - 1)} step={1}
+          value={selectedIndex >= 0 ? selectedIndex : 0}
+          onChange={e => { setPlaying(false); setSelectedDate(ycData[parseInt(e.target.value, 10)].report_date); }}
+          style={{ flex: 1, minWidth: 160, accentColor: STOCKCHARTS.curveLine }}
+        />
+
+        <button onClick={takeSnapshot} style={scBtn}>Snapshot</button>
+        <button onClick={() => setSnapshots([])} style={scBtn}>Clear</button>
+        <button onClick={() => setPlaying(p => !p)} style={{ ...scBtn, background: playing ? '#e6e6e6' : '#ffffff' }}>
+          {playing ? 'Stop' : 'Animate'}
+        </button>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+          <input type="checkbox" checked={showInfo} onChange={e => setShowInfo(e.target.checked)} style={{ accentColor: STOCKCHARTS.spLine }} />
+          Show Info
+        </label>
+      </div>
+
+      {/* Snapshot chips (dates captured) */}
+      {snapshots.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+          {snapshots.map(sn => (
+            <span key={sn.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, border: '1px solid #d0d0d0', borderRadius: 3, padding: '2px 6px', background: '#fff' }}>
+              <span style={{ width: 10, height: 3, background: sn.color, display: 'inline-block' }} />
+              {fmtLongDate(sn.date)}
+              <button onClick={() => setSnapshots(prev => prev.filter(x => x.id !== sn.id))} style={{ border: 'none', background: 'transparent', color: '#999', cursor: 'pointer', fontSize: 12 }}>×</button>
+            </span>
+          ))}
+        </div>
       )}
+
+      <BondsSourceAttribution detail={summaryAsOf ? `Curve as of ${summaryAsOf}.` : null} />
     </div>
   );
 }
+
+const scBtn: React.CSSProperties = {
+  fontSize: 12, padding: '3px 12px', border: '1px solid #b8b8b8', borderRadius: 3,
+  background: '#f6f6f6', color: '#333', cursor: 'pointer', fontFamily: 'Arial, sans-serif',
+};
