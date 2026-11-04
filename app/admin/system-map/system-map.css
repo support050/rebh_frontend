@@ -162,6 +162,29 @@ html.dark .sm-btn-primary {
 .sm-runnote-ok { color: var(--green); }
 .sm-runnote-bad { color: var(--red); }
 
+/* ── “Run locally” badge — registry local_run flag ────────────────────────
+   The source 403s/blocks Render's datacenter IP (or needs a browser Render
+   does not have), so the honest door is a terminal on a residential machine.
+   red = required, amber = advised; the reason is the tooltip. */
+.sm-localbadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  width: fit-content;
+  margin: 2px 0;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.sm-localbadge-required { color: var(--red); background: var(--red-bg); }
+.sm-localbadge-advised { color: var(--sm-late); background: var(--sm-late-bg); }
+
 /* ── Terminal command — the copy-paste door under “Run now” ─────────────────
    Run now dispatches inside the app; this is the SAME job for an operator who
    prefers a terminal. The string is decided only by the registry

@@ -320,6 +320,17 @@ function JobRow({ job, now, expanded, hasDetail, onToggle, onRerun }: {
         </td>
         <td>
           <div className="sm-cellname sm-mono">{job.job_name}</div>
+          {/* Registry-flagged datacenter hostility (403/Akamai/no browser): the
+              run belongs on a residential machine, so the card says it in red.
+              The reason rides in the tooltip; colour is never the only carrier. */}
+          {job.local_run ? (
+            <span
+              className={`sm-localbadge sm-localbadge-${job.local_run.level === 'advised' ? 'advised' : 'required'}`}
+              title={job.local_run.reason || 'Runs best from a local residential IP'}
+            >
+              {job.local_run.level === 'advised' ? '⚠ Local run advised' : '⛔ Run locally required'}
+            </span>
+          ) : null}
           <div className="sm-subtle sm-mono">{job.file}</div>
           {job.writes.length > 0 ? (
             <div className="sm-subtle sm-mono">→ {job.writes.join(', ')}</div>

@@ -204,6 +204,14 @@ export interface MapRunCapability {
   self_tracked?: boolean;
 }
 
+/** Registry verdict on datacenter-hostility: the source 403s/blocks Render's IP
+ *  (or needs a local browser), so the card badgesthat the run belongs on a
+ *  residential machine. ``level`` "required" = red badge, "advised" = amber. */
+export interface LocalRunFlag {
+  level?: 'required' | 'advised';
+  reason?: string;
+}
+
 export interface MapJob {
   job_name: string;
   file: string;
@@ -220,6 +228,8 @@ export interface MapJob {
   commands: ScheduleCommand[];
   /** Printed when ``commands`` is empty, so the card explains the gap. */
   cli_absence_reason?: string | null;
+  /** Red/amber "run locally" badge when the source blocks datacenter IPs. */
+  local_run?: LocalRunFlag | null;
   failures_7d: number;
   stuck_running: number;
   last_run: MapLastRun | null;
@@ -448,6 +458,8 @@ export interface ScheduleJob {
   commands: ScheduleCommand[];
   /** Printed when ``commands`` is empty, so the card explains the gap. */
   cli_absence_reason?: string | null;
+  /** Red/amber "run locally" badge when the source blocks datacenter IPs. */
+  local_run?: LocalRunFlag | null;
   writes: string[];
   expected_schedule: string;
   trigger: string;

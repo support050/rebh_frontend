@@ -146,6 +146,16 @@ function ScriptCard({ job, runState, copied, onCopy, onRun }: { job: ScheduleJob
                 <h3 className="font-semibold text-sm text-slate-800 leading-tight">{job.job_name}</h3>
                 <span className="ml-auto"><StorageBadge storage={job.storage} /></span>
             </div>
+            {/* Registry local_run flag: the source 403s/blocks Render's datacenter IP
+                (or needs a browser Render lacks) — say it in red/amber up front. */}
+            {job.local_run && (
+                <p
+                    title={job.local_run.reason || 'Runs best from a local residential IP'}
+                    className={`w-fit text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full border ${job.local_run.level === 'advised' ? 'bg-amber-50 border-amber-300 text-amber-700' : 'bg-red-50 border-red-300 text-red-700'}`}
+                >
+                    {job.local_run.level === 'advised' ? '⚠ Local run advised' : '⛔ Run locally required'}
+                </p>
+            )}
             <p className="text-[11px] text-slate-400">
                 <code className="font-mono text-slate-400">{job.file.split('/').slice(-1)[0]}</code>
                 {' · '}
