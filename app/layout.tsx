@@ -55,6 +55,19 @@ export default function RootLayout({
       className={`${inter.variable} ${notoArabic.variable} ${tajawal.variable} ${roboto.variable}`}
     >
       <body className="font-sans">
+        {/*
+          CR3 §6: the breadth heat palette must resolve against the final theme,
+          so the stored /breadth toggle (tb-theme) goes on <html> BEFORE first
+          paint. Runs only under /breadth so the platform theme (next-themes)
+          keeps authority elsewhere. Server-rendered on purpose: a plain inline
+          script here has no React children, so it neither warns nor flashes.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{if(location.pathname.indexOf('/breadth')===0){var k=localStorage.getItem('tb-theme');if(k==='dark'||k==='light'){document.documentElement.dataset.theme=k;document.documentElement.classList.toggle('dark',k==='dark')}}}catch(e){}",
+          }}
+        />
         <QueryProvider>
           <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
             <AuthProvider>

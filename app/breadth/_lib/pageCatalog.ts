@@ -3,11 +3,12 @@
  *
  * The reference renders every page at boot, so `regWidget` sees all ~95
  * elements immediately (template lines 208-217, 658-675). Next.js mounts one
- * route at a time, so this module registers the static chart pages' panels
- * eagerly (they are exported module-scope arrays) and mirrors the reference's
- * seventeen `dom(...)` widgets by id/title/group — the same first-wins registry
- * Stack.ts feeds when a page mounts, so dynamic (useMemo) pages such as
- * McClellan / Cycle / Library top up the catalog the first time they open.
+ * route at a time, so this module registers every chart page's panels eagerly:
+ * the static pages export module-scope arrays, and the dynamic pages export a
+ * module-level builder whose catalog copy uses the reference defaults (Cycle
+ * 21-day, McClellan fallback bands, Library without meta overlays). Same
+ * first-wins registry Stack.ts feeds on mount, so opening those pages later
+ * only refreshes their live charts — the catalog is complete from the start.
  */
 import { registerDomWidget, registerPanelWidget } from './widgets';
 import { BREADTH_PAGES } from './pageMap';
@@ -23,6 +24,9 @@ import { PANELS as BPI_PANELS } from '../bpi/page';
 import { PANELS as SECTORS_PANELS } from '../sectors/page';
 import { PANELS as SIGNALS_PANELS } from '../signals/page';
 import { MAIN_PANELS as WIDGET_PANELS } from '../widget/page';
+import { CYCLE_PANELS } from '../cycle/page';
+import { MC_PANELS } from '../mcclellan/page';
+import { LIB_PANELS } from '../library/page';
 
 const NAME: Record<string, string> = Object.fromEntries(BREADTH_PAGES.map((p) => [p.id, p.name]));
 
@@ -39,6 +43,9 @@ const PAGE_PANELS: Array<[string, typeof OV_PANELS]> = [
   ['sectors', SECTORS_PANELS],
   ['conc', CONCENTRATION_PANELS],
   ['signals', SIGNALS_PANELS],
+  ['cycle', CYCLE_PANELS],
+  ['mcclellan', MC_PANELS],
+  ['library', LIB_PANELS],
 ];
 
 /** Reference dom() registrations (template lines 661-675), id · title · group verbatim. */

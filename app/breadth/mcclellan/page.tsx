@@ -20,57 +20,73 @@ const HEAD = idxPanel({
 
 const KEYS = [...IDX_KEYS, 'mcclellan_osc', 'mcclellan_sum', 'rana'];
 
+/** Band percentiles behind the panels (TASI percentiles from /meta). */
+export interface McBands {
+  o95: number; o5: number; o98: number; o2: number;
+  s95: number; s5: number; s98: number; s2: number;
+}
+
+/** Module-level builder so the ★ Custom Dashboard catalog registers eagerly
+ * (CR3 §2); the page rebuilds with live /meta percentiles when they arrive. */
+export function buildMcPanels(t: McBands): PanelDef[] {
+  return [
+    HEAD,
+    {
+      title: 'McClellan Oscillator',
+      height: 170,
+      series: [{ key: 'mcclellan_osc', type: 'hist', color: '--blue', label: 'Oscillator' }],
+      zero: true,
+      zones: [
+        { from: t.o95, to: 400, color: '--zone-hi' },
+        { from: -400, to: t.o5, color: '--zone-lo' },
+      ],
+      hlines: [
+        { y: t.o98, color: '--red', label: `${t.o98} (98th)` },
+        { y: t.o2, color: '--aqua', label: `${t.o2} (2nd)` },
+      ],
+    },
+    {
+      title: 'McClellan Summation Index — bands at TASI percentiles',
+      height: 150,
+      series: [{ key: 'mcclellan_sum', type: 'area', color: '--violet', label: 'Summation' }],
+      zero: true,
+      zones: [
+        { from: t.s95, to: 1e9, color: '--zone-hi' },
+        { from: -1e9, to: t.s5, color: '--zone-lo' },
+      ],
+      hlines: [
+        { y: t.s95, color: '--red', label: `${t.s95} (95th)` },
+        { y: t.s5, color: '--aqua', label: `${t.s5} (5th)` },
+        { y: t.s98, color: '--red', label: `${t.s98} (98th)` },
+        { y: t.s2, color: '--aqua', label: `${t.s2} (2nd)` },
+      ],
+      events: [
+        { key: 'mc_bear', color: '--orange', pos: 'top' },
+        { key: 'mc_bull', color: '--aqua' },
+      ],
+    },
+    {
+      title: 'RANA — 1000·(A−D)/(A+D)',
+      height: 110,
+      series: [{ key: 'rana', type: 'hist', color: '--blue', label: 'RANA' }],
+      zero: true,
+    },
+  ];
+}
+
+/** Reference-default bands (used until /meta arrives, and by the catalog). */
+export const MC_PANELS = buildMcPanels({ o95: 85, o5: -85, o98: 130, o2: -130, s95: 4000, s5: -4000, s98: 7000, s2: -7000 });
+
 function McClellanBody() {
   const meta = useBreadthStore((s) => s.meta);
 
   const panels = useMemo<PanelDef[]>(() => {
     const thO = meta?.thresholds.find((r) => r.indicator.startsWith('McClellan Oscillator'));
     const thS = meta?.thresholds.find((r) => r.indicator.startsWith('McClellan Summation'));
-    const o95 = thO?.p95 ?? 85, o5 = thO?.p5 ?? -85, o98 = thO?.p98 ?? 130, o2 = thO?.p2 ?? -130;
-    const s95 = thS?.p95 ?? 4000, s5 = thS?.p5 ?? -4000, s98 = thS?.p98 ?? 7000, s2 = thS?.p2 ?? -7000;
-    return [
-      HEAD,
-      {
-        title: 'McClellan Oscillator',
-        height: 170,
-        series: [{ key: 'mcclellan_osc', type: 'hist', color: '--blue', label: 'Oscillator' }],
-        zero: true,
-        zones: [
-          { from: o95, to: 400, color: '--zone-hi' },
-          { from: -400, to: o5, color: '--zone-lo' },
-        ],
-        hlines: [
-          { y: o98, color: '--red', label: `${o98} (98th)` },
-          { y: o2, color: '--aqua', label: `${o2} (2nd)` },
-        ],
-      },
-      {
-        title: 'McClellan Summation Index — bands at TASI percentiles',
-        height: 150,
-        series: [{ key: 'mcclellan_sum', type: 'area', color: '--violet', label: 'Summation' }],
-        zero: true,
-        zones: [
-          { from: s95, to: 1e9, color: '--zone-hi' },
-          { from: -1e9, to: s5, color: '--zone-lo' },
-        ],
-        hlines: [
-          { y: s95, color: '--red', label: `${s95} (95th)` },
-          { y: s5, color: '--aqua', label: `${s5} (5th)` },
-          { y: s98, color: '--red', label: `${s98} (98th)` },
-          { y: s2, color: '--aqua', label: `${s2} (2nd)` },
-        ],
-        events: [
-          { key: 'mc_bear', color: '--orange', pos: 'top' },
-          { key: 'mc_bull', color: '--aqua' },
-        ],
-      },
-      {
-        title: 'RANA — 1000·(A−D)/(A+D)',
-        height: 110,
-        series: [{ key: 'rana', type: 'hist', color: '--blue', label: 'RANA' }],
-        zero: true,
-      },
-    ];
+    return buildMcPanels({
+      o95: thO?.p95 ?? 85, o5: thO?.p5 ?? -85, o98: thO?.p98 ?? 130, o2: thO?.p2 ?? -130,
+      s95: thS?.p95 ?? 4000, s5: thS?.p5 ?? -4000, s98: thS?.p98 ?? 7000, s2: thS?.p2 ?? -7000,
+    });
   }, [meta]);
 
   return (

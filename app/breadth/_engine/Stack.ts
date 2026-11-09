@@ -392,6 +392,25 @@ export class Stack {
     const hd = document.createElement('div');
     hd.className = 'hd';
     hd.innerHTML = `<h3>${panel.title || ''}</h3><span class="sp"></span>`;
+    // Reference maximizePanel (template line 288): the modal header carries the
+    // full range toolbar so the enlarged chart can be re-windowed in place.
+    const rlbl = document.createElement('span');
+    rlbl.textContent = 'Range';
+    rlbl.style.cssText = `font-size:11px;color:${this.hub.css('--text2')}`;
+    hd.appendChild(rlbl);
+    const rbtns: HTMLButtonElement[] = [];
+    ([[126, '6M'], [252, '1Y'], [504, '2Y'], [1260, '5Y'], [2520, '10Y'], [null, 'All']] as [number | null, string][]).forEach(([d, l]) => {
+      const b = document.createElement('button');
+      b.className = 'btn';
+      b.textContent = l;
+      b.onclick = () => {
+        this.hub.setRange(d);
+        rbtns.forEach((x) => x.classList.toggle('active', x === b));
+      };
+      if (getPrefs().range === d) b.classList.add('active');
+      rbtns.push(b);
+      hd.appendChild(b);
+    });
     const close = document.createElement('button');
     close.className = 'btn';
     close.textContent = '✕ close';
@@ -403,8 +422,26 @@ export class Stack {
     document.body.appendChild(modal);
 
     const specs: PanelDef[] = [];
-    const idx = this.panels.find((p) => !p.mini && p !== panel && /tasi/i.test(p.title || ''));
-    if (idx) { const ix = cloneSpec(idx); ix.height = 200; specs.push(ix); }
+    // TASI index above the maximized panel — the reference always clones IDX().
+    // Prefer this stack's own index panel (keeps its page markers); otherwise
+    // fall back to a generic TASI head, skipped only when maximizing the index.
+    const hasTasi = (p: PanelDef) => (p.series || []).some((s) => s.key === 'tasi');
+    const idx = this.panels.find((p) => !p.mini && p !== panel && hasTasi(p));
+    if (idx) {
+      const ix = cloneSpec(idx);
+      ix.height = 200;
+      specs.push(ix);
+    } else if (!hasTasi(panel)) {
+      specs.push({
+        title: 'TASI (candles when zoomed in; line otherwise)',
+        height: 200,
+        series: [
+          { key: 'tasi', type: 'candle', color: '--text', label: 'TASI' },
+          { key: 'tasi', type: 'line', color: '--blue', label: 'TASI close', width: 1.2 },
+        ],
+        regimeStrip: true,
+      });
+    }
     specs.push(spec);
     const st = new Stack(body, this.hub, specs, { noctl: true });
 

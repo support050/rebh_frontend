@@ -61,6 +61,43 @@ const KEYS = [
   ...BOARD.map(([k]) => k),
 ];
 
+/** Panel set for the chosen average (21 = reference default). Module-level so
+ * the ★ Custom Dashboard catalog registers it eagerly (CR3 §2). */
+export function buildCyclePanels(ma: 21 | 50): PanelDef[] {
+  return [
+    idxPanel({
+      series: [
+        { key: 'tasi', type: 'candle', color: '--text', label: 'TASI' },
+        { key: 'tasi', type: 'line', color: '--blue', label: 'TASI', width: 1.2 },
+        ma === 50
+          ? { key: 'tasi_sma50', color: '--orange', label: 'SMA 50', width: 1 }
+          : { key: 'tasi_sma21', color: '--orange', label: 'SMA 21', width: 1 },
+      ],
+      events: [{ key: ma === 50 ? 'dv_stress50' : 'dv_stress', color: '--yellow', dot: true, pos: 'top' }],
+    }),
+    {
+      title: `DV-style Market Cycle count (days above / below the ${ma}-day SMA)`,
+      height: 140,
+      series: [
+        ma === 50
+          ? { key: 'dv_cycle50', type: 'hist', color: '--blue', label: 'cycle count' }
+          : { key: 'dv_cycle', type: 'hist', color: '--blue', label: 'cycle count' },
+      ],
+      zero: true,
+      events: [{ key: ma === 50 ? 'dv_stress50' : 'dv_stress', color: '--yellow', dot: true, pos: 'top' }],
+    },
+    {
+      title: 'Breadth Score & regime (for context)',
+      height: 110,
+      series: [{ key: 'score_smooth', color: '--orange', label: 'Score EMA5' }],
+      ylim: [0, 100],
+      hlines: SCORE_HLINES,
+    },
+  ];
+}
+
+export const CYCLE_PANELS = buildCyclePanels(21);
+
 function CycleBody() {
   const [ma, setMa] = useState<21 | 50>(21);
   const series = useBreadthStore((s) => s.series);
@@ -71,39 +108,7 @@ function CycleBody() {
   const cv50 = num(series.dv_cycle50?.[N - 1]);
 
   // Reference setCycleMA: swap SMA line + stress events + cycle-count series.
-  const panels = useMemo<PanelDef[]>(
-    () => [
-      idxPanel({
-        series: [
-          { key: 'tasi', type: 'candle', color: '--text', label: 'TASI' },
-          { key: 'tasi', type: 'line', color: '--blue', label: 'TASI', width: 1.2 },
-          ma === 50
-            ? { key: 'tasi_sma50', color: '--orange', label: 'SMA 50', width: 1 }
-            : { key: 'tasi_sma21', color: '--orange', label: 'SMA 21', width: 1 },
-        ],
-        events: [{ key: ma === 50 ? 'dv_stress50' : 'dv_stress', color: '--yellow', dot: true, pos: 'top' }],
-      }),
-      {
-        title: `DV-style Market Cycle count (days above / below the ${ma}-day SMA)`,
-        height: 140,
-        series: [
-          ma === 50
-            ? { key: 'dv_cycle50', type: 'hist', color: '--blue', label: 'cycle count' }
-            : { key: 'dv_cycle', type: 'hist', color: '--blue', label: 'cycle count' },
-        ],
-        zero: true,
-        events: [{ key: ma === 50 ? 'dv_stress50' : 'dv_stress', color: '--yellow', dot: true, pos: 'top' }],
-      },
-      {
-        title: 'Breadth Score & regime (for context)',
-        height: 110,
-        series: [{ key: 'score_smooth', color: '--orange', label: 'Score EMA5' }],
-        ylim: [0, 100],
-        hlines: SCORE_HLINES,
-      },
-    ],
-    [ma],
-  );
+  const panels = useMemo<PanelDef[]>(() => buildCyclePanels(ma), [ma]);
 
   const count = (v: number | null | undefined) => (
     <b style={{ color: (v ?? 0) >= 0 ? 'var(--up)' : 'var(--down)' }}>

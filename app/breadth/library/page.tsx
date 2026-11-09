@@ -11,6 +11,7 @@ import { BreadthView, RangeToolbar, StackMount, PageHead } from '../_lib/Breadth
 import { idxPanel, IDX_KEYS } from '../_lib/panels';
 import { useBreadthStore } from '../_lib/store';
 import { fmt, lastVal, Tag, VERDICT_COLORS } from '../_lib/ui';
+import type { BreadthMetaClassicQ } from '@/types/breadth';
 import type { PanelDef } from '../_engine/types';
 
 const HEAD = idxPanel({
@@ -48,6 +49,95 @@ const LIB_COLS: { label: string; get: (r: LibRow) => string | number }[] = [
   { label: 'TASI test result', get: (r) => r.result },
   { label: 'Verdict', get: (r) => r.tag },
 ];
+
+/** Module-level builder so the ★ Custom Dashboard catalog registers eagerly
+ * (CR3 §2); percentile overlays arrive later from /meta classic_q. */
+export function buildLibPanels(Q?: Partial<BreadthMetaClassicQ>): PanelDef[] {
+  const hlli95 = Q?.hlli?.['0.95'];
+  const sto95 = Q?.sto_b?.['0.95'], sto05 = Q?.sto_b?.['0.05'];
+  const mvo95 = Q?.mvo?.['0.95'], mvo05 = Q?.mvo?.['0.05'];
+  return [
+    HEAD,
+    {
+      title: 'Fosback High-Low Logic Index — 50-day mean of min(NH,NL)/issues, % · >1 = split market (warning)',
+      height: 130,
+      series: [{ key: 'hlli', color: '--red', label: 'HLLI', dec: 2 }],
+      zero: true,
+      zones: [{ from: 1, to: 5, color: '--zone-hi' }],
+      hlines: [
+        { y: 1, color: '--red', label: '1.0 split' },
+        ...(hlli95 != null ? [{ y: hlli95, color: '--text2', label: '95th pct' }] : []),
+      ],
+    },
+    {
+      title: 'Fosback Absolute Breadth Index — 10-day mean of |A−D| / issues, %',
+      height: 100,
+      series: [{ key: 'abi', color: '--orange', label: 'ABI' }],
+      zero: true,
+      hlines: [{ y: 20 }, { y: 30 }],
+    },
+    {
+      title: 'Swenlin STO-Breadth (EMA4 of 5-day ΣA−D) — 5/95 percentile bands',
+      height: 110,
+      series: [{ key: 'sto_b', type: 'hist', color: '--blue', label: 'STO-B' }],
+      zero: true,
+      hlines: [
+        ...(sto95 != null ? [{ y: sto95, color: '--red' }] : []),
+        ...(sto05 != null ? [{ y: sto05, color: '--aqua' }] : []),
+      ],
+    },
+    {
+      title: 'DecisionPoint ITBM (EMA20 of A/D %) and its 10-day signal',
+      height: 110,
+      series: [
+        { key: 'itbm', color: '--violet', label: 'ITBM' },
+        { key: 'itbm_signal', color: '--text2', label: 'signal', width: 1 },
+      ],
+      zero: true,
+    },
+    {
+      title: 'McClellan Volume Oscillator (EMA19−EMA39 of 1000·(UV−DV)/(UV+DV))',
+      height: 110,
+      series: [{ key: 'mvo', type: 'hist', color: '--blue', label: 'MVO' }],
+      zero: true,
+      hlines: [
+        ...(mvo95 != null ? [{ y: mvo95, color: '--red' }] : []),
+        ...(mvo05 != null ? [{ y: mvo05, color: '--aqua' }] : []),
+      ],
+    },
+    {
+      title: 'Cumulative Volume Index (millions of shares) vs its 50-day MA',
+      height: 100,
+      series: [
+        { key: 'cvi', color: '--aqua', label: 'CVI' },
+        { key: 'cvi_ma50', color: '--text2', label: 'MA50', width: 1 },
+      ],
+    },
+    {
+      title: 'New highs as % of issues (10-day mean) — leadership breadth',
+      height: 100,
+      series: [{ key: 'nh_pct_10', color: '--up', label: 'NH %', dec: 2 }],
+      zero: true,
+      hlines: [{ y: 1 }, { y: 3 }, { y: 6 }],
+    },
+    {
+      title: 'A/D % (21-day mean of 100·(A−D)/(A+D))',
+      height: 100,
+      series: [{ key: 'ad_pct_21', color: '--orange', label: 'A/D% 21d' }],
+      zero: true,
+      hlines: [{ y: 10 }, { y: -10 }],
+    },
+    {
+      title: 'Haurlan short-term index (EMA3 of A−D)',
+      height: 90,
+      series: [{ key: 'haurlan_st', type: 'hist', color: '--blue', label: 'Haurlan ST' }],
+      zero: true,
+    },
+  ];
+}
+
+/** Catalog-ready copy (no meta overlays at registration time). */
+export const LIB_PANELS = buildLibPanels();
 
 function LibraryBody() {
   const meta = useBreadthStore((s) => s.meta);
@@ -106,90 +196,7 @@ function LibraryBody() {
   const toggleSort = (ci: number) =>
     setSort((s) => (s?.col === ci ? { col: ci, asc: !s.asc } : { col: ci, asc: false }));
 
-  const panels = useMemo<PanelDef[]>(() => {
-    const Q = meta?.classic_q;
-    const hlli95 = Q?.hlli?.['0.95'];
-    const sto95 = Q?.sto_b?.['0.95'], sto05 = Q?.sto_b?.['0.05'];
-    const mvo95 = Q?.mvo?.['0.95'], mvo05 = Q?.mvo?.['0.05'];
-    return [
-      HEAD,
-      {
-        title: 'Fosback High-Low Logic Index — 50-day mean of min(NH,NL)/issues, % · >1 = split market (warning)',
-        height: 130,
-        series: [{ key: 'hlli', color: '--red', label: 'HLLI', dec: 2 }],
-        zero: true,
-        zones: [{ from: 1, to: 5, color: '--zone-hi' }],
-        hlines: [
-          { y: 1, color: '--red', label: '1.0 split' },
-          ...(hlli95 != null ? [{ y: hlli95, color: '--text2', label: '95th pct' }] : []),
-        ],
-      },
-      {
-        title: 'Fosback Absolute Breadth Index — 10-day mean of |A−D| / issues, %',
-        height: 100,
-        series: [{ key: 'abi', color: '--orange', label: 'ABI' }],
-        zero: true,
-        hlines: [{ y: 20 }, { y: 30 }],
-      },
-      {
-        title: 'Swenlin STO-Breadth (EMA4 of 5-day ΣA−D) — 5/95 percentile bands',
-        height: 110,
-        series: [{ key: 'sto_b', type: 'hist', color: '--blue', label: 'STO-B' }],
-        zero: true,
-        hlines: [
-          ...(sto95 != null ? [{ y: sto95, color: '--red' }] : []),
-          ...(sto05 != null ? [{ y: sto05, color: '--aqua' }] : []),
-        ],
-      },
-      {
-        title: 'DecisionPoint ITBM (EMA20 of A/D %) and its 10-day signal',
-        height: 110,
-        series: [
-          { key: 'itbm', color: '--violet', label: 'ITBM' },
-          { key: 'itbm_signal', color: '--text2', label: 'signal', width: 1 },
-        ],
-        zero: true,
-      },
-      {
-        title: 'McClellan Volume Oscillator (EMA19−EMA39 of 1000·(UV−DV)/(UV+DV))',
-        height: 110,
-        series: [{ key: 'mvo', type: 'hist', color: '--blue', label: 'MVO' }],
-        zero: true,
-        hlines: [
-          ...(mvo95 != null ? [{ y: mvo95, color: '--red' }] : []),
-          ...(mvo05 != null ? [{ y: mvo05, color: '--aqua' }] : []),
-        ],
-      },
-      {
-        title: 'Cumulative Volume Index (millions of shares) vs its 50-day MA',
-        height: 100,
-        series: [
-          { key: 'cvi', color: '--aqua', label: 'CVI' },
-          { key: 'cvi_ma50', color: '--text2', label: 'MA50', width: 1 },
-        ],
-      },
-      {
-        title: 'New highs as % of issues (10-day mean) — leadership breadth',
-        height: 100,
-        series: [{ key: 'nh_pct_10', color: '--up', label: 'NH %', dec: 2 }],
-        zero: true,
-        hlines: [{ y: 1 }, { y: 3 }, { y: 6 }],
-      },
-      {
-        title: 'A/D % (21-day mean of 100·(A−D)/(A+D))',
-        height: 100,
-        series: [{ key: 'ad_pct_21', color: '--orange', label: 'A/D% 21d' }],
-        zero: true,
-        hlines: [{ y: 10 }, { y: -10 }],
-      },
-      {
-        title: 'Haurlan short-term index (EMA3 of A−D)',
-        height: 90,
-        series: [{ key: 'haurlan_st', type: 'hist', color: '--blue', label: 'Haurlan ST' }],
-        zero: true,
-      },
-    ];
-  }, [meta]);
+  const panels = useMemo<PanelDef[]>(() => buildLibPanels(meta?.classic_q), [meta]);
 
   return (
     <div className="space-y-3">
