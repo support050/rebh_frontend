@@ -661,7 +661,7 @@ export default function Navbar() {
           ))}
 
           {/* Market Breadth direct link (temporarily commented out) */}
-          {/* <Link
+          <Link
             href="/breadth"
             className="flex items-center px-3 h-full text-[13.5px] font-medium transition-colors duration-150 whitespace-nowrap no-underline outline-none"
             style={{
@@ -674,7 +674,7 @@ export default function Navbar() {
             <span className={isBreadthActive ? 'font-semibold text-blue-700' : 'text-gray-600 hover:text-gray-900'}>
               Market Breadth
             </span>
-          </Link> */}
+          </Link>
 
           {/* Guru Stock Scans direct link */}
           <Link
