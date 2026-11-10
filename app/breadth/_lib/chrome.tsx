@@ -59,41 +59,83 @@ function reinkHeat(): void {
 /* ------------------------------ export menu -------------------------------- */
 const ExportMenu = React.memo(function ExportMenu() {
   const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
+
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
     document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
   }, [open]);
 
-  const act = (fn: () => void) => {
+  const act = async (fn: () => void | Promise<void>) => {
+    if (busy) return;
     setOpen(false);
     const ap = getActivePage();
-    if (!ap) return;
-    fn();
+    if (!ap) {
+      alert('Page is still loading data, please wait a moment.');
+      return;
+    }
+    setBusy(true);
+    try {
+      await fn();
+    } catch (e) {
+      alert(`Export failed: ${String(e)}`);
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
     <span ref={ref} className={`breadth-menu${open ? ' open' : ''}`} id="exp-menu">
-      <button className="btn" onClick={() => setOpen((o) => !o)}>⇩ Export ▾</button>
+      <button className="btn" disabled={busy} onClick={() => setOpen((o) => !o)}>
+        {busy ? '⏳ Exporting…' : '⇩ Export ▾'}
+      </button>
       {open ? (
         <div className="dd">
-          <a onClick={() => act(() => void exportPagePNG(getActivePage()!.hub, getActivePage()!.el, getActivePage()!.pageName, getActivePage()!.hub.todayDate))}>
+          <a onClick={() => act(() => {
+            const ap = getActivePage();
+            if (!ap) return;
+            return exportPagePNG(ap.hub, ap.el, ap.pageName, ap.hub.todayDate);
+          })}>
             📷 This page → PNG<small>every chart and table of the open page in one image</small>
           </a>
-          <a onClick={() => act(() => exportPDF())}>
-            🖨 This page → PDF<small>print dialog → “Save as PDF” (charts stay vector-sharp)</small>
+          <a onClick={() => act(() => {
+            const ap = getActivePage();
+            if (!ap) return;
+            return exportPDF(ap.hub, ap.el, ap.pageName, ap.hub.todayDate);
+          })}>
+            🖨 This page → PDF<small>direct vector-sharp PDF download with current range &amp; charts</small>
           </a>
-          <a onClick={() => act(() => { const ap = getActivePage()!; exportCSV(ap.hub, pagePanels(ap.hub, ap.el), ap.pageName); })}>
+          <a onClick={() => act(() => {
+            const ap = getActivePage();
+            if (!ap) return;
+            exportCSV(ap.hub, pagePanels(ap.hub, ap.el), ap.pageName);
+          })}>
             ⇩ This page → CSV (TradingView layout)<small>time, open, high, low, close, volume + every series on the page, current range</small>
           </a>
-          <a onClick={() => act(() => { const ap = getActivePage()!; exportPine(ap.hub, pagePanels(ap.hub, ap.el), ap.pageName, ap.hub.todayDate); })}>
+          <a onClick={() => act(() => {
+            const ap = getActivePage();
+            if (!ap) return;
+            exportPine(ap.hub, pagePanels(ap.hub, ap.el), ap.pageName, ap.hub.todayDate);
+          })}>
             📈 This page → TradingView Pine Script<small>.pine indicator plotting the page’s series on TADAWUL:TASI</small>
           </a>
-          <a onClick={() => act(() => void exportAllJSON(getActivePage()!.hub, getActivePage()!.hub.todayDate))}>
+          <a onClick={() => act(() => {
+            const ap = getActivePage();
+            if (!ap) return;
+            return exportAllJSON(ap.hub, ap.hub.todayDate);
+          })}>
             {'{ }'} All data → JSON<small>every stored series (125+) incl. derived, current date axis</small>
           </a>
         </div>
@@ -136,6 +178,7 @@ function CustomizeDrawer({ open, onClose }: { open: boolean; onClose: () => void
     a.href = URL.createObjectURL(blob);
     a.download = 'breadth_setup.json';
     a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 3000);
   };
 
   const importSetup = (file: File) => {
@@ -159,116 +202,120 @@ function CustomizeDrawer({ open, onClose }: { open: boolean; onClose: () => void
       {/* click-anywhere-outside closes the drawer (user request 2026-10-27) */}
       {open ? <div className="breadth-drawer-backdrop" onClick={onClose} /> : null}
       <div className={`breadth-drawer${open ? ' open' : ''}`}>
-      <div style={{ display: 'flex', alignItems: 'center' }}>
-        <h3>⚙ Customize</h3>
-        <span style={{ flex: 1 }} />
-        <button className="btn" onClick={onClose}>✕</button>
-      </div>
-      <h4>Size</h4>
-      <div className="row">
-        <label>Text size</label>
-        <input type="range" min={0.8} max={1.4} step={0.05} value={P.font}
-          onInput={(e) => set({ font: +(e.target as HTMLInputElement).value })} />
-        <span>{Math.round(P.font * 100)}%</span>
-      </div>
-      <div className="row">
-        <label>Chart height (new panels)</label>
-        <input type="range" min={0.6} max={2} step={0.1} value={P.chart}
-          onInput={(e) => { set({ chart: +(e.target as HTMLInputElement).value }); getActivePage()?.hub.relayout(); }} />
-        <span>{P.chart}×</span>
-      </div>
-      <div className="row">
-        <label>Line thickness</label>
-        <input type="range" min={0.5} max={3} step={0.25} value={P.lw}
-          onInput={(e) => set({ lw: +(e.target as HTMLInputElement).value })} />
-        <span>{P.lw}×</span>
-      </div>
-      <div className="row">
-        <label>Sidebar width</label>
-        <input type="range" min={0} max={260} step={10} value={P.nav}
-          onInput={(e) => set({ nav: +(e.target as HTMLInputElement).value })} />
-        <span>{P.nav}px</span>
-      </div>
-      <div className="row">
-        <label>Show legends</label>
-        <input type="checkbox" checked={P.legend} onChange={(e) => { set({ legend: e.target.checked }); getActivePage()?.hub.relayout(); }} />
-      </div>
-      <div className="row">
-        <label>RS column: heat colour + 30-day sparkline + Δ21d arrow</label>
-        <input type="checkbox" checked={P.rscolor} onChange={(e) => { set({ rscolor: e.target.checked }); location.reload(); }} />
-      </div>
-      <div className="row">
-        <label>Compact mode (tighter cards &amp; tables)</label>
-        <input type="checkbox" checked={P.compact} onChange={(e) => set({ compact: e.target.checked })} />
-      </div>
-      <div className="row">
-        <label>Reset every panel height / collapse</label>
-        <button className="btn" onClick={() => { prefsStore.resetPanelSizes(); location.reload(); }}>reset</button>
-      </div>
-      <h4>Colours &amp; defaults</h4>
-      <div className="row">
-        <label>Up colour</label>
-        <input type="color" value={P.up || '#1baf7a'} onInput={(e) => set({ up: (e.target as HTMLInputElement).value })} />
-        <button className="btn" onClick={() => set({ up: '' })}>default</button>
-      </div>
-      <div className="row">
-        <label>Down colour</label>
-        <input type="color" value={P.down || '#e34948'} onInput={(e) => set({ down: (e.target as HTMLInputElement).value })} />
-        <button className="btn" onClick={() => set({ down: '' })}>default</button>
-      </div>
-      <div className="row">
-        <label>Default range</label>
-        <select value={String(P.range)} onChange={(e) => {
-          const v = e.target.value === 'null' ? null : +e.target.value;
-          set({ range: v });
-          getActivePage()?.hub.setRange(v);
-        }}>
-          {RANGES.map(([v, l]) => <option key={l} value={String(v)}>{l}</option>)}
-        </select>
-      </div>
-      <div className="row">
-        <label>Dashboard title</label>
-        <input type="text" value={P.title} onChange={(e) => set({ title: e.target.value })} />
-      </div>
-      <div className="row">
-        <label>TradingView export: bars</label>
-        <select value={P.tvbars} onChange={(e) => set({ tvbars: +e.target.value })}>
-          {[250, 500, 1000, 2000].map((v) => <option key={v} value={v}>{v}</option>)}
-        </select>
-      </div>
-      <h4>Pages in the sidebar</h4>
-      {pc.map((p) => (
-        <div className="row" key={p.id}>
-          <label>{p.name}</label>
-          <input type="checkbox" checked={!P.hidden.includes(p.id)}
-            onChange={(e) => {
-              const hidden = P.hidden.filter((x) => x !== p.id);
-              if (!e.target.checked) hidden.push(p.id);
-              set({ hidden });
-            }} />
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <h3>⚙ Customize</h3>
+          <span style={{ flex: 1 }} />
+          <button className="btn" onClick={onClose}>✕</button>
         </div>
-      ))}
-      <h4>Save / share my setup</h4>
-      <div className="row">
-        <button className="btn" onClick={() => void exportSetup()}>⇩ export setup</button>
-        <label className="btn" style={{ display: 'inline-block' }}>
-          ⇧ import
-          <input type="file" accept=".json" style={{ display: 'none' }}
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) importSetup(f); }} />
-        </label>
-        <button className="btn" onClick={() => {
-          localStorage.removeItem('tb-prefs');
-          localStorage.removeItem('tb-ph');
-          prefsStore.prefs = { ...DEFAULT_PREFS };
-          prefsStore.ph = { h: {}, c: {} };
-          location.reload();
-        }}>reset all</button>
-      </div>
-      <p className="note">
-        Everything here is saved to your REBH account (table <code>user_prefs</code>) and this browser, so it
-        follows you across devices. Per-panel height (drag the bottom edge) and collapse state are remembered
-        per chart.
-      </p>
+        <h4>Size</h4>
+        <div className="row">
+          <label>Text size</label>
+          <input type="range" min={0.8} max={1.4} step={0.05} value={P.font}
+            onInput={(e) => set({ font: +(e.target as HTMLInputElement).value })} />
+          <span>{Math.round(P.font * 100)}%</span>
+        </div>
+        <div className="row">
+          <label>Chart height (new panels)</label>
+          <input type="range" min={0.6} max={2} step={0.1} value={P.chart}
+            onInput={(e) => { set({ chart: +(e.target as HTMLInputElement).value }); getActivePage()?.hub.relayout(); }} />
+          <span>{P.chart}×</span>
+        </div>
+        <div className="row">
+          <label>Line thickness</label>
+          <input type="range" min={0.5} max={3} step={0.25} value={P.lw}
+            onInput={(e) => set({ lw: +(e.target as HTMLInputElement).value })} />
+          <span>{P.lw}×</span>
+        </div>
+        <div className="row">
+          <label>Sidebar width</label>
+          <input type="range" min={0} max={260} step={10} value={P.nav}
+            onInput={(e) => set({ nav: +(e.target as HTMLInputElement).value })} />
+          <span>{P.nav}px</span>
+        </div>
+        <div className="row">
+          <label>Show legends</label>
+          <input type="checkbox" checked={P.legend} onChange={(e) => { set({ legend: e.target.checked }); getActivePage()?.hub.relayout(); }} />
+        </div>
+        <div className="row">
+          <label>RS column: heat colour + 30-day sparkline + Δ21d arrow</label>
+          <input type="checkbox" checked={P.rscolor} onChange={(e) => { set({ rscolor: e.target.checked }); location.reload(); }} />
+        </div>
+        <div className="row">
+          <label>Compact mode (tighter cards &amp; tables)</label>
+          <input type="checkbox" checked={P.compact} onChange={(e) => set({ compact: e.target.checked })} />
+        </div>
+        <div className="row">
+          <label>Reset every panel height / collapse</label>
+          <button className="btn" onClick={() => { prefsStore.resetPanelSizes(); location.reload(); }}>reset</button>
+        </div>
+        <h4>Colours &amp; defaults</h4>
+        <div className="row">
+          <label>Up colour</label>
+          <input type="color" value={P.up || '#1baf7a'} onInput={(e) => set({ up: (e.target as HTMLInputElement).value })} />
+          <button className="btn" onClick={() => set({ up: '' })}>default</button>
+        </div>
+        <div className="row">
+          <label>Down colour</label>
+          <input type="color" value={P.down || '#e34948'} onInput={(e) => set({ down: (e.target as HTMLInputElement).value })} />
+          <button className="btn" onClick={() => set({ down: '' })}>default</button>
+        </div>
+        <div className="row">
+          <label>Default range</label>
+          <select value={String(P.range)} onChange={(e) => {
+            const v = e.target.value === 'null' ? null : +e.target.value;
+            set({ range: v });
+            getActivePage()?.hub.setRange(v);
+          }}>
+            {RANGES.map(([v, l]) => <option key={l} value={String(v)}>{l}</option>)}
+          </select>
+        </div>
+        <div className="row">
+          <label>Dashboard title</label>
+          <input type="text" value={P.title} onChange={(e) => set({ title: e.target.value })} />
+        </div>
+        <div className="row">
+          <label>TradingView export: bars</label>
+          <select value={P.tvbars} onChange={(e) => set({ tvbars: +e.target.value })}>
+            {[250, 500, 1000, 2000].map((v) => <option key={v} value={v}>{v}</option>)}
+          </select>
+        </div>
+        <h4>Pages in the sidebar</h4>
+        {pc.map((p) => (
+          <div className="row" key={p.id}>
+            <label>{p.name}</label>
+            <input type="checkbox" checked={!P.hidden.includes(p.id)}
+              onChange={(e) => {
+                const hidden = P.hidden.filter((x) => x !== p.id);
+                if (!e.target.checked) hidden.push(p.id);
+                set({ hidden });
+              }} />
+          </div>
+        ))}
+        <h4>Save / share my setup</h4>
+        <div className="row">
+          <button className="btn" onClick={() => void exportSetup()}>⇩ export setup</button>
+          <label className="btn" style={{ display: 'inline-block' }}>
+            ⇧ import
+            <input type="file" accept=".json" style={{ display: 'none' }}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) importSetup(f); }} />
+          </label>
+          <button className="btn" onClick={() => {
+            if (window.confirm('Reset all breadth preferences and custom sizes to defaults?')) {
+              try {
+                localStorage.removeItem('tb-prefs');
+                localStorage.removeItem('tb-ph');
+              } catch {}
+              prefsStore.prefs = { ...DEFAULT_PREFS };
+              prefsStore.ph = { h: {}, c: {} };
+              location.reload();
+            }
+          }}>reset all</button>
+        </div>
+        <p className="note">
+          Everything here is saved to your REBH account (table <code>user_prefs</code>) and this browser, so it
+          follows you across devices. Per-panel height (drag the bottom edge) and collapse state are remembered
+          per chart.
+        </p>
       </div>
     </>
   );

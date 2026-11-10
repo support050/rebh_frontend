@@ -35,14 +35,21 @@ export function downloadBlob(blob: Blob, name: string): void {
   setTimeout(() => URL.revokeObjectURL(a.href), 3000);
 }
 
-const safe = (s: string): string => s.replace(/[^a-z0-9]+/gi, '_').slice(0, 40);
+const safe = (s: string): string =>
+  s
+    .trim()
+    .replace(/[\s<>:"/\\|?*\x00-\x1F]+/g, '_')
+    .slice(0, 60);
 
-/** CSV cell: quote anything containing , " or newline (string series such as
- *  bpi_status would otherwise shift/corrupt the row). */
+/** CSV cell: quote anything containing , " or newline (RFC 4180). Empty string for null/NaN/Infinity. */
 function csvCell(v: unknown): string {
   if (v == null) return '';
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return '';
+    return String(v);
+  }
   const s = String(v);
-  return /[',"\n\r]/.test(s) ? `"${s.replace(/"/g, "'")}"` : s;
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
 /** Deduped, ordered list of series keys across the given panels (reference seriesOf). */
@@ -119,25 +126,31 @@ export function exportPine(hub: ChartHub, panels: ExportPanel[], name: string, t
   ks.forEach((k, j) => {
     const v = `m${j}`;
     L.push(`var ${v} = map.new<int,float>()`);
-    L.push('if barstate.isfirst');
+    const puts: string[] = [];
     for (let i = i0; i < N; i++) {
       const val = S[k.key][i];
-      if (val == null) continue;
-      L.push(`    map.put(${v}, ${hub.data.dates[i].replace(/-/g, '')}, ${val})`);
+      if (val == null || typeof val !== 'number' || !Number.isFinite(val)) continue;
+      puts.push(`    map.put(${v}, ${hub.data.dates[i].replace(/-/g, '')}, ${val})`);
+    }
+    if (puts.length > 0) {
+      L.push('if barstate.isfirst');
+      L.push(...puts);
     }
     L.push(`s${j} = map.contains(${v}, key) ? map.get(${v}, key) : na`);
     L.push(`plot(s${j}, "${k.label.replace(/"/g, "'")}", color=${PINE_COLS[j % PINE_COLS.length]}, linewidth=${j === 0 ? 2 : 1})`);
   });
   const hl: number[] = [];
-  panels.forEach((p) => (p.hlines || []).forEach((h) => { if (typeof h.y === 'number') hl.push(h.y); }));
+  panels.forEach((p) => (p.hlines || []).forEach((h) => { if (typeof h.y === 'number' && Number.isFinite(h.y)) hl.push(h.y); }));
   [...new Set(hl)].slice(0, 6).forEach((y) =>
     L.push(`hline(${y}, "${y}", color=color.new(color.gray,40), linestyle=hline.style_dashed)`),
   );
   // TradingView rejects scripts beyond ~144KB — surface a truncation risk
   // instead of silently exporting a file that fails to compile (CR3 export audit).
+  // Note: comment placed AFTER //@version=5 so script remains valid.
   const bytes = new Blob([L.join('\n')]).size;
-  if (bytes > 140_000)
-    L.unshift(`// WARNING: ${Math.round(bytes / 1024)}KB exceeds the TradingView ~144KB script limit — lower ⚙→“TradingView export: bars” and re-export.`);
+  if (bytes > 140_000) {
+    L.splice(1, 0, `// WARNING: ${Math.round(bytes / 1024)}KB exceeds the TradingView ~144KB script limit — lower ⚙→“TradingView export: bars” and re-export.`);
+  }
   downloadBlob(new Blob([L.join('\n')], { type: 'text/plain' }), `TASI_breadth_${safe(name)}.pine`);
 }
 
@@ -149,35 +162,102 @@ export function exportPine(hub: ChartHub, panels: ExportPanel[], name: string, t
  */
 export function exportPNG(hub: ChartHub, panels: ExportPanel[], name: string, todayDate: string): void {
   const dpr = 2;
-  const W = Math.max(...panels.map((p) => p.canvas.clientWidth));
-  const hs = panels.map((p) => (p.div.classList.contains('collapsed') ? 0 : p.div.clientHeight));
-  const H = hs.reduce((a, b) => a + b, 0) + 56;
+  const activePanels = panels.filter((p) => !p.div.classList.contains('collapsed'));
+  if (!activePanels.length) return;
+
+  const W = Math.max(
+    ...activePanels.map((p) => p.canvas.clientWidth || (p.canvas.width ? p.canvas.width / (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1) : 600)),
+  );
+  const hs = activePanels.map((p) => p.canvas.clientHeight || (p.canvas.height ? p.canvas.height / (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1) : (p.div.clientHeight || 150)));
+
+  const isSingle = activePanels.length === 1;
+  const xAxisHeight = isSingle ? 24 : 0;
+  const headerHeight = 52;
+  const H = hs.reduce((a, b) => a + b, 0) + headerHeight + xAxisHeight;
+
   const c = document.createElement('canvas');
   c.width = W * dpr;
   c.height = H * dpr;
   const g = c.getContext('2d');
   if (!g) return;
   g.scale(dpr, dpr);
-  g.fillStyle = hub.css('--surface');
+
+  // Background
+  g.fillStyle = hub.css('--surface') || '#131722';
   g.fillRect(0, 0, W, H);
-  g.fillStyle = hub.css('--text');
-  g.font = 'bold 14px sans-serif';
+
+  // Header Title
   const { i0, i1 } = hub.range;
-  g.fillText(`TASI Market Breadth · ${name} · ${hub.data.dates[i0]} → ${hub.data.dates[i1]}`, 10, 22);
-  g.fillStyle = hub.css('--text2');
+  const d0 = hub.data?.dates?.[i0] || '';
+  const d1 = hub.data?.dates?.[i1] || '';
+  g.fillStyle = hub.css('--text') || '#d1d4dc';
+  g.font = 'bold 14px sans-serif';
+  g.fillText(`TASI Market Breadth · ${name} · ${d0} → ${d1}`, 12, 22);
+
+  // Header Subtitle
+  g.fillStyle = hub.css('--text2') || '#787b86';
   g.font = '11px sans-serif';
-  g.fillText(`as of ${todayDate} · rebh.ai · local engine, not published`, 10, 38);
-  let y = 48;
-  panels.forEach((p, i) => {
-    if (!hs[i]) return;
-    // composite at the canvas BACKING-STORE resolution (Stack draws at
-    // devicePixelRatio) — scaling by clientWidth would downsample to CSS px
-    g.drawImage(p.canvas, 0, y, p.canvas.width, p.canvas.height, 0, y, p.canvas.clientWidth, hs[i]);
-    g.fillStyle = hub.css('--text');
-    g.font = 'bold 11px sans-serif';
-    g.fillText(p.title || '', 12, y + 14);
-    y += hs[i];
+  g.fillText(`as of ${todayDate} · rebh.ai · local engine, not published`, 12, 38);
+
+  let y = headerHeight;
+  activePanels.forEach((p, i) => {
+    const h = hs[i];
+    const cw = p.canvas.clientWidth || (p.canvas.width ? p.canvas.width / (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1) : W);
+
+    // Render panel canvas at 1:1 true aspect ratio (using source backing-store coordinates (0, 0, width, height))
+    g.drawImage(p.canvas, 0, 0, p.canvas.width, p.canvas.height, 0, y, cw, h);
+
+    if (p.title && !isSingle) {
+      g.fillStyle = hub.css('--text') || '#d1d4dc';
+      g.font = 'bold 11px sans-serif';
+      g.fillText(p.title, 12, y + 16);
+    }
+    y += h;
   });
+
+  // Draw X-Axis (Dates) for single panel export
+  if (isSingle && hub.data?.dates) {
+    const p = activePanels[0];
+    const L = p.mini ? 34 : 62;
+    const R = 12;
+    const pw = W - L - R;
+    const n = Math.max(1, i1 - i0);
+    const X = (idx: number) => L + ((idx - i0) / n) * pw;
+
+    // Axis line
+    g.strokeStyle = hub.css('--grid') || 'rgba(120, 123, 134, 0.2)';
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(L, y);
+    g.lineTo(L + pw, y);
+    g.stroke();
+
+    g.textAlign = 'center';
+    g.fillStyle = hub.css('--text2') || '#787b86';
+    g.font = '10px sans-serif';
+
+    const step = n > 2500 ? 250 : n > 1200 ? 125 : n > 500 ? 63 : n > 200 ? 21 : n > 60 ? 10 : 5;
+    let lastLab = '';
+    for (let i = i0; i <= i1; i++) {
+      const d = hub.data.dates[i];
+      if (!d) continue;
+      const lab = n > 500 ? d.slice(0, 4) : d.slice(0, 7);
+      if (lab !== lastLab && (n <= 500 || d.slice(5, 7) === '01')) {
+        if (n > 500 && lab === lastLab) continue;
+        lastLab = lab;
+        if (i - i0 < step / 3 && i !== i0) continue;
+
+        const xPos = X(i);
+        g.beginPath();
+        g.moveTo(xPos, y);
+        g.lineTo(xPos, y + 4);
+        g.stroke();
+
+        g.fillText(lab, xPos, y + 16);
+      }
+    }
+  }
+
   c.toBlob(
     (b) => b && downloadBlob(b, `breadth_${safe(name)}_${todayDate}.png`),
     'image/png',
@@ -192,9 +272,9 @@ export function exportPNG(hub: ChartHub, panels: ExportPanel[], name: string, to
  * captured at their backing-store resolution by the library itself.
  */
 export async function exportNodePNG(hub: ChartHub, node: HTMLElement, name: string, todayDate: string): Promise<void> {
-  void hub;
   try {
-    const blob = await toBlob(node, { pixelRatio: 2, cacheBust: true });
+    const bg = hub?.css?.('--surface') || '#131722';
+    const blob = await toBlob(node, { pixelRatio: 2, cacheBust: true, backgroundColor: bg });
     if (blob) downloadBlob(blob, `breadth_${safe(name)}_${todayDate}.png`);
   } catch (e) {
     alert(`PNG export failed: ${String(e)}`);
@@ -210,7 +290,18 @@ export async function exportNodePNG(hub: ChartHub, node: HTMLElement, name: stri
  * DOM blocks go through html-to-image; canvases are composited from their
  * backing store so nothing is downsampled.
  */
-export async function exportPagePNG(hub: ChartHub, page: HTMLElement, pageName: string, todayDate: string): Promise<void> {
+type PagePart =
+  | { kind: 'canvas'; c: HTMLCanvasElement; h: number; w: number; title: string }
+  | { kind: 'img'; img: HTMLImageElement; h: number; w: number; title?: string };
+
+/**
+ * Render the full page to a multi-part list of high-res canvases/images.
+ * Shared by exportPagePNG and exportPDF.
+ */
+async function renderPageParts(
+  hub: ChartHub,
+  page: HTMLElement,
+): Promise<{ W: number; parts: PagePart[] }> {
   const flat = (el: HTMLElement): HTMLElement[] => {
     const out: HTMLElement[] = [];
     [...el.children].forEach((ch) => {
@@ -228,8 +319,13 @@ export async function exportPagePNG(hub: ChartHub, page: HTMLElement, pageName: 
     });
     return out;
   };
-  const blocks = flat(page);
-  const W = page.clientWidth;
+
+  let pageEl = page;
+  if (!pageEl || !pageEl.isConnected) {
+    pageEl = (document.querySelector('.breadth-root') as HTMLElement) || document.body;
+  }
+  const blocks = flat(pageEl);
+  const W = pageEl.clientWidth || window.innerWidth || 1200;
   type Part = { kind: 'canvas'; c: HTMLCanvasElement; h: number; w: number; title: string } | { kind: 'img'; img: HTMLImageElement; h: number; w: number };
   const parts: Part[] = [];
   const allPanels = hub.stacks.flatMap((s) => s.exportPanels());
@@ -242,6 +338,21 @@ export async function exportPagePNG(hub: ChartHub, page: HTMLElement, pageName: 
       im.src = url;
     });
 
+  const shouldSkipNode = (node: Node): boolean => {
+    if (node instanceof HTMLElement) {
+      if (
+        node.classList.contains('ctl') ||
+        node.classList.contains('sctl') ||
+        node.classList.contains('rsz') ||
+        node.classList.contains('tblbar') ||
+        node.classList.contains('breadth-toolbar')
+      ) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   for (const el of blocks) {
     const cvs = [...el.querySelectorAll('canvas')].filter((c) => c.clientWidth > 0 && c.clientHeight > 0);
     if (cvs.length && el.querySelectorAll('table,.kpi,.widget,.breadth-q').length === 0) {
@@ -251,62 +362,200 @@ export async function exportPagePNG(hub: ChartHub, page: HTMLElement, pageName: 
       });
     } else {
       const r = el.getBoundingClientRect();
-      const clone = el.cloneNode(true) as HTMLElement;
-      clone.querySelectorAll('.ctl,.sctl,.rsz,.tblbar').forEach((c) => c.remove());
-      // off-screen raster at 2× — html-to-image keeps in-block canvases at
-      // their backing-store resolution and serialises valid XHTML. toBlob (not
-      // toPng) avoids the ~2MB data-URL cap on tall page stitches.
+      const elW = Math.ceil(r.width) || W;
+      const elH = Math.ceil(r.height);
+      if (elH <= 0) continue;
+
       let blob: Blob | null = null;
       try {
-        blob = await toBlob(clone, { pixelRatio: 2, cacheBust: true, width: Math.ceil(r.width), height: Math.ceil(r.height), backgroundColor: hub.css('--surface') });
-      } catch { blob = null; }
+        blob = await toBlob(el, {
+          pixelRatio: 2,
+          cacheBust: true,
+          width: elW,
+          height: elH,
+          backgroundColor: hub.css('--surface') || '#131722',
+          filter: (node) => !shouldSkipNode(node),
+        });
+      } catch {
+        blob = null;
+      }
+
       if (!blob) {
-        // block failed to raster → drop it rather than fail the whole export
         continue;
       }
       const url = URL.createObjectURL(blob);
       const img = await loadImg(url);
       URL.revokeObjectURL(url);
-      if (img) parts.push({ kind: 'img', img, h: Math.ceil(r.height), w: Math.ceil(r.width) });
+      if (img) parts.push({ kind: 'img', img, h: elH, w: elW });
     }
   }
 
+  return { W, parts };
+}
+
+/**
+ * exportPagePNG — flatten the active page into canvas + DOM blocks and stitch
+ * them into one tall PNG at 2× (reference lines 316-324).
+ */
+export async function exportPagePNG(hub: ChartHub, page: HTMLElement, pageName: string, todayDate: string): Promise<void> {
+  const { W, parts } = await renderPageParts(hub, page);
   const H = parts.reduce((a, p) => a + p.h + 8, 56);
+  let dpr = 2;
+  if (H * dpr > 16000 || W * dpr > 16000) {
+    dpr = 1;
+  }
+
   const c = document.createElement('canvas');
-  c.width = W * 2;
-  c.height = H * 2;
+  c.width = W * dpr;
+  c.height = H * dpr;
   const g = c.getContext('2d');
   if (!g) return;
-  g.scale(2, 2);
-  g.fillStyle = hub.css('--surface');
+  g.scale(dpr, dpr);
+  g.fillStyle = hub.css('--surface') || '#131722';
   g.fillRect(0, 0, W, H);
-  g.fillStyle = hub.css('--text');
+  g.fillStyle = hub.css('--text') || '#d1d4dc';
   g.font = 'bold 15px sans-serif';
   g.fillText(`${getPrefs().title} · ${pageName} · as of ${todayDate}`, 10, 24);
-  g.fillStyle = hub.css('--text2');
+  g.fillStyle = hub.css('--text2') || '#787b86';
   g.font = '11px sans-serif';
-  g.fillText(`range ${hub.data.dates[hub.range.i0]} → ${hub.data.dates[hub.range.i1]} · rebh.ai`, 10, 40);
+  const i0 = hub.range?.i0 ?? 0;
+  const i1 = hub.range?.i1 ?? (hub.data.dates.length - 1);
+  g.fillText(`range ${hub.data.dates[i0] || ''} → ${hub.data.dates[i1] || ''} · rebh.ai`, 10, 40);
   let y = 50;
   for (const p of parts) {
     if (p.kind === 'canvas') {
-      // 9-arg drawImage: source = full backing store (devicePixelRatio px)
       g.drawImage(p.c, 0, 0, p.c.width, p.c.height, 0, y, p.w, p.h);
       if (p.title) {
-        g.fillStyle = hub.css('--text');
+        g.fillStyle = hub.css('--text') || '#d1d4dc';
         g.font = 'bold 11px sans-serif';
         g.fillText(p.title, 12, y + 14);
       }
-    } else g.drawImage(p.img, 0, y, p.img.naturalWidth, p.img.naturalHeight, 0, y, p.w, p.h);
+    } else {
+      g.drawImage(p.img, 0, 0, p.img.naturalWidth, p.img.naturalHeight, 0, y, p.w, p.h);
+    }
     y += p.h + 8;
   }
-  c.toBlob((b) => b && downloadBlob(b, `TASI_breadth_${safe(pageName)}_${todayDate}.png`), 'image/png');
+  c.toBlob((b) => {
+    if (b) {
+      downloadBlob(b, `TASI_breadth_${safe(pageName)}_${todayDate}.png`);
+    } else {
+      alert('Failed to generate PNG image (canvas memory limit exceeded)');
+    }
+  }, 'image/png');
 }
 
-/** exportPDF — let the print stylesheet do the work (reference line 314). */
-export function exportPDF(): void {
-  // canvases paint at their backing-store resolution in print too; give the
-  // layout one tick to settle after the menu closed before opening the dialog
-  setTimeout(() => window.print(), 100);
+/**
+ * exportPDF — Direct PDF download using jsPDF.
+ * Renders the page elements with exact range, styles and layout, perfectly paginated for A4.
+ */
+export async function exportPDF(hub?: ChartHub, page?: HTMLElement, pageName?: string, todayDate?: string): Promise<void> {
+  if (!hub || !page) {
+    window.print();
+    return;
+  }
+
+  const pName = pageName || 'Breadth';
+  const dateStr = todayDate || hub.todayDate || '';
+
+  const { W, parts } = await renderPageParts(hub, page);
+  if (!parts.length) {
+    alert('No content available to export to PDF');
+    return;
+  }
+
+  // Dynamically import jsPDF only when running in browser
+  const { default: jsPDF } = await import('jspdf');
+
+  // Create jsPDF instance (A4 portrait in mm)
+  const pdf = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  const pageWidth = pdf.internal.pageSize.getWidth(); // 210mm
+  const pageHeight = pdf.internal.pageSize.getHeight(); // 297mm
+  const margin = 10;
+  const contentWidth = pageWidth - margin * 2;
+  const scale = contentWidth / W;
+
+  // Header banner on first page
+  const headerHeightMm = 16;
+  let currentY = margin + headerHeightMm;
+
+  // Background and header drawer function
+  const drawPageHeader = (isFirstPage: boolean) => {
+    // Fill surface background
+    const bgHex = hub.css('--surface') || '#131722';
+    pdf.setFillColor(bgHex);
+    pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+
+    // Header texts on first page
+    if (isFirstPage) {
+      pdf.setTextColor(209, 212, 220); // --text
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(13);
+      pdf.text(`${getPrefs().title} — ${pName}`, margin, margin + 5);
+
+      pdf.setTextColor(120, 123, 134); // --text2
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(8.5);
+      const i0 = hub.range?.i0 ?? 0;
+      const i1 = hub.range?.i1 ?? (hub.data.dates.length - 1);
+      const r0 = hub.data.dates[i0] || '';
+      const r1 = hub.data.dates[i1] || '';
+      pdf.text(`Date: ${dateStr}  |  Range: ${r0} → ${r1}  |  rebh.ai`, margin, margin + 11);
+
+      pdf.setDrawColor(120, 123, 134);
+      pdf.setLineWidth(0.2);
+      pdf.line(margin, margin + 13, pageWidth - margin, margin + 13);
+    }
+  };
+
+  drawPageHeader(true);
+
+  for (const p of parts) {
+    // True aspect ratio: block width vs block height
+    const blockAspect = p.w > 0 && p.h > 0 ? p.h / p.w : 0.3;
+    const itemHeightMm = contentWidth * blockAspect;
+
+    // Check if adding this item would exceed the current page
+    if (currentY + itemHeightMm > pageHeight - margin) {
+      pdf.addPage();
+      drawPageHeader(false);
+      currentY = margin;
+    }
+
+    try {
+      if (p.kind === 'canvas' && p.c) {
+        // Pass HTMLCanvasElement directly to addImage with true aspect ratio
+        pdf.addImage(p.c, 'PNG', margin, currentY, contentWidth, itemHeightMm, undefined, 'FAST');
+
+        if (p.title) {
+          pdf.setTextColor(209, 212, 220);
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(7.5);
+          pdf.text(p.title, margin + 2, currentY + 4);
+        }
+      } else if (p.kind === 'img' && p.img) {
+        // Render Image element to an off-screen canvas to guarantee a clean PNG
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = p.img.naturalWidth || p.w;
+        tempCanvas.height = p.img.naturalHeight || p.h;
+        const ctx = tempCanvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(p.img, 0, 0);
+          pdf.addImage(tempCanvas, 'PNG', margin, currentY, contentWidth, itemHeightMm, undefined, 'FAST');
+        }
+      }
+    } catch (err) {
+      console.warn('Could not add block to PDF, skipping block:', err);
+    }
+
+    currentY += itemHeightMm + 2; // 2mm gap between blocks
+  }
+
+  pdf.save(`TASI_breadth_${safe(pName)}_${dateStr}.pdf`);
 }
 
 /**
@@ -324,13 +573,26 @@ export async function exportAllJSON(hub: ChartHub, todayDate: string): Promise<v
     const res = await authFetch(`${API_BASE_URL}/api/rebh/breadth/series`);
     if (res.ok) {
       const j = (await res.json()) as { dates: string[]; series: Record<string, unknown[]> };
-      dates = j.dates ?? dates;
-      series = { ...series, ...j.series };
+      if (Array.isArray(j.dates) && j.dates.length > 0) {
+        dates = j.dates;
+      }
+      if (j.series && typeof j.series === 'object') {
+        series = { ...series, ...j.series };
+      }
     }
   } catch { /* offline — export the in-memory copy */ }
+
+  // Only keep series whose lengths match the date axis to prevent misaligned export
+  const dateLen = dates.length;
+  for (const k of Object.keys(series)) {
+    if (Array.isArray(series[k]) && series[k].length !== dateLen) {
+      delete series[k];
+    }
+  }
+
   applyDerived(series as Parameters<typeof applyDerived>[0]);
   downloadBlob(
-    new Blob([JSON.stringify({ exported_at: todayDate, source: 'rebh.ai breadth snapshot', dates, series }, null, 1)], { type: 'application/json' }),
+    new Blob([JSON.stringify({ exported_at: todayDate, source: 'rebh.ai breadth snapshot', dates, series })], { type: 'application/json' }),
     `TASI_breadth_DATA_${todayDate}.json`,
   );
 }

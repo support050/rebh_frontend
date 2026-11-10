@@ -829,23 +829,21 @@ export default function Navbar() {
           ))}
 
           {/* Market Breadth direct link (mobile) (temporarily commented out) */}
-          {/* <Link
+          <Link
             href="/breadth"
             onClick={closeAll}
-            className={`block px-3 py-2.5 text-[14px] font-medium rounded-md transition-colors no-underline ${
-              isBreadthActive ? 'text-blue-700 bg-blue-50 font-semibold' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
-            }`}
+            className={`block px-3 py-2.5 text-[14px] font-medium rounded-md transition-colors no-underline ${isBreadthActive ? 'text-blue-700 bg-blue-50 font-semibold' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
+              }`}
           >
             Market Breadth
-          </Link> */}
+          </Link>
 
           {/* Guru Stock Scans direct link (mobile) */}
           <Link
             href="/guru-scans"
             onClick={closeAll}
-            className={`block px-3 py-2.5 text-[14px] font-medium rounded-md transition-colors no-underline ${
-              isGuruActive ? 'text-blue-700 bg-blue-50 font-semibold' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
-            }`}
+            className={`block px-3 py-2.5 text-[14px] font-medium rounded-md transition-colors no-underline ${isGuruActive ? 'text-blue-700 bg-blue-50 font-semibold' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
+              }`}
           >
             Guru Scans
           </Link>

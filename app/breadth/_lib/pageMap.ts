@@ -36,10 +36,11 @@ export const BREADTH_PAGES: PageMeta[] = [
 
 /** Resolve page meta from a pathname (exact for overview, prefix otherwise). */
 export function pageByPath(pathname: string): PageMeta | null {
-  const exact = BREADTH_PAGES.find((p) => p.path === pathname);
+  const norm = pathname.replace(/\/+$/, '') || '/';
+  const exact = BREADTH_PAGES.find((p) => p.path === norm || p.path === pathname);
   if (exact) return exact;
   const byPrefix = [...BREADTH_PAGES]
-    .filter((p) => p.path !== '/breadth' && pathname.startsWith(p.path + '/'))
+    .filter((p) => p.path !== '/breadth' && norm.startsWith(p.path + '/'))
     .sort((a, b) => b.path.length - a.path.length)[0];
   return byPrefix ?? null;
 }

@@ -156,13 +156,12 @@ export default function BreadthLayout({ children }: { children: React.ReactNode 
         {nav}
       </aside>
 
-      {/* Sidebar toggle — centre of the sidebar edge (as in the RS Screener /
-          industry-groups page): ◀ hides the sidebar, ▶ brings it back. */}
+      {/* Sidebar toggle — fixed at viewport centre edge so it stays visible while scrolling */}
       <button
         aria-label={navHidden ? 'show sidebar' : 'hide sidebar'}
         title={navHidden ? 'Expand Sidebar' : 'Collapse Sidebar'}
         onClick={toggleNav}
-        className="hidden md:flex absolute top-1/2 -translate-y-1/2 z-[60] items-center justify-center w-5 h-14 rounded-r-md border border-l-0 shadow-sm cursor-pointer transition-all duration-200"
+        className="hidden md:flex fixed top-1/2 -translate-y-1/2 z-[60] items-center justify-center w-5 h-14 rounded-r-md border border-l-0 shadow-sm cursor-pointer transition-all duration-200"
         style={{
           left: navHidden ? 0 : Math.max(navW, 180),
           background: 'var(--surface)',
