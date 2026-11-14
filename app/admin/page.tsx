@@ -45,7 +45,7 @@ const PIPELINES = [
     {
         table: 'economic_indicators', label: 'Economic Indicators',
         scrapers: ['fred_scraper.py → All FRED API data', 'gurufocus_scraper.py → SP500_EY, SP500_PE'],
-        pages: ['/economic-indicators', '/economic-indicators/unrate', '/economic-indicators/payems', '/economic-indicators/nfp-change', '/economic-indicators/ic4wsa', '/spread/a-corporate', '/spread/bbb-corporate', '/market/a-effective-yield', '/market/sp500-earnings-yield', '/market/sp500-pe-ratio', '/market/yri-earnings-outlook', '/valuation/economy'],
+        pages: ['/economic-indicators', '/economic-indicators/unrate', '/economic-indicators/payems', '/economic-indicators/ic4wsa', '/spread/a-corporate', '/spread/bbb-corporate', '/market/a-effective-yield', '/market/sp500-earnings-yield', '/market/sp500-pe-ratio', '/market/yri-earnings-outlook', '/valuation/economy'],
     },
     {
         table: 'eurodollar_futures', label: 'Eurodollar Futures',

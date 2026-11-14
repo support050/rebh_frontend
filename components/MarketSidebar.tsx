@@ -15,35 +15,6 @@ export interface SidebarItem {
  * page ↔ script lineage panel walks, so menu labels live in one place only. */
 export const menuItems: SidebarItem[] = [
   {
-    en: 'Bonds',
-    href: '/bonds',
-    items: [
-      { en: 'Daily Treasury Yield Curve', href: '/bonds/daily-treasury-yield-curve' },
-      { en: 'Treasury Yield Curve', href: '/bonds/treasury-yield-curve' },
-      { en: 'Yield Curve', href: '/bonds/yield-curve' },
-    ],
-  },
-  {
-    en: 'Economic Indicators',
-    href: '/economic-indicators',
-    items: [
-      { en: 'Unemployment Rate (UNRATE)', href: '/economic-indicators/unrate' },
-      { en: 'Nonfarm Payroll (PAYEMS)', href: '/economic-indicators/payems' },
-      { en: 'Initial Claims (IC4WSA)', href: '/economic-indicators/ic4wsa' },
-      { en: 'NFP Change', href: '/economic-indicators/nfp-change' },
-    ],
-  },
-  {
-    en: 'Market',
-    href: '/market',
-    items: [
-      { en: 'YRI Earnings Outlook', href: '/market/yri-earnings-outlook' },
-      { en: 'S&P 500 Earnings Yield', href: '/market/sp500-earnings-yield' },
-      { en: 'S&P 500 P/E Ratio', href: '/market/sp500-pe-ratio' },
-      { en: 'A Effective Yield', href: '/market/a-effective-yield' },
-    ],
-  },
-  {
     en: 'Market Reports',
     href: '/market-reports',
     items: [
@@ -55,31 +26,10 @@ export const menuItems: SidebarItem[] = [
       { en: 'Historical Reports', href: '/market-reports/historical-reports' },
     ],
   },
-  {
-    en: 'Interest Rate',
-    href: '/interest-rate',
-    items: [
-      { en: 'CME FedWatch', href: '/interest-rate/cme-fedwatch' },
-      { en: 'Eurodollar Futures', href: '/interest-rate/eurodollar-futures' },
-    ],
-  },
-  {
-    en: 'Spread',
-    href: '/spread',
-    items: [
-      { en: 'BBB Corporate Spread', href: '/spread/bbb-corporate' },
-      { en: 'A Corporate Spread', href: '/spread/a-corporate' },
-    ],
-  },
 ]
 
 export const SIDEBAR_PATHS = [
-  '/bonds',
-  '/economic-indicators',
-  '/market',
   '/market-reports',
-  '/interest-rate',
-  '/spread',
 ]
 
 export function shouldShowSidebar(pathname: string): boolean {

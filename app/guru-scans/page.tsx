@@ -1,6 +1,7 @@
 'use client';
 /**
  * /guru-scans — "Guru Stock Scans" leaderboard for the Saudi market (Tadawul/TASI).
+ * Export: GuruExportMenu (PNG / PDF-image / PDF-table / XLSX / XLS / CSV / TXT / JSON / TradingView)
  *
  * An INDEPENDENT page by client decision: it does NOT live under /breadth and does NOT
  * use the BreadthView/chart store wrapper. It renders the multi-scanner layout from the
@@ -17,6 +18,7 @@ import React from 'react';
 import useSWR from 'swr';
 import { useTheme } from 'next-themes';
 import { authFetch } from '@/lib/api/authFetch';
+import GuruExportMenu from './components/GuruExportMenu';
 
 // ── API contract (mirrors breadth_data["guru"] built by pro_dashboard.compute_guru) ──
 interface GuruRow {
@@ -187,11 +189,14 @@ export default function GuruScansPage() {
   const refreshing = isValidating && !!data;
 
   // Theme toggle — next-themes class strategy. Guard `mounted` so the SSR HTML and the
-  // first client render agree (avoids a hydration mismatch when the persisted theme is dark).
+  // first client render agree (avoids a hydration mismatch when the persisted theme is dark)
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
   const isDark = mounted && theme === 'dark';
+
+  // ref for the board grid (used by export PNG / PDF)
+  const boardRef = React.useRef<HTMLDivElement>(null);
 
   return (
     <div dir="ltr" className="min-h-screen bg-gray-100 p-3 sm:p-4 dark:bg-gray-950">
@@ -212,6 +217,8 @@ export default function GuruScansPage() {
               <span className="font-semibold tabular-nums text-gray-700 dark:text-gray-300">{totalNames}</span> unique names
             </span>
           ) : null}
+          {/* Export dropdown */}
+          <GuruExportMenu data={data} columns={COLUMNS} boardRef={boardRef} isDark={isDark} />
           <button
             onClick={() => setTheme(isDark ? 'light' : 'dark')}
             aria-label="Toggle color theme"
@@ -281,7 +288,7 @@ export default function GuruScansPage() {
 
       {/* the board */}
       {data && !error ? (
-        <div className="grid grid-cols-[repeat(9,minmax(0,1fr))] items-start gap-2">
+        <div ref={boardRef} className="grid grid-cols-[repeat(9,minmax(0,1fr))] items-start gap-2">
           {COLUMNS.map((def) => (
             <Column key={def.key} def={def} syms={data.columns[def.key] ?? []} rows={data.rows} />
           ))}

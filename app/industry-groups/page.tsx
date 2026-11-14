@@ -666,7 +666,7 @@ function useIndustryGroups() {
         router.replace(pathname, { scroll: false });
     }, [router, pathname]);
 
-    // ── Automated "Install Report PDF" preset ────────────────────────────────
+    // ── Automated "Weakly Report" preset ────────────────────────────────
     // Applies, in one shot, the exact filter/sort combo requested for the report:
     //   1) Sort by Industry Group Rank ascending (priority 1)
     //   2) Sort by Change vs Last Week ascending (priority 2)
@@ -1329,7 +1329,7 @@ function IndustryGroupsContent() {
                             className="w-full mt-2 px-3 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center space-x-2 transition-all"
                         >
                             <Download className="w-4 h-4" />
-                            <span>{isGeneratingReport ? 'Generating Report...' : 'Install Report PDF'}</span>
+                            <span>{isGeneratingReport ? 'Generating Report...' : 'Weakly Report'}</span>
                         </button>
                     </div>
 

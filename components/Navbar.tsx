@@ -252,7 +252,6 @@ export default function Navbar() {
   const { user, logout } = useAuth()
   const pathname = usePathname()
   const isBreadthActive = pathname?.startsWith('/breadth')
-  const isGuruActive = pathname?.startsWith('/guru-scans')
 
   // ── Menu data ────────────────────────────────
   const menuItems: MenuMap = {
@@ -326,6 +325,7 @@ export default function Navbar() {
             {
               en: 'Rebh', href: '#',
               items: [
+                { en: 'Guru Scans', href: '/guru-scans' },
                 { en: 'Composite', href: '/screeners/Composite' },
               ],
             },
@@ -413,7 +413,65 @@ export default function Navbar() {
         {
           en: 'Economy', href: '#',
           items: [
-            { en: 'Valuation', href: '/valuation' },
+            {
+              en: 'Economic Indicators',
+              href: '/economic-indicators',
+              items: [
+                { en: 'Unemployment Rate', href: '/economic-indicators/unrate' },
+                { en: 'Monthly US Nonfarm Payrolls', href: '/economic-indicators/payems' },
+                { en: 'US 4-Week Moving Average of initial claims', href: '/economic-indicators/ic4wsa' },
+              ],
+            },
+            {
+              en: 'Bond',
+              href: '/bonds',
+              items: [
+                { en: 'US Treasury Yield Curve', href: '/bonds/treasury-yield-curve' },
+                { en: 'Dynamic Yield Curve', href: '/bonds/yield-curve' },
+                { en: 'Daily Treasury Rates', href: '/bonds/daily-treasury-yield-curve' },
+                { en: 'Historical Treasury Yield Spread (10Y-2Y)', href: '/bonds/historical-treasury-yield-spread' },
+              ],
+            },
+            {
+              en: 'Spread',
+              href: '/spread',
+              items: [
+                { en: 'Single-A US Corporate Index Option-Adjusted Spread', href: '/spread/a-corporate' },
+                { en: 'BBB US Corporate Index Option-Adjusted Spread', href: '/spread/bbb-corporate' },
+              ],
+            },
+            {
+              en: 'Interest',
+              href: '/interest-rate',
+              items: [
+                { en: 'FedWatch Tool', href: '/interest-rate/cme-fedwatch' },
+                { en: 'Eurodollar 3 Month Continuous Contract', href: '/interest-rate/eurodollar-futures' },
+              ],
+            },
+            {
+              en: 'Market',
+              href: '/market',
+              items: [
+                { en: 'S&P 500 Earnings Yield', href: '/market/sp500-earnings-yield' },
+                { en: 'US Corporate A Effective Yield', href: '/market/a-effective-yield' },
+                { en: 'S&P 500 PE Ratio', href: '/market/sp500-pe-ratio' },
+                { en: 'S&P 500 PE Ratio with Forward Estimate', href: '/market/sp500-pe-ratio-forward-estimate' },
+                { en: 'Yaredeni Earnings Outlook', href: '/market/yri-earnings-outlook' },
+              ],
+            },
+            {
+              en: 'Valuation', href: '#',
+              items: [
+                { en: 'Bond Dashboard', href: '/valuation/bond' },
+                { en: 'Daily Treasury (TRD)', href: '/valuation/treasury-daily' },
+                { en: 'Yield Curve (TYC)', href: '/valuation/treasury-curve' },
+                { en: 'Economy Assessment', href: '/valuation/economy' },
+                { en: 'S&P 500 Scenarios', href: '/valuation/sp500-scenarios' },
+                { en: 'Historical P/E', href: '/valuation/historical-pe' },
+                { en: 'TASI Market Weight', href: '/valuation/market-weight' },
+                { en: 'Valuation Report', href: '/valuation/report' },
+              ],
+            },
           ]
         },
         {
@@ -432,8 +490,20 @@ export default function Navbar() {
         {
           en: 'Saudi Market', href: '#',
           items: [
+            {
+              en: 'Sectors', href: '#',
+              items: [
+                { en: 'Industry Groups', href: '/industry-groups' },
+              ],
+            },
             { en: 'Market Reports', href: '/market-reports' },
-            { en: 'Market Breadth', href: '/stocks/market-breadth' },
+            {
+              en: 'Market Breadth', href: '#',
+              items: [
+                { en: 'Market Breadth', href: '/breadth' },
+                { en: 'Stocks Breadth', href: '/stocks/market-breadth' },
+              ],
+            },
             { en: 'Market Pulse', href: '/market-pulse' },
             { en: 'RS HUB', href: '/market_rs' },
             {
@@ -443,12 +513,6 @@ export default function Navbar() {
                 { en: 'Valuation Report', href: '/valuation/report/' },
               ],
             },
-          ],
-        },
-        {
-          en: 'Sectors', href: '#',
-          items: [
-            { en: 'Industry Groups', href: '/industry-groups' },
           ],
         },
       ],
@@ -660,37 +724,6 @@ export default function Navbar() {
             </div>
           ))}
 
-          {/* Market Breadth direct link (temporarily commented out) */}
-          <Link
-            href="/breadth"
-            className="flex items-center px-3 h-full text-[13.5px] font-medium transition-colors duration-150 whitespace-nowrap no-underline outline-none"
-            style={{
-              color: isBreadthActive ? '#1D4ED8' : undefined,
-              borderBottom: isBreadthActive
-                ? '2px solid #1D4ED8'
-                : '2px solid transparent',
-            }}
-          >
-            <span className={isBreadthActive ? 'font-semibold text-blue-700' : 'text-gray-600 hover:text-gray-900'}>
-              Market Breadth
-            </span>
-          </Link>
-
-          {/* Guru Stock Scans direct link */}
-          <Link
-            href="/guru-scans"
-            className="flex items-center px-3 h-full text-[13.5px] font-medium transition-colors duration-150 whitespace-nowrap no-underline outline-none"
-            style={{
-              color: isGuruActive ? '#1D4ED8' : undefined,
-              borderBottom: isGuruActive
-                ? '2px solid #1D4ED8'
-                : '2px solid transparent',
-            }}
-          >
-            <span className={isGuruActive ? 'font-semibold text-blue-700' : 'text-gray-600 hover:text-gray-900'}>
-              Guru Scans
-            </span>
-          </Link>
         </div>
 
         {/* Right side */}
@@ -827,26 +860,6 @@ export default function Navbar() {
               )}
             </div>
           ))}
-
-          {/* Market Breadth direct link (mobile) (temporarily commented out) */}
-          <Link
-            href="/breadth"
-            onClick={closeAll}
-            className={`block px-3 py-2.5 text-[14px] font-medium rounded-md transition-colors no-underline ${isBreadthActive ? 'text-blue-700 bg-blue-50 font-semibold' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
-              }`}
-          >
-            Market Breadth
-          </Link>
-
-          {/* Guru Stock Scans direct link (mobile) */}
-          <Link
-            href="/guru-scans"
-            onClick={closeAll}
-            className={`block px-3 py-2.5 text-[14px] font-medium rounded-md transition-colors no-underline ${isGuruActive ? 'text-blue-700 bg-blue-50 font-semibold' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
-              }`}
-          >
-            Guru Scans
-          </Link>
 
           {/* Extra links */}
           <div className="pt-3 mt-2 space-y-0.5" style={{ borderTop: '1px solid #F3F4F6' }}>
