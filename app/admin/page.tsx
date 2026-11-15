@@ -39,7 +39,7 @@ const PIPELINES = [
     {
         table: 'treasury_yield_curves', label: 'Treasury Yield Curves',
         scrapers: ['treasury_gov_scraper.py → Treasury.gov (the only real module; app/scrapers/ has no treasury_scraper.py)'],
-        pages: ['/bonds/daily-treasury-yield-curve', '/bonds/treasury-yield-curve', '/bonds/yield-curve', '/valuation/treasury-curve', '/valuation/treasury-daily', '/valuation/bond'],
+        pages: ['/bonds/daily-treasury-yield-curve', '/bonds/treasury-yield-curve', '/bonds/yield-curve', '/valuation/treasury-curve', '/valuation/treasury-daily'],
         warn: 'Two admin buttons hit this same scraper — Treasury.gov is the only source',
     },
     {

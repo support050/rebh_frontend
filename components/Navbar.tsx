@@ -325,8 +325,8 @@ export default function Navbar() {
             {
               en: 'Rebh', href: '#',
               items: [
-                { en: 'Guru Scans', href: '/guru-scans' },
                 { en: 'Composite', href: '/screeners/Composite' },
+                { en: 'Gurus', href: '/guru-scans' },
               ],
             },
             {
@@ -413,8 +413,9 @@ export default function Navbar() {
         {
           en: 'Economy', href: '#',
           items: [
+            { en: 'Economy Assessment', href: '/valuation/economy' },
             {
-              en: 'Economic Indicators',
+              en: 'Unemployment',
               href: '/economic-indicators',
               items: [
                 { en: 'Unemployment Rate', href: '/economic-indicators/unrate' },
@@ -428,6 +429,7 @@ export default function Navbar() {
               items: [
                 { en: 'US Treasury Yield Curve', href: '/bonds/treasury-yield-curve' },
                 { en: 'Dynamic Yield Curve', href: '/bonds/yield-curve' },
+                { en: 'Yield Curve (TYC)', href: '/valuation/treasury-curve' },
                 { en: 'Daily Treasury Rates', href: '/bonds/daily-treasury-yield-curve' },
                 { en: 'Historical Treasury Yield Spread (10Y-2Y)', href: '/bonds/historical-treasury-yield-spread' },
               ],
@@ -449,7 +451,19 @@ export default function Navbar() {
               ],
             },
             {
-              en: 'Market',
+              en: 'Valuation', href: '#',
+              items: [
+                { en: 'Daily Treasury (TRD)', href: '/valuation/treasury-daily' },
+              ],
+            },
+          ]
+        },
+        {
+          en: 'US Market', href: '#',
+          items: [
+            { en: 'Market Valuation', href: '#' },
+            {
+              en: 'Market Overview',
               href: '/market',
               items: [
                 { en: 'S&P 500 Earnings Yield', href: '/market/sp500-earnings-yield' },
@@ -459,53 +473,11 @@ export default function Navbar() {
                 { en: 'Yaredeni Earnings Outlook', href: '/market/yri-earnings-outlook' },
               ],
             },
-            {
-              en: 'Valuation', href: '#',
-              items: [
-                { en: 'Bond Dashboard', href: '/valuation/bond' },
-                { en: 'Daily Treasury (TRD)', href: '/valuation/treasury-daily' },
-                { en: 'Yield Curve (TYC)', href: '/valuation/treasury-curve' },
-                { en: 'Economy Assessment', href: '/valuation/economy' },
-                { en: 'S&P 500 Scenarios', href: '/valuation/sp500-scenarios' },
-                { en: 'Historical P/E', href: '/valuation/historical-pe' },
-                { en: 'TASI Market Weight', href: '/valuation/market-weight' },
-                { en: 'Valuation Report', href: '/valuation/report' },
-              ],
-            },
-          ]
-        },
-        {
-          en: 'US Market', href: '#',
-          items: [
-            { en: 'Weekly Study', href: '/weekly-study' },
-            {
-              en: 'Market Valuation', href: '#',
-              items: [
-                { en: 'S&P 500 Scenarios', href: '/valuation/sp500-scenarios/' },
-                { en: 'Historical P/E', href: '/valuation/historical-pe/' },
-              ],
-            },
           ]
         },
         {
           en: 'Saudi Market', href: '#',
           items: [
-            {
-              en: 'Sectors', href: '#',
-              items: [
-                { en: 'Industry Groups', href: '/industry-groups' },
-              ],
-            },
-            { en: 'Market Reports', href: '/market-reports' },
-            {
-              en: 'Market Breadth', href: '#',
-              items: [
-                { en: 'Market Breadth', href: '/breadth' },
-                { en: 'Stocks Breadth', href: '/stocks/market-breadth' },
-              ],
-            },
-            { en: 'Market Pulse', href: '/market-pulse' },
-            { en: 'RS HUB', href: '/market_rs' },
             {
               en: 'Market Valuation', href: '#',
               items: [
@@ -513,6 +485,13 @@ export default function Navbar() {
                 { en: 'Valuation Report', href: '/valuation/report/' },
               ],
             },
+            { en: 'Market Breadth', href: '/breadth' },
+            { en: 'Market Direction', href: '/stocks/market-breadth' },
+            { en: 'Market Pulse', href: '/market-pulse' },
+            { en: 'Industry Groups', href: '/industry-groups' },
+            { en: 'RS HUB', href: '/market_rs' },
+            { en: 'Weekly Study', href: '/weekly-study' },
+            { en: 'Market Reports', href: '/market-reports' },
           ],
         },
       ],

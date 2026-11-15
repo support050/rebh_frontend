@@ -62,9 +62,6 @@ async function put<T>(path: string, body?: unknown): Promise<T> {
 export const getBondDashboard = () =>
   get<BondDashboard>("/api/valuation/bond-dashboard");
 
-export const getValuationCopy = () =>
-  get<Record<string, any[]>>("/api/valuation/valuation-copy");
-
 // ── Tab 2 ────────────────────────────────────────────────────────────────────
 export const getTreasuryDaily = (params?: {
   start?: string;

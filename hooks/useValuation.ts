@@ -18,15 +18,6 @@ export function useBondDashboard() {
   return { data, error, isLoading, refresh: mutate };
 }
 
-export function useValuationCopy() {
-  const { data, error, isLoading, mutate } = useSWR(
-    "valuation-copy",
-    api.getValuationCopy,
-    { refreshInterval: 5 * 60 * 1000 }
-  );
-  return { data, error, isLoading, refresh: mutate };
-}
-
 // ── Tab 2 ─────────────────────────────────────────────────────────────────────
 export function useTreasuryDaily(params?: {
   start?: string;
