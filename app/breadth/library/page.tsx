@@ -11,6 +11,7 @@ import { BreadthView, RangeToolbar, StackMount, PageHead } from '../_lib/Breadth
 import { idxPanel, IDX_KEYS } from '../_lib/panels';
 import { useBreadthStore } from '../_lib/store';
 import { fmt, lastVal, Tag, VERDICT_COLORS } from '../_lib/ui';
+import { useMultiSort, SortIndicator } from '../_lib/multiSort';
 import type { BreadthMetaClassicQ } from '@/types/breadth';
 import type { PanelDef } from '../_engine/types';
 
@@ -41,13 +42,13 @@ interface LibRow {
   q: string;
 }
 
-const LIB_COLS: { label: string; get: (r: LibRow) => string | number }[] = [
-  { label: 'Indicator', get: (r) => r.label },
-  { label: 'Author', get: (r) => r.author },
-  { label: 'Today', get: (r) => r.v ?? Number.NEGATIVE_INFINITY },
-  { label: 'p5 / median / p95', get: (r) => r.q },
-  { label: 'TASI test result', get: (r) => r.result },
-  { label: 'Verdict', get: (r) => r.tag },
+const LIB_COLS: { key: string; label: string; get: (r: LibRow) => string | number }[] = [
+  { key: 'indicator', label: 'Indicator', get: (r) => r.label },
+  { key: 'author', label: 'Author', get: (r) => r.author },
+  { key: 'today', label: 'Today', get: (r) => r.v ?? Number.NEGATIVE_INFINITY },
+  { key: 'percentiles', label: 'p5 / median / p95', get: (r) => r.q },
+  { key: 'result', label: 'TASI test result', get: (r) => r.result },
+  { key: 'verdict', label: 'Verdict', get: (r) => r.tag },
 ];
 
 /** Module-level builder so the ★ Custom Dashboard catalog registers eagerly
@@ -144,7 +145,15 @@ function LibraryBody() {
   const series = useBreadthStore((s) => s.series);
   const today = useBreadthStore((s) => s.today);
 
-  const [sort, setSort] = useState<{ col: number; asc: boolean } | null>(null);
+  // Multi-column sort with priority numbers (mirrors /industry-groups).
+  const { sortConfigs, handleSort, sortRows } = useMultiSort<LibRow>((row, key) => {
+    const col = LIB_COLS.find((c) => c.key === key);
+    if (!col) return null;
+    const v = col.get(row);
+    // LIB_COLS uses Number.NEGATIVE_INFINITY for null "Today" values — normalise.
+    if (typeof v === 'number' && !Number.isFinite(v)) return null;
+    return v;
+  });
 
   const vRows = useMemo<LibRow[]>(() => {
     const V = meta?.verdicts ?? {};
@@ -182,19 +191,7 @@ function LibraryBody() {
     });
   }, [meta, series, today]);
 
-  const sortedRows = useMemo(() => {
-    if (!sort) return vRows;
-    const col = LIB_COLS[sort.col];
-    return vRows.slice().sort((a, b) => {
-      const x = col.get(a);
-      const y = col.get(b);
-      if (typeof x === 'number' && typeof y === 'number') return sort.asc ? x - y : y - x;
-      return sort.asc ? String(x).localeCompare(String(y)) : String(y).localeCompare(String(x));
-    });
-  }, [vRows, sort]);
-
-  const toggleSort = (ci: number) =>
-    setSort((s) => (s?.col === ci ? { col: ci, asc: !s.asc } : { col: ci, asc: false }));
+  const sortedRows = useMemo(() => sortRows(vRows), [vRows, sortRows]);
 
   const panels = useMemo<PanelDef[]>(() => buildLibPanels(meta?.classic_q), [meta]);
 
@@ -209,13 +206,14 @@ function LibraryBody() {
         <table>
           <thead>
             <tr>
-              {LIB_COLS.map((c, ci) => (
+              {LIB_COLS.map((c) => (
                 <th
-                  key={c.label}
-                  className={`sortable${sort?.col === ci ? (sort.asc ? ' asc' : ' desc') : ''}`}
-                  onClick={() => toggleSort(ci)}
+                  key={c.key}
+                  className={`sortable${sortConfigs.some((sc) => sc.key === c.key) ? (sortConfigs.find((sc) => sc.key === c.key)?.direction === 'asc' ? ' asc' : ' desc') : ''}`}
+                  onClick={() => handleSort(c.key)}
                 >
                   {c.label}
+                  <SortIndicator sortConfigs={sortConfigs} colKey={c.key} />
                 </th>
               ))}
             </tr>

@@ -37,6 +37,7 @@ export async function middleware(request: NextRequest) {
     '/delete-account',
     '/about',
     '/contact',
+    '/market-school',
   ];
 
   const isPublicPath = publicPaths.some(

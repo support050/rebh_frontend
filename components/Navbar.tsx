@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '../app/providers/AuthProvider'
 import { ChevronDown, ChevronRight, LogOut, UserCircle, Menu, X } from 'lucide-react'
@@ -25,19 +26,29 @@ interface MenuMap {
 }
 
 // ─────────────────────────────────────────────
-// REBH Logo — text-based wordmark
+// REBH Logo — brand symbol + wordmark
 // ─────────────────────────────────────────────
 function REBHLogo() {
   return (
-    <Link href="/" className="flex items-center gap-0 select-none group no-underline" aria-label="REBH Home">
-      {/* Accent dot */}
-      <span
-        className="inline-flex items-center justify-center w-[7px] h-[7px] rounded-full bg-blue-600 mr-2 mt-0.5 group-hover:scale-125 transition-transform duration-300 flex-shrink-0"
-        aria-hidden="true"
+    <Link
+      href="/"
+      className="flex items-center gap-2 select-none group no-underline"
+      aria-label="REBH Home"
+    >
+      <Image
+        src="/images/rebh-logo.png"
+        alt="REBH Logo"
+        width={32}
+        height={32}
+        priority
+        className="w-8 h-8 object-contain transition-transform duration-300 group-hover:scale-105"
       />
       <span
-        className="text-[22px] font-black text-gray-900"
-        style={{ fontFamily: "'Inter', 'SF Pro Display', system-ui, sans-serif", letterSpacing: '-0.05em' }}
+        className="text-[21px] font-extrabold text-gray-900"
+        style={{
+          fontFamily: "'Inter', 'SF Pro Display', system-ui, sans-serif",
+          letterSpacing: '-0.04em',
+        }}
       >
         REBH
       </span>
@@ -488,6 +499,7 @@ export default function Navbar() {
             { en: 'Market Breadth', href: '/breadth' },
             { en: 'Market Direction', href: '/stocks/market-breadth' },
             { en: 'Market Pulse', href: '/market-pulse' },
+            { en: 'Market School', href: '/market-school' },
             { en: 'Industry Groups', href: '/industry-groups' },
             { en: 'RS HUB', href: '/market_rs' },
             { en: 'Weekly Study', href: '/weekly-study' },

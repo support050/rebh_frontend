@@ -46,6 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       '/delete-account',
       '/about',
       '/contact',
+      '/market-school',
     ];
     return publicPaths.some((p) => path === p || path.startsWith(`${p}/`));
   };

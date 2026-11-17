@@ -31,6 +31,10 @@ const GROUPS: { label: string; items: { id: ExportFormat; label: string }[] }[] 
       { id: 'txt',  label: 'TXT  — Text' },
     ],
   },
+  {
+    label: 'Trading',
+    items: [{ id: 'pine', label: 'Pine Script (.pine)' }],
+  },
 ];
 
 const GuruExportMenu = React.memo(function GuruExportMenu({ data, columns, boardRef, isDark }: Props) {

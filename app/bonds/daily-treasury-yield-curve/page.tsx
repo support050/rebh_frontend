@@ -14,7 +14,11 @@ interface YCRow {
 }
 
 type SortKey = 'report_date' | keyof Omit<YCRow, 'report_date'>;
-type SortDir = 'asc' | 'desc';
+
+interface SortConfig {
+  key: SortKey;
+  direction: 'asc' | 'desc';
+}
 
 // Column order + labels exactly as the official Treasury.gov Daily Rates table.
 const COLUMNS: { key: SortKey; label: string }[] = [
@@ -57,16 +61,34 @@ const ACTIVE_PAGE = '#124373';
 const COL_RULE = '#dededf';
 const ZEBRA = '#f2f2f2';
 
-/** DataTables-style ⇅ sort glyph — white on the blue header. */
-function SortGlyph({ dir }: { dir: SortDir | null }) {
+/** Multi-sort indicator: shows ▲/▼ + priority number badge, or a faded hint when idle. */
+function SortIndicator({ sortConfigs, colKey }: { sortConfigs: SortConfig[]; colKey: SortKey }) {
+  const idx = sortConfigs.findIndex(c => c.key === colKey);
+  if (idx === -1) {
+    return (
+      <span className="ml-1 inline-flex flex-col items-center leading-none" style={{ opacity: 0.4 }}>
+        <svg width="8" height="6" viewBox="0 0 8 6" aria-hidden="true">
+          <path d="M4 0L8 6H0Z" fill="#ffffff" />
+        </svg>
+        <svg width="8" height="6" viewBox="0 0 8 6" aria-hidden="true" style={{ marginTop: 1 }}>
+          <path d="M4 6L0 0H8Z" fill="#ffffff" />
+        </svg>
+      </span>
+    );
+  }
+  const config = sortConfigs[idx];
   return (
-    <span className="ml-1.5 inline-flex flex-col items-center leading-none">
-      <svg width="8" height="6" viewBox="0 0 8 6" aria-hidden="true">
-        <path d="M4 0L8 6H0Z" fill="#ffffff" opacity={dir === 'asc' ? 1 : 0.45} />
-      </svg>
-      <svg width="8" height="6" viewBox="0 0 8 6" aria-hidden="true" style={{ marginTop: 1 }}>
-        <path d="M4 6L0 0H8Z" fill="#ffffff" opacity={dir === 'desc' ? 1 : 0.45} />
-      </svg>
+    <span className="ml-1.5 inline-flex items-center gap-1 leading-none">
+      <span style={{ fontSize: 10, fontWeight: 700 }}>{config.direction === 'asc' ? '▲' : '▼'}</span>
+      <span
+        style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 15, height: 15, background: '#ffffff', color: HEADER_BLUE,
+          fontSize: 9, fontWeight: 700, borderRadius: '50%', lineHeight: 1,
+        }}
+      >
+        {idx + 1}
+      </span>
     </span>
   );
 }
@@ -95,9 +117,10 @@ export default function DailyTreasuryYieldRatesPage() {
   const [selectedYear, setSelectedYear] = useState('ALL');
   const [selectedMonth, setSelectedMonth] = useState('ALL');
 
-  // Single-column sort, matching the official table (click header → asc → desc).
-  const [sortKey, setSortKey] = useState<SortKey>('report_date');
-  const [sortDir, setSortDir] = useState<SortDir>('asc');
+  // Multi-column sort with priority numbers (click → asc → desc → remove).
+  const [sortConfigs, setSortConfigs] = useState<SortConfig[]>([
+    { key: 'report_date', direction: 'desc' },
+  ]);
 
   // Pagination
   const [pageSize, setPageSize] = useState(25);
@@ -126,19 +149,23 @@ export default function DailyTreasuryYieldRatesPage() {
   }), [data, selectedYear, selectedMonth]);
 
   const sortedData = useMemo(() => {
+    if (sortConfigs.length === 0) return filteredData;
     const arr = [...filteredData];
     arr.sort((a, b) => {
-      let valA: string | number | null, valB: string | number | null;
-      if (sortKey === 'report_date') { valA = a.report_date; valB = b.report_date; }
-      else { valA = (a as any)[sortKey] as number | null; valB = (b as any)[sortKey] as number | null; }
-      if (valA === null && valB === null) return 0;
-      if (valA === null) return 1;   // nulls last, always
-      if (valB === null) return -1;
-      const cmp = valA < valB ? -1 : valA > valB ? 1 : 0;
-      return sortDir === 'asc' ? cmp : -cmp;
+      for (const config of sortConfigs) {
+        let valA: string | number | null, valB: string | number | null;
+        if (config.key === 'report_date') { valA = a.report_date; valB = b.report_date; }
+        else { valA = (a as any)[config.key] as number | null; valB = (b as any)[config.key] as number | null; }
+        if (valA === null && valB === null) continue;
+        if (valA === null) return 1;   // nulls last, always
+        if (valB === null) return -1;
+        const cmp = valA < valB ? -1 : valA > valB ? 1 : 0;
+        if (cmp !== 0) return config.direction === 'asc' ? cmp : -cmp;
+      }
+      return 0;
     });
     return arr;
-  }, [filteredData, sortKey, sortDir]);
+  }, [filteredData, sortConfigs]);
 
   // ── Pagination math (clamped so a filter shrink can never strand a page) ──
   const totalRows = sortedData.length;
@@ -150,10 +177,19 @@ export default function DailyTreasuryYieldRatesPage() {
   const to = Math.min(startIdx + pageSize, totalRows);
 
   const handleSort = useCallback((key: SortKey) => {
-    if (key === sortKey) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
-    else { setSortKey(key); setSortDir('asc'); }
+    setSortConfigs(prev => {
+      const idx = prev.findIndex(c => c.key === key);
+      if (idx === -1) return [...prev, { key, direction: 'asc' as const }];
+      if (prev[idx].direction === 'asc') {
+        const next = [...prev];
+        next[idx] = { ...next[idx], direction: 'desc' as const };
+        return next;
+      }
+      // desc → remove
+      return prev.filter((_, i) => i !== idx);
+    });
     setPage(1);
-  }, [sortKey]);
+  }, []);
 
   // Any filter / page-size change resets to page 1.
   useEffect(() => { setPage(1); }, [selectedYear, selectedMonth, pageSize]);
@@ -294,19 +330,17 @@ export default function DailyTreasuryYieldRatesPage() {
               <tr>
                 <th
                   onClick={() => handleSort('report_date')}
-                  aria-sort={sortKey === 'report_date' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
                   style={{ ...thBase, textAlign: 'center', borderLeft: `1px solid ${COL_RULE}` }}
                 >
-                  <span className="inline-flex items-center">Date<SortGlyph dir={sortKey === 'report_date' ? sortDir : null} /></span>
+                  <span className="inline-flex items-center">Date<SortIndicator sortConfigs={sortConfigs} colKey="report_date" /></span>
                 </th>
                 {COLUMNS.map(col => (
                   <th
                     key={col.key}
                     onClick={() => handleSort(col.key)}
-                    aria-sort={sortKey === col.key ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
                     style={thBase}
                   >
-                    <span className="inline-flex items-center">{col.label}<SortGlyph dir={sortKey === col.key ? sortDir : null} /></span>
+                    <span className="inline-flex items-center">{col.label}<SortIndicator sortConfigs={sortConfigs} colKey={col.key} /></span>
                   </th>
                 ))}
               </tr>

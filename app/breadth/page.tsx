@@ -16,6 +16,7 @@ import { useBreadthStore } from './_lib/store';
 import { fetchStocks, useTableData } from './_lib/tableApi';
 import StockChartModal from './_lib/StockChartModal';
 import { Card, TableStatus, useStockModal, type StockRow } from './_lib/ui';
+import { useMultiSort, SortIndicator } from './_lib/multiSort';
 import { REGIME_ICONS, REGIME_COLORS, type PanelDef } from './_engine/types';
 import { fmt, num } from './_engine/helpers';
 
@@ -255,7 +256,19 @@ export function LeadersCard() {
   const stocksQ = useTableData(fetchStocks);
   const leaders = (stocksQ.data?.leaders ?? []) as unknown as StockRow[];
   const modal = useStockModal(leaders);
-  const lead = leaders.slice(0, 12);
+
+  // Multi-column sort with priority numbers (mirrors /industry-groups).
+  const { sortConfigs, handleSort, sortRows } = useMultiSort<StockRow>((row, key) => {
+    switch (key) {
+      case 'sym': return row.sym;
+      case 'name': return (row.name ?? '').toLowerCase();
+      case 'rs': return row.rs == null ? null : row.rs;
+      case 'hi52': return row.hi52;
+      case 'rvol': return row.rvol;
+      default: return null;
+    }
+  });
+  const lead = sortRows(leaders).slice(0, 12);
 
   return (
     <div className="space-y-2" id="ov-leaders">
@@ -273,11 +286,11 @@ export function LeadersCard() {
             <table>
               <thead>
                 <tr>
-                  <th>Sym</th>
-                  <th style={{ textAlign: 'left' }}>Name</th>
-                  <th>RS</th>
-                  <th>52w hi</th>
-                  <th>Rvol</th>
+                  <th className="sortable" onClick={() => handleSort('sym')}>Sym<SortIndicator sortConfigs={sortConfigs} colKey="sym" /></th>
+                  <th className="sortable" style={{ textAlign: 'left' }} onClick={() => handleSort('name')}>Name<SortIndicator sortConfigs={sortConfigs} colKey="name" /></th>
+                  <th className="sortable" onClick={() => handleSort('rs')}>RS<SortIndicator sortConfigs={sortConfigs} colKey="rs" /></th>
+                  <th className="sortable" onClick={() => handleSort('hi52')}>52w hi<SortIndicator sortConfigs={sortConfigs} colKey="hi52" /></th>
+                  <th className="sortable" onClick={() => handleSort('rvol')}>Rvol<SortIndicator sortConfigs={sortConfigs} colKey="rvol" /></th>
                 </tr>
               </thead>
               <tbody>

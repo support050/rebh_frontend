@@ -30,6 +30,7 @@ import {
 } from '../_lib/ui';
 import { num } from '../_lib/format';
 import { getPrefs } from '../_lib/prefs';
+import { useMultiSort, SortIndicator } from '../_lib/multiSort';
 import type { PanelDef } from '../_engine/types';
 
 export const PANELS: PanelDef[] = [
@@ -65,12 +66,32 @@ const RANK_COLS = ['1M', '3M', '6M', '12M'];
 function SectorsBody() {
   const sectorsQ = useTableData(fetchSectors);
   const stocksQ = useTableData(fetchStocks);
-
   const [period, setPeriod] = useState('Today');
-  const [sortBy, setSortBy] = useState('1M');
   const [openSector, setOpenSector] = useState<string | null>(null);
   const heatRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
 
+  // Multi-column sort with priority numbers (mirrors /industry-groups).
+  const rankSort = useMultiSort<SectorPerfRow>((row, key) => {
+    switch (key) {
+      case 'name': return row.name.toLowerCase();
+      case 'rs': return row.rs;
+      case 'stocks': return row.stocks;
+      default: return row.rank[key];
+    }
+  });
+  const heatSort = useMultiSort<SectorHeatRow>((row, key) => {
+    switch (key) {
+      case 'sector': return row.sector.toLowerCase();
+      case 'rs': return row.rs;
+      case 'pct50': return row.pct50;
+      case 'pct200': return row.pct200;
+      case 'nhnl': return row.nhnl;
+      case 'ad10': return row.ad10;
+      case 'mom10': return row.mom10;
+      case 'n': return row.n;
+      default: return null;
+    }
+  });
   const today = useBreadthStore((s) => s.today);
   const snapshot = today?.date ?? '';
 
@@ -95,11 +116,13 @@ function SectorsBody() {
   }, [perfRows, period]);
 
   const ranked = useMemo(
-    () =>
-      perfRows
-        .slice()
-        .sort((a, b) => (sortBy === 'RS' ? (b.rs ?? 0) - (a.rs ?? 0) : (a.rank[sortBy] ?? 0) - (b.rank[sortBy] ?? 0))),
-    [perfRows, sortBy],
+    () => rankSort.sortRows(perfRows),
+    [perfRows, rankSort],
+  );
+
+  const sortedHeatRows = useMemo(
+    () => heatSort.sortRows(heatRows),
+    [heatRows, heatSort],
   );
 
   const focusSector = (name: string) => {
@@ -191,27 +214,17 @@ function SectorsBody() {
 
         <Card
           title="Industry Ranks"
-          actions={
-            <>
-              <span className="note" style={{ margin: 0 }}>sort by</span>
-              {['RS', ...RANK_COLS].map((p) => (
-                <button key={p} className={`btn${sortBy === p ? ' active' : ''}`} onClick={() => setSortBy(p)}>
-                  {p}
-                </button>
-              ))}
-            </>
-          }
         >
           <div className="tblwrap" style={{ maxHeight: 420 }}>
             <table className="ranks">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>RS (Δ21d · 30d)</th>
+                  <th className="sortable" onClick={() => rankSort.handleSort('name')}>Name<SortIndicator sortConfigs={rankSort.sortConfigs} colKey="name" /></th>
+                  <th className="sortable" onClick={() => rankSort.handleSort('rs')}>RS (Δ21d · 30d)<SortIndicator sortConfigs={rankSort.sortConfigs} colKey="rs" /></th>
                   {RANK_COLS.map((c) => (
-                    <th key={c}>{c}</th>
+                    <th key={c} className="sortable" onClick={() => rankSort.handleSort(c)}>{c}<SortIndicator sortConfigs={rankSort.sortConfigs} colKey={c} /></th>
                   ))}
-                  <th>Stocks</th>
+                  <th className="sortable" onClick={() => rankSort.handleSort('stocks')}>Stocks<SortIndicator sortConfigs={rankSort.sortConfigs} colKey="stocks" /></th>
                 </tr>
               </thead>
               <tbody>
@@ -264,21 +277,21 @@ function SectorsBody() {
           <table className="heat">
             <thead>
               <tr>
-                <th>Sector</th>
+                <th className="sortable" onClick={() => heatSort.handleSort('sector')}>Sector<SortIndicator sortConfigs={heatSort.sortConfigs} colKey="sector" /></th>
                 {heatDates.map((d) => (
                   <th key={d}>{d}</th>
                 ))}
-                <th>RS (Δ21d · 30d)</th>
-                <th>%&gt;50</th>
-                <th>%&gt;200</th>
-                <th>NH−NL%</th>
-                <th>A/D10</th>
-                <th>Mom10</th>
-                <th>n</th>
+                <th className="sortable" onClick={() => heatSort.handleSort('rs')}>RS (Δ21d · 30d)<SortIndicator sortConfigs={heatSort.sortConfigs} colKey="rs" /></th>
+                <th className="sortable" onClick={() => heatSort.handleSort('pct50')}>%&gt;50<SortIndicator sortConfigs={heatSort.sortConfigs} colKey="pct50" /></th>
+                <th className="sortable" onClick={() => heatSort.handleSort('pct200')}>%&gt;200<SortIndicator sortConfigs={heatSort.sortConfigs} colKey="pct200" /></th>
+                <th className="sortable" onClick={() => heatSort.handleSort('nhnl')}>NH−NL%<SortIndicator sortConfigs={heatSort.sortConfigs} colKey="nhnl" /></th>
+                <th className="sortable" onClick={() => heatSort.handleSort('ad10')}>A/D10<SortIndicator sortConfigs={heatSort.sortConfigs} colKey="ad10" /></th>
+                <th className="sortable" onClick={() => heatSort.handleSort('mom10')}>Mom10<SortIndicator sortConfigs={heatSort.sortConfigs} colKey="mom10" /></th>
+                <th className="sortable" onClick={() => heatSort.handleSort('n')}>n<SortIndicator sortConfigs={heatSort.sortConfigs} colKey="n" /></th>
               </tr>
             </thead>
             <tbody>
-              {heatRows.map((r) => {
+              {sortedHeatRows.map((r) => {
                 const open = openSector === r.sector;
                 const list = sectorStocks(r.sector, groups, pool);
                 return (

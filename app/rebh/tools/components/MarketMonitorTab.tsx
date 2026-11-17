@@ -410,18 +410,12 @@ export default function MarketMonitorTab({ universe }: MarketMonitorTabProps) {
                   <span className="text-[10px] text-[#6B7280] block">Annual Inflation (CPI)</span>
                   <span
                     className={`text-sm font-bold ${sm.inflation_pct == null ? "text-[#9CA3AF]" : "text-[#8C3B32]"}`}
-                    title={
-                      sm.inflation_pct == null
-                        ? "saudi_inflation_cpi is not written in saudi_economic_indicators AND economic_indicators has no SAUCPALTT01GPM row. Run fred:SAUCPALTT01GPM to ingest from FRED/IMF."
-                        : (sm.inflation_source || "")
-                    }
+                    title={sm.inflation_source || ""}
                   >
                     {fmtPct(sm.inflation_pct)}
                   </span>
                   <span className="text-[9px] text-[#9CA3AF] block mt-0.5">
-                    {sm.inflation_pct != null
-                      ? (String(sm.inflation_source || "").startsWith("fred:") ? "FRED/IMF SAUCPALTT01GPM" : "SAMA/GaStat")
-                      : "awaiting fred:SAUCPALTT01GPM run"}
+                    {sm.inflation_pct != null ? "SAMA/GaStat" : "awaiting SAMA/GaStat data"}
                   </span>
                 </div>
                 <div className="p-2.5 bg-[#F7F8FA] border border-[#E5E7EB] rounded-[4px]">

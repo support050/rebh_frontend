@@ -23,6 +23,7 @@ import {
   stockSortValue,
 } from './ui';
 import { heatStyle } from './heat';
+import { useMultiSort, SortIndicator } from './multiSort';
 
 export interface StockTableProps {
   rows: StockRow[];
@@ -73,9 +74,15 @@ export default function StockTable({
   heat,
   heatDates = [],
 }: StockTableProps) {
-  const [sortCol, setSortCol] = useState<string | null>(null);
-  const [asc, setAsc] = useState(true);
   const [q, setQ] = useState('');
+
+  // Multi-column sort with priority numbers (mirrors /industry-groups).
+  const { sortConfigs, handleSort, sortRows } = useMultiSort<StockRow>((row, key) => {
+    const v = stockSortValue(row, key);
+    // stockSortValue returns Number.NEGATIVE_INFINITY for nulls — normalise to null.
+    if (typeof v === 'number' && !Number.isFinite(v)) return null;
+    return v;
+  });
 
   // reference stockTable opts.heat: splice the 'heat' column right after 'name'
   const useCols = useMemo(() => {
@@ -90,27 +97,13 @@ export default function StockTable({
       const needle = q.trim().toLowerCase();
       out = out.filter((r) => rowText(r, useCols).includes(needle));
     }
-    if (sortCol) {
-      const col = sortCol;
-      out = out.slice().sort((a, b) => {
-        const x = stockSortValue(a, col);
-        const y = stockSortValue(b, col);
-        if (typeof x === 'number' && typeof y === 'number') return asc ? x - y : y - x;
-        if (x === '—' || x === '') return 1;
-        if (y === '—' || y === '') return -1;
-        return asc ? String(x).localeCompare(String(y)) : String(y).localeCompare(String(x));
-      });
-    }
+    out = sortRows(out);
     return out;
-  }, [rows, useCols, q, sortCol, asc]);
+  }, [rows, useCols, q, sortRows]);
 
   const clickHeader = useCallback((col: string) => {
-    if (sortCol === col) setAsc((v) => !v);
-    else {
-      setSortCol(col);
-      setAsc(false);
-    }
-  }, [sortCol]);
+    handleSort(col);
+  }, [handleSort]);
 
   const renderCell = (r: StockRow, col: string) => {
     const pc = (v: number | null | undefined) => (
@@ -195,10 +188,11 @@ export default function StockTable({
                 ) : (
                   <th
                     key={c}
-                    className={`sortable${sortCol === c ? (asc ? ' asc' : ' desc') : ''}`}
+                    className={`sortable${sortConfigs.some((sc) => sc.key === c) ? (sortConfigs.find((sc) => sc.key === c)?.direction === 'asc' ? ' asc' : ' desc') : ''}`}
                     onClick={() => clickHeader(c)}
                   >
                     {COL_HEADERS[c] ?? c}
+                    <SortIndicator sortConfigs={sortConfigs} colKey={c} />
                   </th>
                 ),
               )}
