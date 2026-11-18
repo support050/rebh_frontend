@@ -49,9 +49,11 @@ export async function middleware(request: NextRequest) {
   const hasRefresh = request.cookies.has('refresh_token');
   const hasPending = request.cookies.has('pending_token');
 
-  const mayHaveSession = hasSession || hasRefresh;
+  // Stale refresh token without session must NOT bypass the login redirect on protected paths
+  // to prevent infinite bounce loops between client 401 and middleware pass-through.
+  const mayHaveSession = hasSession || (hasRefresh && !request.cookies.get('refresh_token')?.value?.startsWith('deleted'));
 
-  if (!mayHaveSession && !isPublicPath) {
+  if (!hasSession && !isPublicPath) {
     if (hasPending) {
       // Pending users go to waiting page; if cookie is stale, that page handles cleanup
       return withSecurityHeaders(
@@ -75,6 +77,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Only redirect away from login when an access cookie exists (refresh-only stays on login)
+  // Check hasSession: if only refresh_token exists, do NOT bounce away from login
   if (hasSession && (normalizedPath === '/login' || normalizedPath === '/register')) {
     return withSecurityHeaders(NextResponse.redirect(new URL('/', request.url)), isHttps);
   }

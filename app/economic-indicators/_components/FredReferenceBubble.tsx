@@ -12,6 +12,7 @@ const SERIES_BY_PATH: Record<string, { code: string; url: string }> = {
   '/economic-indicators/nfp-change': { code: 'PAYEMS', url: 'https://fred.stlouisfed.org/series/PAYEMS' },
   '/spread/bbb-corporate': { code: 'BAMLC0A4CBBB', url: 'https://fred.stlouisfed.org/series/BAMLC0A4CBBB' },
   '/spread/a-corporate': { code: 'BAMLC0A3CA', url: 'https://fred.stlouisfed.org/series/BAMLC0A3CA' },
+  '/market/a-effective-yield': { code: 'BAMLC0A3CAEY', url: 'https://fred.stlouisfed.org/series/BAMLC0A3CAEY' },
 };
 
 /**

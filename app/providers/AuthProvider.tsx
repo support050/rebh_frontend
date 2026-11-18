@@ -99,10 +99,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(null);
       if (typeof window !== 'undefined' && !isPublicPath(window.location.pathname)) {
-        const callbackUrl = encodeURIComponent(
-          `${window.location.pathname}${window.location.search}`
-        );
-        window.location.href = `/login?callbackUrl=${callbackUrl}`;
+        // Prevent infinite redirect loops if we are already bouncing
+        if (window.location.pathname !== '/login') {
+          const callbackUrl = encodeURIComponent(
+            `${window.location.pathname}${window.location.search}`
+          );
+          router.replace(`/login?callbackUrl=${callbackUrl}`);
+        }
       }
     } catch {
       // Network errors: keep current UX, avoid leaking details

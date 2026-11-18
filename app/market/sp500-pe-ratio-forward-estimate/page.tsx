@@ -1,36 +1,42 @@
-import React from 'react';
+'use client';
 
-export const metadata = {
-  title: 'S&P 500 PE Ratio with Forward Estimate | LUMIVST',
-  description: 'S&P 500 PE Ratio with Forward Estimate analysis and charts.',
-};
+import React, { useEffect, useState } from 'react';
+import GuruFocusIndicatorView, { IndicatorRow } from '../_components/GuruFocusIndicatorView';
+import { API_BASE_URL } from '@/lib/api/config';
 
-export default function SP500PERatioWithForwardEstimatePage() {
+export default function SP500PERatioForwardEstimatePage() {
+  const [data, setData] = useState<IndicatorRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/economic-indicators/SP500_FPE?limit=50000`)
+      .then((res) => res.json())
+      .then((json) => {
+        const arr = Array.isArray(json) ? json : [];
+        // Sort ascending by date (chart needs oldest→newest)
+        const sorted = arr.sort((a: IndicatorRow, b: IndicatorRow) =>
+          a.report_date.localeCompare(b.report_date)
+        );
+        setData(sorted);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Error fetching S&P 500 Forward PE Ratio:', err);
+        setLoading(false);
+      });
+  }, []);
+
   return (
-    <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">
-          S&P 500 PE Ratio with Forward Estimate
-        </h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Historical and forward-looking P/E ratio estimates for the S&P 500.
-        </p>
-      </div>
-
-      <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm flex flex-col items-center justify-center min-h-[350px] text-center">
-        <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mb-4">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-          </svg>
-        </div>
-        <h3 className="text-lg font-semibold text-gray-800">
-          S&P 500 PE Ratio with Forward Estimate
-        </h3>
-        <p className="text-sm text-gray-500 mt-2 max-w-md">
-          This page is currently being prepared. Data integration and interactive visualization will be available soon.
-        </p>
-      </div>
-    </div>
+    <GuruFocusIndicatorView
+      title="S&P 500 PE Ratio with Forward Estimate"
+      code="SP500_FPE"
+      metricLabel="Forward PE Ratio"
+      isPercent={false}
+      valueDecimals={3}
+      data={data}
+      loading={loading}
+      description="The S&P 500 P/E Ratio with Forward Estimate uses analyst consensus earnings forecasts for the next 12 months, providing a forward-looking valuation metric for the index."
+      sourceUrl="https://www.gurufocus.com/economic_indicators/6061/sp-500-pe-ratio-with-forward-estimate"
+    />
   );
 }
-

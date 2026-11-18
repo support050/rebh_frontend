@@ -7,6 +7,7 @@ const SKIP_REFRESH_PATHS = [
   '/api/auth/register',
   '/api/auth/logout',
   '/api/auth/logout-all',
+  '/api/auth/me',
 ];
 
 function shouldSkipRefresh(url: string): boolean {

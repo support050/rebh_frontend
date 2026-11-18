@@ -62,7 +62,7 @@ export const indicatorMetadata: Record<string, IndicatorMetadata> = {
     units: 'Percent, Not Seasonally Adjusted',
     frequency: 'Daily, Close',
     source: 'Ice Data Indices, LLC',
-    sourceLink: 'https://www.theice.com/market-data/indices',
+    sourceLink: 'https://fred.stlouisfed.org/series/BAMLC0A3CAEY',
     releaseTitle: 'ICE BofA Indices',
     releaseLink: 'https://www.theice.com/market-data/indices',
     fredLink: 'https://fred.stlouisfed.org/series/BAMLC0A3CAEY',
