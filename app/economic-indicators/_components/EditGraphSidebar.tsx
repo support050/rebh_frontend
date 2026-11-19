@@ -87,8 +87,8 @@ const UNITS_OPTIONS = [
 
 const UNITS_OPTIONS_PERCENT = [
     'Percent',
-    'Change',
-    'Change from Year Ago',
+    'Change, Percent',
+    'Change from Year Ago, Percent',
     'Percent Change',
     'Percent Change from Year Ago',
     'Compounded Annual Rate of Change',
@@ -99,8 +99,8 @@ const UNITS_OPTIONS_PERCENT = [
 
 const UNITS_OPTIONS_NUMBER = [
     'Number',
-    'Change',
-    'Change from Year Ago',
+    'Change, Number',
+    'Change from Year Ago, Number',
     'Percent Change',
     'Percent Change from Year Ago',
     'Compounded Annual Rate of Change',

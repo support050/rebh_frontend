@@ -100,6 +100,7 @@ interface EconomicIndicatorProps {
   yAxisLabel: string;
   metadata?: IndicatorMetadata;
   showHeader?: boolean;
+  defaultUnitsOverride?: string;
 }
 
 /* ─────────────────────────────────────────────
@@ -152,7 +153,14 @@ function getStrokeDasharrayForStyle(style: 'Solid' | 'Dashed' | 'Dotted'): strin
 /* Colors for series added on top of Line 1 (FRED's "add a line" palette). */
 const SERIES_PALETTE = ['#e74c3c', '#27ae60', '#f39c12', '#8e44ad', '#16a085', '#2980b9'];
 
-export default function EconomicIndicatorView({ indicatorCode, title, yAxisLabel, metadata, showHeader = true }: EconomicIndicatorProps) {
+export default function EconomicIndicatorView({
+  indicatorCode,
+  title,
+  yAxisLabel,
+  metadata,
+  showHeader = true,
+  defaultUnitsOverride,
+}: EconomicIndicatorProps) {
   const [data, setData] = useState<any[]>([]);
   const [rawData, setRawData] = useState<any[]>([]);  // Keep full response with created_at
   const [loading, setLoading] = useState(true);
@@ -286,12 +294,65 @@ export default function EconomicIndicatorView({ indicatorCode, title, yAxisLabel
     PAYEMS: 'Thousands of Persons',
     IC4WSA: 'Number',
   };
-  const defaultUnits = unitsMap[indicatorCode] ?? metadata?.units ?? yAxisLabel;
+  // Base units from indicator / database / metadata
+  const baseRawUnits = unitsMap[indicatorCode] || metadata?.units || yAxisLabel;
+  const defaultUnits = defaultUnitsOverride || baseRawUnits;
   const isPercentSeries = /percent/i.test(defaultUnits);
 
   useEffect(() => {
     if (!selectedUnits) setSelectedUnits(defaultUnits);
   }, [defaultUnits, selectedUnits]);
+
+  /* ── Transform pipeline ── */
+  const transformedData = useMemo(() => {
+    if (!data || data.length === 0) return [];
+
+    // 1. Date filter
+    let filtered = data;
+    if (startDate && endDate) {
+      filtered = data.filter((d) => d.date >= startDate && d.date <= endDate);
+    }
+
+    // 2. Build variable map for formula
+    const seriesMap: Record<string, DataPoint[]> = {
+      a: filtered.map((d) => ({ date: d.date, value: d.value })),
+    };
+    Object.values(additionalSeries).forEach(({ data: sd }, idx) => {
+      const varName = String.fromCharCode(98 + idx);
+      seriesMap[varName] = sd.filter((d) => d.date >= startDate && d.date <= endDate);
+    });
+
+    // 3. Apply formula or use raw primary
+    let result: DataPoint[] = [];
+    if (isFormulaActive && activeFormula.trim() !== 'a') {
+      result = seriesMap['a'].map((p) => {
+        const vars: Record<string, number> = {};
+        Object.entries(seriesMap).forEach(([k, pts]) => {
+          const match = pts.find((pt) => pt.date === p.date);
+          vars[k] = match ? match.value : 0;
+        });
+        const computed = safeEval(activeFormula, vars);
+        return { date: p.date, value: computed ?? p.value };
+      });
+    } else {
+      result = seriesMap['a'];
+    }
+
+    // 4. Frequency aggregation
+    result = applyFrequencyTransform(result, selectedFrequency);
+
+    // 5. Units transformation
+    if (selectedUnits && selectedUnits !== baseRawUnits) {
+      result = applyUnitsTransform(result, selectedUnits, selectedFrequency);
+    }
+
+    // 6. Output units transformation
+    if (outputUnits && outputUnits !== 'Select') {
+      result = applyOutputUnitsTransform(result, outputUnits, selectedFrequency);
+    }
+
+    return result;
+  }, [data, additionalSeries, isFormulaActive, activeFormula, startDate, endDate, selectedUnits, selectedFrequency, outputUnits, defaultUnits]);
 
   /* ── Merge: static file (fallback) < DB metadata (authoritative) < dynamic obs ── */
   const computedMetadata = useMemo(() => {
@@ -355,64 +416,27 @@ export default function EconomicIndicatorView({ indicatorCode, title, yAxisLabel
       }
     }
 
-    // 3) Date range always reflects the data actually loaded.
+    // 4) Units & Observation dynamic override when transformed:
+    // If the selectedUnits differs from baseRawUnits (either by user selection or defaultUnitsOverride),
+    // update the header's observation number and units text to match FRED behavior.
+    if (selectedUnits && selectedUnits !== baseRawUnits) {
+      const seasonal = seasonalAdjustmentOf(merged.units || baseRawUnits);
+      merged.units = seasonal ? `${selectedUnits}, ${seasonal}` : selectedUnits;
+
+      if (transformedData.length > 0) {
+        const lastTransformed = transformedData[transformedData.length - 1];
+        merged.observations = formatObservationValue(lastTransformed.value, indicatorCode, selectedUnits);
+        merged.observationDate = lastTransformed.date;
+      }
+    }
+
+    // 4) Date range always reflects the data actually loaded.
     if (data.length > 0) {
       merged.dateRange = `${data[0].date} to ${data[data.length - 1].date}`;
     }
 
     return merged;
-  }, [metadata, dbMeta, rawData, data, indicatorCode]);
-
-  /* ── Transform pipeline ── */
-  const transformedData = useMemo(() => {
-    if (!data || data.length === 0) return [];
-
-    // 1. Date filter
-    let filtered = data;
-    if (startDate && endDate) {
-      filtered = data.filter((d) => d.date >= startDate && d.date <= endDate);
-    }
-
-    // 2. Build variable map for formula
-    const seriesMap: Record<string, DataPoint[]> = {
-      a: filtered.map((d) => ({ date: d.date, value: d.value })),
-    };
-    Object.values(additionalSeries).forEach(({ data: sd }, idx) => {
-      const varName = String.fromCharCode(98 + idx);
-      seriesMap[varName] = sd.filter((d) => d.date >= startDate && d.date <= endDate);
-    });
-
-    // 3. Apply formula or use raw primary
-    let result: DataPoint[] = [];
-    if (isFormulaActive && activeFormula.trim() !== 'a') {
-      result = seriesMap['a'].map((p) => {
-        const vars: Record<string, number> = {};
-        Object.entries(seriesMap).forEach(([k, pts]) => {
-          const match = pts.find((pt) => pt.date === p.date);
-          vars[k] = match ? match.value : 0;
-        });
-        const computed = safeEval(activeFormula, vars);
-        return { date: p.date, value: computed ?? p.value };
-      });
-    } else {
-      result = seriesMap['a'];
-    }
-
-    // 4. Frequency aggregation
-    result = applyFrequencyTransform(result, selectedFrequency);
-
-    // 5. Units transformation
-    if (selectedUnits && selectedUnits !== defaultUnits) {
-      result = applyUnitsTransform(result, selectedUnits, selectedFrequency);
-    }
-
-    // 6. Output units transformation
-    if (outputUnits && outputUnits !== 'Select') {
-      result = applyOutputUnitsTransform(result, outputUnits, selectedFrequency);
-    }
-
-    return result;
-  }, [data, additionalSeries, isFormulaActive, activeFormula, startDate, endDate, selectedUnits, selectedFrequency, outputUnits, defaultUnits]);
+  }, [metadata, dbMeta, rawData, data, indicatorCode, selectedUnits, defaultUnits, transformedData]);
 
   /* ── Build UDL chart data keyed by line id ── */
   const udlChartData = useMemo(() => {
@@ -892,9 +916,9 @@ export default function EconomicIndicatorView({ indicatorCode, title, yAxisLabel
           lineInfo={{
             seriesId: indicatorCode,
             label: title,
-            units: defaultUnits,
+            units: baseRawUnits,
             frequency: baseFrequency,
-            seasonalAdjustment: seasonalAdjustmentOf(defaultUnits),
+            seasonalAdjustment: seasonalAdjustmentOf(baseRawUnits),
           }}
           formatSettings={formatSettings}
           onFormatChange={setFormatSettings}

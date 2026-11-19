@@ -8,6 +8,7 @@ export default function PayemsPage() {
       title="All Employees, Total Nonfarm" 
       yAxisLabel="Thousands of Persons"
       metadata={indicatorMetadata.PAYEMS}
+      defaultUnitsOverride="Change, Thousands of Persons"
     />
   );
 }

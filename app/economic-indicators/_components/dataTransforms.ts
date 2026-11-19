@@ -36,10 +36,14 @@ export function applyUnitsTransform(
   switch (units) {
     case 'Change':
     case 'Change, Thousands of Persons':
+    case 'Change, Percent':
+    case 'Change, Number':
       return computeChange(data);
 
     case 'Change from Year Ago':
     case 'Change from Year Ago, Thousands of Persons':
+    case 'Change from Year Ago, Percent':
+    case 'Change from Year Ago, Number':
       return computeChangeFromYearAgo(data, periodsPerYear);
 
     case 'Percent Change':
